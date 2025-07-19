@@ -1299,6 +1299,18 @@ Route::get('/contact', [
     HomeController::class,
     'contactForm',
 ])->name('user.contact.form');
+//about us page view
+Route::get('/about-us', [
+    HomeController::class,
+    'aboutUsForm',
+])->name('user.about.form');
+
+//thank you page view
+Route::get('/thank-you', [
+    HomeController::class,
+    'thankYouPage',
+])->name('user.thank_you.page');
+
 // page preview
 Route::get('/page/{pageUId}/{slug}', [
     HomeController::class,
@@ -1309,6 +1321,74 @@ Route::post('/contact-process', [
     HomeController::class,
     'contactProcess',
 ])->name('user.contact.process');
+
+// Test mail configuration (for debugging)
+Route::get('/test-mail-config', function() {
+    $useEnvSettings = getAppSettings('use_env_default_email_settings');
+    $contactEmail = getAppSettings('contact_email');
+
+    return response()->json([
+        'use_env_default_email_settings' => $useEnvSettings,
+        'contact_email' => $contactEmail,
+        'env_mail_settings' => [
+            'MAIL_MAILER' => env('MAIL_MAILER'),
+            'MAIL_HOST' => env('MAIL_HOST'),
+            'MAIL_PORT' => env('MAIL_PORT'),
+            'MAIL_USERNAME' => env('MAIL_USERNAME'),
+            'MAIL_PASSWORD' => env('MAIL_PASSWORD') ? '***SET***' : 'NOT_SET',
+            'MAIL_ENCRYPTION' => env('MAIL_ENCRYPTION'),
+            'MAIL_FROM_ADDRESS' => env('MAIL_FROM_ADDRESS'),
+            'MAIL_FROM_NAME' => env('MAIL_FROM_NAME'),
+        ],
+        'app_mail_settings' => [
+            'mail_driver' => getAppSettings('mail_driver'),
+            'mail_from_address' => getAppSettings('mail_from_address'),
+            'mail_from_name' => getAppSettings('mail_from_name'),
+            'smtp_mail_host' => getAppSettings('smtp_mail_host'),
+            'smtp_mail_port' => getAppSettings('smtp_mail_port'),
+            'smtp_mail_username' => getAppSettings('smtp_mail_username'),
+            'smtp_mail_password_or_apikey' => getAppSettings('smtp_mail_password_or_apikey') ? '***SET***' : 'NOT_SET',
+            'smtp_mail_encryption' => getAppSettings('smtp_mail_encryption'),
+        ],
+        'current_config' => [
+            'mail.default' => config('mail.default'),
+            'mail.from.address' => config('mail.from.address'),
+            'mail.from.name' => config('mail.from.name'),
+        ]
+    ]);
+})->name('test.mail.config');
+
+// Test send email (for debugging)
+Route::get('/test-send-email', function() {
+    try {
+        $contactEmail = getAppSettings('contact_email');
+        if (empty($contactEmail) || $contactEmail === 'your-contact-email@domain.com') {
+            return response()->json(['error' => 'Contact email not configured: ' . $contactEmail]);
+        }
+
+        $emailData = [
+            'userName' => 'Test User',
+            'senderEmail' => 'test@example.com',
+            'toEmail' => $contactEmail,
+            'subject' => 'Test Email',
+            'messageText' => 'This is a test email to verify mail configuration.',
+        ];
+
+        $baseMailer = app(\App\Yantrana\Base\BaseMailer::class);
+        $result = $baseMailer->notifyAdmin('Test Email', 'contact', $emailData, 2);
+
+        return response()->json([
+            'success' => $result,
+            'message' => $result ? 'Email sent successfully!' : 'Failed to send email',
+            'contact_email' => $contactEmail
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Exception: ' . $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+    }
+})->name('test.send.email');
 
 // compiled js code serverside to make translations ready strings etc
 Route::get('/server-compiled.js', [

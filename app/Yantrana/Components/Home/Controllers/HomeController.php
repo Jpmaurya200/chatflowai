@@ -75,18 +75,45 @@ class HomeController extends BaseController
         $processReaction = $this->homeEngine->processContactEmail($request->all());
 
         if ($processReaction['reaction_code'] === 1) {
-            return $this->responseAction(
-                $this->processResponse($processReaction, [], [], true),
-                $this->redirectTo('user.contact.form', [], [
-                    __tr('Thank you for contacting us, your request has been submitted successfully, we will get back to you soon.'),
-                    'success',
-                ])
-            );
+            // Check if this is an AJAX request or normal form submission
+            if ($request->ajax() || $request->wantsJson()) {
+                // Return JSON response for AJAX requests
+                return $this->responseAction(
+                    $this->processResponse($processReaction, [], [], true),
+                    $this->redirectTo('user.thank_you.page')
+                );
+            } else {
+                // Direct redirect for normal form submissions
+                $message = isset($processReaction['data']['message']) ? $processReaction['data']['message'] : 'Thank you for contacting us!';
+                return redirect()->route('user.thank_you.page')->with('success', $message);
+            }
         }
 
-        return $this->responseAction(
-            $this->processResponse($processReaction, [], [], true)
-        );
+        // Handle error case
+        if ($request->ajax() || $request->wantsJson()) {
+            return $this->responseAction(
+                $this->processResponse($processReaction, [], [], true)
+            );
+        } else {
+            $errorMessage = isset($processReaction['data']['message']) ? $processReaction['data']['message'] : 'An error occurred. Please try again.';
+            return back()->withErrors(['error' => $errorMessage])->withInput();
+        }
+    }
+
+    //About us page view
+    public function aboutUsForm()
+    {
+        return $this->loadView('about-us', [], [
+            'compress_page' => false
+        ]);
+    }
+
+    //Thank you page view
+    public function thankYouPage()
+    {
+        return $this->loadView('thankyou', [], [
+            'compress_page' => false
+        ]);
     }
 
     /**

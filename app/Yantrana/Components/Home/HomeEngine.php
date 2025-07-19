@@ -31,19 +31,52 @@ class HomeEngine extends BaseEngine implements HomeEngineInterface
         if (getAppSettings('enable_recaptcha') && ! $this->verifyRecaptcha($inputData)) {
             return $this->engineReaction(2, null, __tr('Invalid Recaptcha'));
         }
+
+        // Check if contact email is configured
+        $contactEmail = getAppSettings('contact_email');
+        if (empty($contactEmail) || $contactEmail === 'your-contact-email@domain.com') {
+            \Log::error('Contact email not configured properly: ' . $contactEmail);
+            return $this->engineReaction(2, null, __tr('Contact email is not configured. Please contact the administrator.'));
+        }
+
+        // Check mail configuration
+        $useEnvSettings = getAppSettings('use_env_default_email_settings');
+        \Log::info('Mail configuration check', [
+            'use_env_settings' => $useEnvSettings,
+            'contact_email' => $contactEmail,
+            'mail_from_address' => $useEnvSettings ? config('mail.from.address') : getAppSettings('mail_from_address'),
+            'mail_driver' => $useEnvSettings ? config('mail.default') : getAppSettings('mail_driver')
+        ]);
+
         //contact email data
         $emailData = [
             'userName' => $inputData['full_name'],
             'senderEmail' => $inputData['email'],
-            'toEmail' => getAppSettings('contact_email'),
+            'toEmail' => $contactEmail,
             'subject' => $inputData['subject'],
             'messageText' => $inputData['message'],
         ];
-        if ($this->baseMailer->notifyAdmin($inputData['subject'], 'contact', $emailData, 2)) {
-            return $this->engineReaction(1, null, __tr('Thank you for contacting us, your request has been submitted successfully, we will get back to you soon.'));
+
+        try {
+            \Log::info('Attempting to send contact email', [
+                'to' => $contactEmail,
+                'from' => $inputData['email'],
+                'subject' => $inputData['subject']
+            ]);
+
+            if ($this->baseMailer->notifyAdmin($inputData['subject'], 'contact', $emailData, 2)) {
+                \Log::info('Contact email sent successfully');
+                return $this->engineReaction(1, null, __tr('Thank you for contacting us, your request has been submitted successfully, we will get back to you soon.'));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to send contact email: ' . $e->getMessage(), [
+                'exception' => $e->getTraceAsString()
+            ]);
+            return $this->engineReaction(2, null, __tr('Failed to send email: ') . $e->getMessage());
         }
 
-        return $this->engineReaction(2, null, __tr('Fail to Send Mail'));
+        \Log::error('Contact email failed to send - unknown reason');
+        return $this->engineReaction(2, null, __tr('Failed to send email. Please check your mail configuration.'));
     }
 
     public function verifyRecaptcha($inputData)

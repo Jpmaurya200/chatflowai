@@ -1340,7 +1340,7 @@ $appName = getAppSettings('name');
                     <!-- Right side - Contact form -->
                     <div class="col-md-6 offset-md-1">
                         <div class="bg-white rounded-3 shadow-sm">
-                            <form class="mx-md-3 user lw-ajax-form lw-form" id="lwContactMailForm" method="post" action="<?= route('user.contact.process') ?>" data-show-processing="true">
+                            <form class="mx-md-3 user contact-form-normal" id="lwContactMailForm" method="post" action="<?= route('user.contact.process') ?>" data-ajax="false">
                                 @csrf
                                 <div class="form-floating mb-4">
                                     <input type="text" class="form-control" id="floatingName" name="full_name" placeholder=" " required
@@ -1459,83 +1459,23 @@ $appName = getAppSettings('name');
         
         <!-- Include app js file for ajax form handling -->
         {!! __yesset(['dist/js/app.js']) !!}
-        
-        <!-- Custom form handling script -->
+
+        <!-- Force normal form submission for contact form -->
         <script>
             $(document).ready(function() {
-                // Custom form handling to prevent redirect
-                $("#lwContactMailForm").on('submit', function(e) {
-                    e.preventDefault(); // Stop normal form submission
-                    
-                    var form = $(this);
-                    var formData = form.serialize();
-                    var submitBtn = form.find('button[type="submit"]');
-                    
-                    // Show loading state
-                    submitBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Processing...');
-                    
-                    // Make the AJAX request
-                    $.ajax({
-                        url: form.attr('action'),
-                        type: 'POST',
-                        data: formData,
-                        success: function(response) {
-                            // Create alert element
-                            var alertClass = response.reaction == 1 ? 'alert-success' : 'alert-danger';
-                            var alertMessage = response.data.message || (response.reaction == 1 ? 'Message sent successfully!' : 'Failed to send message.');
-                            
-                            // Remove any existing alerts
-                            form.find('.alert').remove();
-                            
-                            // Add new alert
-                            var alertHtml = '<div class="alert ' + alertClass + ' alert-dismissible fade show mb-4" role="alert">' +
-                                alertMessage +
-                                '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
-                                '</div>';
-                            
-                            form.prepend(alertHtml);
-                            
-                            // Reset form on success
-                            if (response.reaction == 1) {
-                                form[0].reset();
-                            }
-                            
-                            // Scroll to the alert
-                            $('html, body').animate({
-                                scrollTop: form.offset().top - 100
-                            }, 200);
-                        },
-                        error: function(xhr) {
-                            // Handle errors
-                            var message = 'An error occurred. Please try again.';
-                            if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
-                                message = xhr.responseJSON.data.message;
-                            }
-                            
-                            // Remove any existing alerts
-                            form.find('.alert').remove();
-                            
-                            // Add error alert
-                            var alertHtml = '<div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">' +
-                                message +
-                                '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
-                                '</div>';
-                            
-                            form.prepend(alertHtml);
-                            
-                            // Scroll to the alert
-                            $('html, body').animate({
-                                scrollTop: form.offset().top - 100
-                            }, 200);
-                        },
-                        complete: function() {
-                            // Reset button state
-                            submitBtn.prop('disabled', false).html('<strong>{{ __tr('Submit') }}</strong>');
-                        }
-                    });
+                // Remove the form from AJAX handling by removing classes and attributes
+                $('#lwContactMailForm').removeClass('lw-ajax-form lw-form');
+                $('#lwContactMailForm').removeAttr('data-show-processing');
+
+                // Ensure it submits normally
+                $('#lwContactMailForm').off('submit').on('submit', function() {
+                    // Just let it submit normally - no preventDefault
+                    return true;
                 });
             });
         </script>
+        
+
         
         {!! getAppSettings('page_footer_code_all') !!}
         @if (isLoggedIn())

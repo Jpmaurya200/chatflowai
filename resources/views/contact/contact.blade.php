@@ -24,7 +24,8 @@
                 <i class="fa fa-at fa-3x text-primary"></i>
             </div>
           <div class="card-body">
-            <form class="mx-md-3 user lw-ajax-form lw-form " id="lwContactMailForm" method="post" action="<?= route('user.contact.process') ?>" data-show-processing="true">
+            <form class="mx-md-3 user contact-form-normal" id="lwContactMailForm" method="post" action="<?= route('user.contact.process') ?>" data-ajax="false">
+                @csrf
                 <!-- First Name -->
                 <div class="form-group">
                  <div class="input-group input-group-alternative mb-1">
@@ -50,13 +51,13 @@
                              <div class="input-group-prepend">
                                  <span class="input-group-text"><i class="fa fa-book"></i></span>
                              </div>
-                             <input class="form-control" id="floatingSubject" placeholder="{{ __tr('Subject') }}" type="text" name="subject" value="{{ old('full_name') }}" required>
+                             <input class="form-control" id="floatingSubject" placeholder="{{ __tr('Subject') }}" type="text" name="subject" value="{{ old('subject') }}" required>
                          </div>
                      </div>
                     <!-- Message -->
                     <div class="form-group">
                      <div class="mb-1">
-                        <textarea class="form-control" rows="10" id="floatingTextarea" placeholder="{{ __tr('Message') }}"  name="message"  required></textarea>
+                        <textarea class="form-control" rows="10" id="floatingTextarea" placeholder="{{ __tr('Message') }}"  name="message"  required>{{ old('message') }}</textarea>
                      </div>
                  </div>
                  @if(getAppSettings('enable_recaptcha'))
@@ -74,5 +75,18 @@
     </div>
 </div>
 
+<script>
+$(document).ready(function() {
+    // Remove the form from AJAX handling by removing classes and attributes
+    $('#lwContactMailForm').removeClass('lw-ajax-form lw-form');
+    $('#lwContactMailForm').removeAttr('data-show-processing');
+
+    // Ensure it submits normally
+    $('#lwContactMailForm').off('submit').on('submit', function() {
+        // Just let it submit normally - no preventDefault
+        return true;
+    });
+});
+</script>
 
 @endsection
