@@ -995,24 +995,33 @@ $appName = getAppSettings('name');
                                         $featureValue = $freePlanDetails['features'][$featureKey];
                                         @endphp
                                         <li class="mb-3 d-flex align-items-start">
-                                            <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
-                                            <span>
-                                                @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
-                                                    {{ $configFeatureValue['description'] }}
-                                                @else
-                                                    <strong class="text-success">
-                                                        @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
-                                                            {{ __tr('Unlimited') }}
-                                                        @elseif(isset($featureValue['limit']))
-                                                            {{ __tr($featureValue['limit']) }}
-                                                        @endif
-                                                    </strong>
-                                                    {{ $configFeatureValue['description'] }}
-                                                    {{ $configFeatureValue['limit_duration_title'] ?? '' }}
-                                                @endif
-                                            </span>
-                                        </li>
-                                        @endforeach
+                                            @if (isset($featureValue['type']) and ($featureValue['type'] == 'switch'))
+                                               @if (isset($featureValue['limit']) and $featureValue['limit'])
+                                                   <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                               @else
+                                                   <i class="fas fa-times-circle fs-4 me-2 mt-1" style="color:rgb(255, 0, 0) !important;"></i>
+
+                                               @endif
+                                           @else
+                                               <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                           @endif
+                                           <span class="mt-2">
+                                               @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
+                                                   {{ $configFeatureValue['description'] }}
+                                               @else
+                                                   <strong class="text-success">
+                                                       @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
+                                                           {{ __tr('Unlimited') }}
+                                                       @elseif(isset($featureValue['limit']))
+                                                           {{ __tr($featureValue['limit']) }}
+                                                       @endif
+                                                   </strong>
+                                                   {{ $configFeatureValue['description'] }}
+                                                   {{ $configFeatureValue['limit_duration_title'] ?? '' }}
+                                               @endif
+                                           </span>
+                                       </li>
+                                       @endforeach
                                     </ul>
                                     <div class="mt-auto">
                                         <a href="{{ route('auth.register') }}" class="btn btn-outline-success w-100 rounded-lg py-2">Get Started Free</a>
@@ -1130,24 +1139,33 @@ $appName = getAppSettings('name');
                                         $featureValue = $freePlanDetails['features'][$featureKey];
                                         @endphp
                                         <li class="mb-3 d-flex align-items-start">
-                                            <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
-                                            <span>
-                                                @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
-                                                    {{ $configFeatureValue['description'] }}
-                                                @else
-                                                    <strong class="text-success">
-                                                        @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
-                                                            {{ __tr('Unlimited') }}
-                                                        @elseif(isset($featureValue['limit']))
-                                                            {{ __tr($featureValue['limit']) }}
-                                                        @endif
-                                                    </strong>
-                                                    {{ $configFeatureValue['description'] }}
-                                                    {{ $configFeatureValue['limit_duration_title'] ?? '' }}
-                                                @endif
-                                            </span>
-                                        </li>
-                                        @endforeach
+                                           @if (isset($featureValue['type']) and ($featureValue['type'] == 'switch'))
+                                               @if (isset($featureValue['limit']) and $featureValue['limit'])
+                                                   <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                               @else
+                                                   <i class="fas fa-times-circle fs-4 me-2 mt-1" style="color:rgb(255, 0, 0) !important;"></i>
+
+                                               @endif
+                                           @else
+                                               <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                           @endif
+                                           <span class="mt-2">
+                                               @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
+                                                   {{ $configFeatureValue['description'] }}
+                                               @else
+                                                   <strong class="text-success">
+                                                       @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
+                                                           {{ __tr('Unlimited') }}
+                                                       @elseif(isset($featureValue['limit']))
+                                                           {{ __tr($featureValue['limit']) }}
+                                                       @endif
+                                                   </strong>
+                                                   {{ $configFeatureValue['description'] }}
+                                                   {{ $configFeatureValue['limit_duration_title'] ?? '' }}
+                                               @endif
+                                           </span>
+                                       </li>
+                                       @endforeach
                                     </ul>
                                     <div class="mt-auto">
                                         <a href="{{ route('auth.register') }}" class="btn btn-outline-success w-100 rounded-lg py-2">Get Started Free</a>
@@ -1200,24 +1218,33 @@ $appName = getAppSettings('name');
                                         $featureValue = $savedPlan['features'][$featureKey];
                                         @endphp
                                         <li class="mb-3 d-flex align-items-start">
-                                            <i class="fas fa-check-circle text-white fs-4 me-2 mt-1"></i>
-                                            <span class="text-black">
-                                                @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
-                                                    {{ $configFeatureValue['description'] }}
-                                                @else
-                                                    <strong>
-                                                        @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
-                                                            {{ __tr('Unlimited') }}
-                                                        @elseif(isset($featureValue['limit']))
-                                                            {{ __tr($featureValue['limit']) }}
-                                                        @endif
-                                                    </strong>
-                                                    {{ $configFeatureValue['description'] }}
-                                                    {{ $configFeatureValue['limit_duration_title'] ?? '' }}
-                                                @endif
-                                            </span>
-                                        </li>
-                                        @endforeach
+                                           @if (isset($featureValue['type']) and ($featureValue['type'] == 'switch'))
+                                               @if (isset($featureValue['limit']) and $featureValue['limit'])
+                                                   <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                               @else
+                                                   <i class="fas fa-times-circle fs-4 me-2 mt-1" style="color:rgb(255, 0, 0) !important;"></i>
+
+                                               @endif
+                                           @else
+                                               <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                           @endif
+                                           <span class="mt-2">
+                                               @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
+                                                   {{ $configFeatureValue['description'] }}
+                                               @else
+                                                   <strong class="text-success">
+                                                       @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
+                                                           {{ __tr('Unlimited') }}
+                                                       @elseif(isset($featureValue['limit']))
+                                                           {{ __tr($featureValue['limit']) }}
+                                                       @endif
+                                                   </strong>
+                                                   {{ $configFeatureValue['description'] }}
+                                                   {{ $configFeatureValue['limit_duration_title'] ?? '' }}
+                                               @endif
+                                           </span>
+                                       </li>
+                                       @endforeach
                                     </ul>
                                     <div class="mt-auto">
                                         <a href="{{ route('auth.register') }}" class="btn btnn btn-light w-100 rounded-lg py-2">Choose Plan</a>
