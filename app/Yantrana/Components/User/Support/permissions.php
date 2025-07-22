@@ -33,4 +33,9 @@ return [
         'title' => __tr('Manage Bot Replies and Flows'),
         'description' => __tr('Allow/Deny access for Bot Replies and Flows'),
     ],
+    'manage_whatsapp_orders' => [
+        'title' => __tr('Manage Whatsapp Orders'),
+        'description' => __tr('Allow/Deny access for Whatsapp Orders'),
+    ],
+
 ];

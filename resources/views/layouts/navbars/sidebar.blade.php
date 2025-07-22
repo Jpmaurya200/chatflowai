@@ -428,7 +428,7 @@
                     </div>
                 </li>
                 @endif
-                @if (hasVendorAccess('administrative')  )
+                @if (hasVendorAccess('manage_whatsapp_orders')  )
                 <li class="nav-item">
                     <a class="nav-link {{ markAsActiveLink('vendor.whatsapp.orders.list') }}"
                         href="{{ route('vendor.whatsapp.orders.list') }}"

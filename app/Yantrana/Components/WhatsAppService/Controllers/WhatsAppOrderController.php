@@ -53,7 +53,7 @@ class WhatsAppOrderController extends BaseController
      */
     public function showOrdersList()
     {
-        validateVendorAccess('administrative');
+        validateVendorAccess('manage_whatsapp_orders');
         
         // Check if WhatsApp is configured
         if (!isWhatsAppBusinessAccountReady()) {
@@ -77,7 +77,7 @@ class WhatsAppOrderController extends BaseController
      */
     public function fetchOrders(Request $request): JsonResponse
     {
-        validateVendorAccess('administrative');
+        validateVendorAccess('manage_whatsapp_orders');
         
         $filters = [
             'status' => $request->get('status'),
@@ -104,7 +104,7 @@ class WhatsAppOrderController extends BaseController
      */
     public function showOrderDetails(string $orderUid)
     {
-        validateVendorAccess('administrative');
+        validateVendorAccess('manage_whatsapp_orders');
         
         $order = $this->whatsAppOrderRepository->fetchIt($orderUid);
         
@@ -130,7 +130,7 @@ class WhatsAppOrderController extends BaseController
      */
     public function updateOrderStatus(BaseRequest $request, string $orderUid): JsonResponse
     {
-        validateVendorAccess('administrative');
+        validateVendorAccess('manage_whatsapp_orders');
         
         $request->validate([
             'status' => 'required|in:pending,awaiting_address,awaiting_payment,paid,confirmed,shipped,delivered,cancelled,refunded'
@@ -365,7 +365,7 @@ class WhatsAppOrderController extends BaseController
      */
     public function getOrderStatistics(): JsonResponse
     {
-        validateVendorAccess('administrative');
+        validateVendorAccess('manage_whatsapp_orders');
         
         $statistics = $this->whatsAppOrderRepository->getOrderStatistics();
         $paymentStatistics = $this->whatsAppPaymentRepository->getPaymentStatistics();
@@ -384,7 +384,7 @@ class WhatsAppOrderController extends BaseController
      */
     public function exportOrders(Request $request)
     {
-        validateVendorAccess('administrative');
+        validateVendorAccess('manage_whatsapp_orders');
         
         $filters = [
             'status' => $request->get('status'),
