@@ -946,6 +946,11 @@ Route::middleware([
                 'updateOrderStatus',
             ])->name('vendor.whatsapp.orders.update_status');
 
+            Route::get('/whatsapp-orders/{uid}/pdf', [
+                WhatsAppOrderController::class,
+                'generatePDF',
+            ])->name('vendor.whatsapp.orders.pdf');
+
             Route::get('/whatsapp-orders/statistics', [
                 WhatsAppOrderController::class,
                 'getOrderStatistics',

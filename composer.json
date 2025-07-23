@@ -9,6 +9,7 @@
     "license": "NA",
     "require": {
         "php": "^8.1",
+        "barryvdh/laravel-dompdf": "^2.2",
         "box/spout": "*",
         "dompdf/dompdf": "^2.0",
         "endroid/qr-code": "^5.0",

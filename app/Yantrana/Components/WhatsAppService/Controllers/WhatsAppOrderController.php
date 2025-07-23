@@ -15,6 +15,7 @@ use App\Yantrana\Components\WhatsAppService\Services\WhatsAppPaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class WhatsAppOrderController extends BaseController
 {
@@ -443,6 +444,66 @@ class WhatsAppOrderController extends BaseController
     }
 
     /**
+     * Generate PDF for order
+     *
+     * @param string $orderUid
+     * @return \Illuminate\Http\Response
+     */
+    public function generatePDF(string $orderUid)
+    {
+        try {
+            validateVendorAccess('manage_whatsapp_orders');
+            
+            // Find the order
+            $order = $this->whatsAppOrderRepository->fetchIt($orderUid);
+            
+            if (!$order) {
+                return response()->json([
+                    'reaction' => 2,
+                    'data' => [
+                        'message' => __tr('Order not found')
+                    ]
+                ], 404);
+            }
+
+            // Get related payments
+            $payments = $this->whatsAppPaymentRepository->fetchByOrderId($order->order_id);
+            
+            // Generate PDF
+            $pdf = PDF::loadView('whatsapp-service.order-pdf', [
+                'order' => $order,
+                'payments' => $payments
+            ]);
+            
+            // Set paper size and orientation
+            $pdf->setPaper('a4');
+            
+            // Add metadata
+            $pdf->getDomPDF()->add_info('Title', 'Order #' . $order->order_id);
+            $pdf->getDomPDF()->add_info('Author', config('app.name'));
+            $pdf->getDomPDF()->add_info('Subject', 'Order Details');
+            $pdf->getDomPDF()->add_info('Creator', config('app.name'));
+            
+            // Return the PDF for download
+            return $pdf->download('order-' . $order->order_id . '.pdf');
+            
+        } catch (\Exception $e) {
+            Log::error('Error generating PDF', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'order_uid' => $orderUid
+            ]);
+            
+            return response()->json([
+                'reaction' => 2,
+                'data' => [
+                    'message' => __tr('Error generating PDF')
+                ]
+            ], 500);
+        }
+    }
+
+    /**
      * Test payment gateway configuration (for debugging)
      *
      * @return JsonResponse
@@ -481,3 +542,4 @@ class WhatsAppOrderController extends BaseController
         }
     }
 }
+

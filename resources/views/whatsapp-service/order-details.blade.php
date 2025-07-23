@@ -275,6 +275,10 @@
                                 <i class="fa fa-edit"></i> {{ __tr('Update Status') }}
                             </button>
                             
+                            <button type="button" class="btn btn-info btn-block" onclick="downloadOrderPDF()">
+                                <i class="fa fa-download"></i> {{ __tr('Download PDF') }}
+                            </button>
+
                             @if($order->canBeCancelled())
                             <button type="button" class="btn btn-danger btn-block" onclick="cancelOrder()">
                                 <i class="fa fa-times"></i> {{ __tr('Cancel Order') }}
@@ -335,6 +339,79 @@
 
 @push('appScripts')
 <script>
+function downloadOrderPDF() {
+    // Show loading indicator
+    showLoadingMessage('{{ __tr("Generating PDF...") }}');
+    
+    // Make the AJAX request to generate PDF
+    $.ajax({
+        url: "{{ route('vendor.whatsapp.orders.pdf', ['uid' => $order->_uid]) }}",
+        method: 'GET',
+        xhrFields: {
+            responseType: 'blob' // Important for handling PDF response
+        },
+        success: function(response) {
+            // Create a blob from the response
+            const blob = new Blob([response], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            
+            // Create a temporary link and trigger download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'order-{{ $order->order_id }}.pdf';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            hideLoadingMessage();
+        },
+        error: function(xhr, status, error) {
+            hideLoadingMessage();
+            console.error('PDF Generation Error:', status, error);
+            let errorMessage = '{{ __tr("Error generating PDF") }}';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = xhr.responseJSON.message;
+            }
+            showErrorMessage(errorMessage);
+        }
+    });
+}
+
+// Loading message handling functions
+function showLoadingMessage(message) {
+    // Create loading overlay if it doesn't exist
+    if (!$('#loadingOverlay').length) {
+        $('body').append(`
+            <div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+                background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="card p-3" style="max-width:300px;">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-2"></div>
+                        <div id="loadingMessage" class="text-muted"></div>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+    $('#loadingMessage').text(message);
+    $('#loadingOverlay').css('display', 'flex');
+}
+
+function hideLoadingMessage() {
+    $('#loadingOverlay').hide();
+}
+
+function showErrorMessage(message) {
+    // You can customize this to match your UI's error display
+    alert(message);
+}
+
+function showSuccessMessage(message) {
+    // You can customize this to match your UI's success display
+    alert(message);
+}
+
 $(document).ready(function() {
     // Setup CSRF token for all AJAX requests
     $.ajaxSetup({
