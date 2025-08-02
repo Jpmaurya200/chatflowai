@@ -95,6 +95,7 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
     {
         $vendorId = getVendorId();
         $components = [];
+        $carouselData = []; // Initialize carousel data
         // https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates/components#media-headers
         if($request->media_header_type) {
             if ($request->media_header_type == 'text') {
@@ -129,21 +130,154 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
                     "type" => "HEADER",
                     "format" => strtoupper($request->media_header_type),
                 ];
+            } elseif($request->media_header_type == 'carousel') {
+                // Handle carousel template creation - store carousel data for later
+                if(!empty($request->carousel_cards) && is_array($request->carousel_cards)) {
+                    foreach($request->carousel_cards as $cardData) {
+                        $cardComponents = [];
+
+                        // Add header component for each card
+                        if(!empty($cardData['header_type'])) {
+                            if($cardData['header_type'] == 'image' || $cardData['header_type'] == 'video') {
+                                $headerComponent = [
+                                    "type" => "HEADER",
+                                    "format" => strtoupper($cardData['header_type'])
+                                ];
+
+                                // WhatsApp requires example field for image/video headers
+                                $mediaFileName = null;
+
+                                if(!empty($cardData['uploaded_media_file_name'])) {
+                                    // Use uploaded media file
+                                    $mediaFileName = $cardData['uploaded_media_file_name'];
+                                } else {
+                                    // Use default placeholder media file
+                                    $mediaFileName = $this->getDefaultPlaceholderMedia($cardData['header_type']);
+                                }
+
+                                if($mediaFileName) {
+                                    try {
+                                        $mediaHandle = $this->whatsAppApiService->uploadResumableMedia($mediaFileName);
+                                        if($mediaHandle) {
+                                            $headerComponent['example'] = [
+                                                'header_handle' => [
+                                                    $mediaHandle
+                                                ]
+                                            ];
+                                        }
+                                    } catch (\Exception $e) {
+                                        // Log the error but don't fail the template creation
+                                        \Illuminate\Support\Facades\Log::warning('Failed to upload carousel card media: ' . $e->getMessage());
+                                    }
+                                }
+
+                                $cardComponents[] = $headerComponent;
+                            } elseif($cardData['header_type'] == 'product') {
+                                $cardComponents[] = [
+                                    "type" => "HEADER",
+                                    "format" => "PRODUCT"
+                                ];
+                            }
+                        }
+
+                        // Add individual BODY component for each card
+                        // Each carousel card MUST have its own BODY component with text
+                        $cardBodyText = !empty($cardData['body_text']) ? $cardData['body_text'] : 'Card ' . (count($carouselData) + 1);
+                        $cardComponents[] = [
+                            "type" => "BODY",
+                            "text" => $cardBodyText
+                        ];
+
+                        // Add buttons for each card - carousel templates REQUIRE buttons
+                        $cardButtons = [];
+
+                        if(!empty($cardData['buttons']) && is_array($cardData['buttons'])) {
+                            // Use the first button if provided
+                            $firstButton = $cardData['buttons'][0] ?? null;
+
+                            if($firstButton) {
+                                if($firstButton['type'] == 'QUICK_REPLY') {
+                                    $cardButtons[] = [
+                                        "type" => "QUICK_REPLY",
+                                        "text" => $firstButton['text'] ?? "Reply"
+                                    ];
+                                } elseif($firstButton['type'] == 'URL_BUTTON') {
+                                    $cardButtons[] = [
+                                        "type" => "URL",
+                                        "text" => $firstButton['text'] ?? "Visit",
+                                        "url" => $firstButton['url'] ?? "https://example.com"
+                                    ];
+                                } elseif($firstButton['type'] == 'SPM') {
+                                    $cardButtons[] = [
+                                        "type" => "SPM",
+                                        "text" => $firstButton['text'] ?? "View"
+                                    ];
+                                }
+                            }
+                        }
+
+                        // If no buttons provided, add default SPM button for product headers
+                        if(empty($cardButtons) && $cardData['header_type'] == 'product') {
+                            $cardButtons[] = [
+                                "type" => "SPM",
+                                "text" => "View"
+                            ];
+                        }
+
+                        // Add buttons component if we have buttons
+                        if(!empty($cardButtons)) {
+                            $cardComponents[] = [
+                                "type" => "BUTTONS",
+                                "buttons" => $cardButtons
+                            ];
+                        }
+
+                        $carouselData[] = [
+                            "components" => $cardComponents
+                        ];
+
+                        // Debug logging for each card
+                        \Illuminate\Support\Facades\Log::info('Added carousel card', [
+                            'card_index' => count($carouselData),
+                            'header_type' => $cardData['header_type'] ?? 'none',
+                            'body_text' => $cardBodyText,
+                            'components_count' => count($cardComponents),
+                            'components' => $cardComponents
+                        ]);
+                    }
+                }
             }
         }
-        // body text
-        if($request->template_body) {
-            $components[] = [
+        // body text - required for carousel templates
+        if($request->template_body || $request->media_header_type == 'carousel') {
+            $bodyText = $request->template_body ?: 'Check out our products!'; // Default text for carousel
+            $bodyComponent = [
                 "type" => "BODY",
-                "text" => $request->template_body,
+                "text" => $bodyText,
             ];
             if(!empty($request->example_body_fields) and is_array($request->example_body_fields)) {
-                $components[(count($components) - 1)]['example'] = [
+                $bodyComponent['example'] = [
                     "body_text" => [
                         $request->example_body_fields
                     ]
                 ];
             }
+            $components[] = $bodyComponent;
+
+            // Debug logging
+            \Illuminate\Support\Facades\Log::info('Added BODY component for carousel template', [
+                'body_text' => $bodyText,
+                'media_header_type' => $request->media_header_type,
+                'component' => $bodyComponent
+            ]);
+        }
+
+        // Add carousel component after body (if carousel data exists)
+        if($request->media_header_type == 'carousel' && !empty($carouselData)) {
+            $components[] = [
+                "type" => "CAROUSEL",
+                "cards" => $carouselData
+            ];
         }
         if($request->template_footer) {
             $components[] = [
@@ -225,6 +359,15 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
             }
             return $this->engineSuccessResponse([], __tr('Failed to update template'));
         } else  {
+            // Debug logging for carousel templates
+            if($request->media_header_type == 'carousel') {
+                \Illuminate\Support\Facades\Log::info('Creating carousel template with components', [
+                    'template_name' => $request->template_name,
+                    'components_count' => count($components),
+                    'components' => $components
+                ]);
+            }
+
             // create new template
             $createTemplateRequest = $this->whatsAppApiService->createTemplate(
                 $request->template_name,
@@ -300,5 +443,85 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
         }
 
         return $this->engineFailedResponse([], __tr('Failed to delete template'));
+    }
+
+    /**
+     * Get default placeholder media file for carousel cards
+     *
+     * @param string $mediaType
+     * @return string|null
+     */
+    private function getDefaultPlaceholderMedia($mediaType)
+    {
+        // Use existing image as placeholder for both image and video
+        // WhatsApp just needs a valid media file for the example
+        $fileName = 'carousel_placeholder_' . $mediaType . '.png';
+        $tempPath = getPathByKey('user_temp_uploads', ['{_uid}' => authUID()]);
+        $filePath = $tempPath . DIRECTORY_SEPARATOR . $fileName;
+
+        // Check if placeholder file already exists
+        if (file_exists($filePath)) {
+            return $fileName;
+        }
+
+        // Copy existing image as placeholder
+        try {
+            if (!is_dir($tempPath)) {
+                mkdir($tempPath, 0777, true);
+            }
+
+            // Use existing WhatsApp background image as placeholder
+            $sourceImagePath = public_path('imgs/wa-message-bg.png');
+            if (file_exists($sourceImagePath)) {
+                copy($sourceImagePath, $filePath);
+                return $fileName;
+            }
+
+            // Fallback: create simple placeholder if source image doesn't exist
+            $this->createSimplePlaceholder($filePath, $mediaType);
+            return file_exists($filePath) ? $fileName : null;
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to create placeholder media: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Create a simple placeholder image for carousel cards
+     *
+     * @param string $filePath
+     * @param string $mediaType
+     */
+    private function createSimplePlaceholder($filePath, $mediaType)
+    {
+        // Create a simple 400x300 placeholder image
+        $width = 400;
+        $height = 300;
+        $image = imagecreate($width, $height);
+
+        // Set colors based on media type
+        if ($mediaType === 'video') {
+            imagecolorallocate($image, 200, 200, 255); // Light blue for video
+            $textColor = imagecolorallocate($image, 50, 50, 100);
+            $text = 'Carousel Video';
+        } else {
+            imagecolorallocate($image, 240, 240, 240); // Light gray for image
+            $textColor = imagecolorallocate($image, 100, 100, 100);
+            $text = 'Carousel Image';
+        }
+
+        // Add text
+        $fontSize = 5;
+        $textWidth = imagefontwidth($fontSize) * strlen($text);
+        $textHeight = imagefontheight($fontSize);
+        $x = ($width - $textWidth) / 2;
+        $y = ($height - $textHeight) / 2;
+
+        imagestring($image, $fontSize, $x, $y, $text, $textColor);
+
+        // Save as PNG to match the filename
+        imagepng($image, $filePath);
+        imagedestroy($image);
     }
 }
