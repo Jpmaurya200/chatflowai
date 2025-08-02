@@ -62,12 +62,12 @@
                                         data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Ask Question') }}</button>
                                     <button type="button" @click="isAdvanceBot = 'goto'" class="dropdown-item btn"
                                         data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Goto Node') }}</button>
-                                    <button type="button" @click="isAdvanceBot = 'team_assignment'" class="dropdown-item btn"
+                                    <!-- <button type="button" @click="isAdvanceBot = 'team_assignment'" class="dropdown-item btn"
                                         data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Team Assignment Node') }}</button>
                                     <button type="button" @click="isAdvanceBot = 'webhook'" class="dropdown-item btn"
                                         data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Webhook Node') }}</button>
                                     <button type="button" @click="isAdvanceBot = 'stay_in_session'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Stay in Session Node') }}</button>
+                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Stay in Session Node') }}</button> -->
                                 </div>
                             </div>
                         </template>
@@ -100,11 +100,13 @@
 @push('js')
 {!! __yesset([
     'static-assets/packages/jqueryui-1.13.3/jquery-ui.min.js',
-    'static-assets/packages/others/jquery.mousewheel.min.js',
+    // 'static-assets/packages/others/jquery.mousewheel.min.js',
     'static-assets/packages/others/jquery.panzoom.min.js',
-    'static-assets/packages/jquery.flowchart/jquery.flowchart.js'
+    'static-assets/packages/jquery.flowchart/jquery.flowchart.min.js'
 ]) !!}
 @endpush
+
+
 <script>
     var data = {
         links : {}
@@ -118,17 +120,16 @@
 <script>
     $(document).ready(function() {
        'use strict';
+        
         window.$flowBuilderInstance = $('#lwBotFlowBuilder').flowchart({
             data: {},
-            canUserEditLinks: true,
-            canUserMoveOperators: true,
-            defaultSelectedLinkColor: '#16a34a',
+            defaultSelectedLinkColor: '#000055',
             grid: 10,
             multipleLinksOnInput: true,
             multipleLinksOnOutput: true,
-            linkWidth: 3,
-            defaultLinkColor: '#50c878',
-            defaultSelectedLinkColor: '#16a34a',
+            linkWidth:5,
+            defaultLinkColor:'green',
+            defaultSelectedLinkColor:'skyblue',
             onOperatorSelect : function(elementUid) {
                 return true;
             },
@@ -156,46 +157,13 @@
                 window.updateDraft();
             },
         });
-         // Enhanced Panzoom initialization with zoom controls
+         // Panzoom initialization...
         /*
         @link https://github.com/timmywil/panzoom/tree/v3.2.2
         */
-        window.$panzoomInstance = window.$flowBuilderInstance.panzoom({
+        window.$flowBuilderInstance.panzoom({
             contain: 'automatic',
-            cursor: "grab",
-            increment: 0.1,
-            minScale: 0.1,
-            maxScale: 3,
-            startTransform: 'scale(1)'
-        });
-
-        // Initialize zoom level tracking
-        window.currentZoomLevel = 1;
-        window.updateZoomDisplay = function(scale) {
-            window.currentZoomLevel = scale || 1;
-            console.log('Zoom level: ' + Math.round(window.currentZoomLevel * 100) + '%');
-        };
-
-        // Mouse wheel zoom support
-        window.$flowBuilderInstance.on('mousewheel.focal', function(e) {
-            e.preventDefault();
-            const delta = e.delta || e.originalEvent.wheelDelta;
-            const zoomOut = delta ? delta < 0 : e.originalEvent.deltaY > 0;
-
-            window.$flowBuilderInstance.panzoom('zoom', zoomOut, {
-                increment: 0.1,
-                animate: false,
-                focal: e
-            });
-
-            const matrix = window.$flowBuilderInstance.panzoom('getMatrix');
-            window.updateZoomDisplay(matrix[0]);
-        });
-
-        // Update zoom display on pan/zoom events
-        window.$flowBuilderInstance.on('panzoomchange', function(e, panzoom, transform) {
-            const matrix = panzoom.getMatrix();
-            window.updateZoomDisplay(matrix[0]);
+            cursor: "grab"
         });
 
     // required to trigger default flow

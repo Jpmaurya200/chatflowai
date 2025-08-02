@@ -9,6 +9,7 @@ namespace App\Yantrana\Components\WhatsAppService;
 
 use Exception;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -30,6 +31,8 @@ use App\Yantrana\Components\Contact\Repositories\LabelRepository;
 use App\Yantrana\Components\Contact\Repositories\ContactRepository;
 use App\Yantrana\Components\WhatsAppService\Services\OpenAiService;
 use App\Yantrana\Components\BotReply\Repositories\BotReplyRepository;
+use App\Yantrana\Components\BotReply\Repositories\BotFlowRepository;
+use App\Yantrana\Components\BotReply\Models\PseudoBotReply;
 use App\Yantrana\Components\Campaign\Repositories\CampaignRepository;
 use App\Yantrana\Components\Contact\Repositories\ContactGroupRepository;
 use App\Yantrana\Components\Contact\Repositories\GroupContactRepository;
@@ -40,6 +43,9 @@ use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppTemplateReposit
 use App\Yantrana\Components\WhatsAppService\Interfaces\WhatsAppServiceEngineInterface;
 use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppMessageLogRepository;
 use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppMessageQueueRepository;
+use App\Models\UserActiveFlow;
+use Illuminate\Support\Facades\Log;
+use App\Yantrana\Components\BotReply\Services\FlowIntegrationService;
 
 class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineInterface
 {
@@ -93,6 +99,11 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
     protected $botReplyRepository;
 
     /**
+     * @var BotFlowRepository - Bot Flow repository
+     */
+    protected $botFlowRepository;
+
+    /**
      * @var VendorSettingsEngine - Vendor Settings Engine
      */
     protected $vendorSettingsEngine;
@@ -133,6 +144,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
      * @param  WhatsAppMessageQueueRepository  $whatsAppMessageQueueRepository  - WhatsApp Message Queue
      * @param  CampaignRepository  $campaignRepository  - Campaign repository
      * @param  BotReplyRepository  $botReplyRepository  - Bot Reply repository
+     * @param  BotFlowRepository  $botFlowRepository  - Bot Flow repository
      * @param  VendorSettingsEngine  $vendorSettingsEngine  - Configuration Engine
      * @param  UserRepository  $userRepository  - Users Repository
      * @param  ConfigurationEngine  $configurationEngine  - Configuration Engine
@@ -153,6 +165,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
         WhatsAppMessageQueueRepository $whatsAppMessageQueueRepository,
         CampaignRepository $campaignRepository,
         BotReplyRepository $botReplyRepository,
+        BotFlowRepository $botFlowRepository,
         VendorSettingsEngine $vendorSettingsEngine,
         UserRepository $userRepository,
         ConfigurationEngine $configurationEngine,
@@ -170,6 +183,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
         $this->whatsAppMessageQueueRepository = $whatsAppMessageQueueRepository;
         $this->campaignRepository = $campaignRepository;
         $this->botReplyRepository = $botReplyRepository;
+        $this->botFlowRepository = $botFlowRepository;
         $this->vendorSettingsEngine = $vendorSettingsEngine;
         $this->userRepository = $userRepository;
         $this->configurationEngine = $configurationEngine;
@@ -268,6 +282,8 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
         $headerFormat = null;
         $btnIndex = 0;
         $buttonParameters = [];
+        $carouselCards = [];
+        $isCarouselTemplate = false;
         foreach ($templateComponents as $templateComponent) {
             if ($templateComponent['type'] == 'HEADER') {
                 $headerFormat = $templateComponent['format'];
@@ -293,6 +309,9 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                     }
                     $btnIndex++;
                 }
+            } elseif ($templateComponent['type'] == 'CAROUSEL') {
+                $isCarouselTemplate = true;
+                $carouselCards = $templateComponent['cards'];
             }
         }
         // Regular expression to match {{number}}
@@ -328,6 +347,9 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             // for preview
             'bodyComponentText' => $bodyComponentText,
             'contactDataMaps' => getContactDataMaps(),
+            // carousel support
+            'isCarouselTemplate' => $isCarouselTemplate,
+            'carouselCards' => $carouselCards,
         ];
 
         if ($options['templateComponents']) {
@@ -554,8 +576,25 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             $contactsWhereClause['language_code'] = $whatsAppTemplate->language;
         }
         $groupContactIds = [];
-        // if not all contacts
-        if ($contactGroupId != 'all_contacts') {
+        $phoneNumbers = [];
+        
+        // Process phone numbers if provided
+        if ($request->has('phone_numbers') && !empty($request->phone_numbers)) {
+            $phoneNumbers = array_map('trim', explode(',', $request->phone_numbers));
+            $phoneNumbers = array_filter($phoneNumbers, function($number) {
+                return !empty($number);
+            });
+            
+            // Validate phone numbers
+            foreach ($phoneNumbers as $number) {
+                if (!preg_match('/^[0-9]{10,15}$/', $number)) {
+                    return $this->engineFailedResponse([], __tr('Invalid phone number format: ' . $number));
+                }
+            }
+        }
+        
+        // if not all contacts and no phone numbers provided
+        if ($contactGroupId != 'all_contacts' && empty($phoneNumbers)) {
             $contactGroup = $this->contactGroupRepository->fetchIt([
                 '_id' => $contactGroupId,
                 'vendors__id' => $vendorId,
@@ -571,10 +610,15 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             }
             $groupContactIds = $groupContacts->pluck('contacts__id')->toArray();
         }
-        // get contacts count of selected
+        
+        // Get contacts count from groups
         $totalContacts = $this->contactRepository->countContactsForCampaign($contactsWhereClause, $groupContactIds);
-        if (!$totalContacts) {
-            return $this->engineFailedResponse([], __tr('Contacts does not found'));
+        
+        // Add phone numbers count
+        $totalContacts += count($phoneNumbers);
+        
+        if ($totalContacts === 0) {
+            return $this->engineFailedResponse([], __tr('No contacts found. Please select a group or enter phone numbers.'));
         }
         // demo account restrictions
         if (isDemo() and ($totalContacts > 3)) {
@@ -594,35 +638,31 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             return $this->engineFailedResponse([], __tr('Failed to send test message'));
         }
         // remove test message log entry
-        $this->whatsAppMessageLogRepository->deleteIt([
-            '_uid' => $isTestMessageProcessed->data('messageUid')
-        ]);
-        $campaign = $this->campaignRepository->storeIt([
-            'status' => 1,
-            'vendors__id' => $vendorId,
-            'users__id' => getUserID(),
+        $this->whatsAppMessageLogRepository->deleteIt($isTestMessageProcessed->data('message_log_id'));
+
+        // create campaign data
+        $campaignData = [
             'title' => $request->title,
-            'template_name' => $whatsAppTemplate->template_name,
-            'template_language' => $whatsAppTemplate->language,
-            'whatsapp_templates__id' => $whatsAppTemplate->_id,
             'scheduled_at' => $scheduleAt,
-            'timezone' => $timezone,
+            'vendors__id' => $vendorId,
+            'whatsapp_templates__id' => $whatsAppTemplate->_id,
             '__data' => [
                 'total_contacts' => $totalContacts,
-                'is_for_template_language_only' => $restrictByTemplateContactLanguage,
-                'is_for_opted_only_contacts' => $isOnlyForOptedContacts,
                 'is_all_contacts' => $contactGroupId == 'all_contacts',
-                'selected_groups' => $contactGroupId == 'all_contacts' ? [] : [
-                    $contactGroup->_uid => [
-                        '_id' => $contactGroup->_id,
-                        '_uid' => $contactGroup->_uid,
-                        'title' => $contactGroup->title,
-                        'description' => $contactGroup->description,
-                        'total_group_contacts' => $totalContacts,
-                    ]
+                'is_for_template_language_only' => $restrictByTemplateContactLanguage,
+                'selected_groups' => $contactGroupId == 'all_contacts' ? [] : [$contactGroupId],
+                'phone_numbers' => $phoneNumbers,
+                'is_only_for_opted_contacts' => $isOnlyForOptedContacts,
+                'group_info' => [
+                    'title' => $contactGroup && isset($contactGroup->title) ? $contactGroup->title : null,
+                    'description' => $contactGroup && isset($contactGroup->description) ? $contactGroup->description : null,
+                    'total_group_contacts' => $totalContacts - count($phoneNumbers)
                 ]
-            ],
-        ]);
+            ]
+        ];
+        
+        // Store the campaign
+        $campaign = $this->campaignRepository->storeIt($campaignData);
         $isSucceed = false;
         $this->contactRepository->getContactsForCampaignInChunks($contactsWhereClause, $groupContactIds, function (Collection $contacts) use (&$request, &$isTestMessageProcessed, &$vendorId, &$whatsAppTemplate, &$scheduleAt, &$campaign, &$isSucceed) {
             $queueData = [];
@@ -752,34 +792,61 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             }
             try {
 
-                if (!method_exists($response, 'ok')) {
-                    if ($poolRequestItem['retries'] > 5) {
-                        $this->whatsAppMessageQueueRepository->updateIt($responseKey, [
-                            'status' => 2, // error - do not requeue
-                            '__data' => [
-                                'process_response' => [
-                                    'error_message' => $response->getMessage() ?? 'unknown error occurred',
-                                    'error_status' => 'error_occurred',
-                                ]
-                            ]
-                        ]);
-                    } elseif (($response instanceof ConnectException) or ($response instanceof ConnectionException)) { // if its connection issue we need to retry
-                        // requeue the message if connection error
-                        $this->whatsAppMessageQueueRepository->updateIt($poolRequestItem['queueUid'], [
-                            'status' => 1, // re queue
-                            'retries' => $poolRequestItem['retries'] + 1,
-                            'scheduled_at' => now()->addMinute(), // try in next one minute
-                            '__data' => [
-                                'process_response' => [
-                                    'error_status' => 'requeued_connection_error',
-                                    'error_message' => $response->getMessage()
-                                ]
-                            ]
-                        ]);
-                    }
-                    // back to next item
-                    continue;
+            // Handle different response types
+            if (!$response || !method_exists($response, 'ok')) {
+                // Handle error cases
+                $errorMessage = '';
+                if ($response instanceof \Exception) {
+                    $errorMessage = $response->getMessage();
+                } elseif (is_object($response) && method_exists($response, 'getMessage')) {
+                    $errorMessage = $response->getMessage();
+                } else {
+                    $errorMessage = 'Unknown error occurred';
                 }
+
+                if ($poolRequestItem['retries'] > 5) {
+                    // Max retries reached - mark as permanent error
+                    $this->whatsAppMessageQueueRepository->updateIt($responseKey, [
+                        'status' => 2, // error - do not requeue
+                        '__data' => [
+                            'process_response' => [
+                                'error_message' => $errorMessage,
+                                'error_status' => 'error_occurred',
+                            ]
+                        ]
+                    ]);
+                } elseif (($response instanceof ConnectException) || ($response instanceof ConnectionException)) {
+                    // Connection issues - requeue for retry
+                    $this->whatsAppMessageQueueRepository->updateIt($poolRequestItem['queueUid'], [
+                        'status' => 1, // re queue
+                        'retries' => $poolRequestItem['retries'] + 1,
+                        'scheduled_at' => now()->addMinute(), // try in next one minute
+                        '__data' => [
+                            'process_response' => [
+                                'error_status' => 'requeued_connection_error',
+                                'error_message' => $errorMessage
+                            ]
+                        ]
+                    ]);
+                }
+                // Skip to next item
+                continue;
+            }
+
+            // Safely handle response data
+            try {
+                $responseData = $response->json();
+                if (!isset($responseData['text'])) {
+                    $responseData['text'] = '';
+                }
+                $response = $responseData;
+            } catch (\Exception $e) {
+                // If json parsing fails, ensure we have a valid response structure
+                $response = [
+                    'text' => '',
+                    'error' => 'Failed to parse response data'
+                ];
+            }
 
                 if ($response and !$response->ok()) {
                     $response->throw(function (Response $response, $exception) use (&$poolRequestItem, &$errorMessage) {
@@ -1167,6 +1234,91 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                         ],
                     ];
                 }
+            } elseif ($templateComponent['type'] == 'CAROUSEL') {
+                // Handle carousel template message components
+                $carouselComponent = [
+                    'type' => 'CAROUSEL',
+                    'cards' => []
+                ];
+
+                foreach ($templateComponent['cards'] as $cardIndex => $card) {
+                    $cardComponent = [
+                        'card_index' => $cardIndex,
+                        'components' => []
+                    ];
+
+                    // Add header component for each card
+                    foreach ($card['components'] as $cardComponentData) {
+                        if ($cardComponentData['type'] == 'HEADER') {
+                            if ($cardComponentData['format'] == 'PRODUCT') {
+                                // For product headers, we need to specify product parameters
+                                // This would typically come from user input or product catalog
+                                $cardComponent['components'][] = [
+                                    'type' => 'HEADER',
+                                    'parameters' => [
+                                        [
+                                            'type' => 'PRODUCT',
+                                            'product' => [
+                                                'product_retailer_id' => 'default_product_' . $cardIndex // Default product ID
+                                            ]
+                                        ]
+                                    ]
+                                ];
+                            } elseif (in_array($cardComponentData['format'], ['IMAGE', 'VIDEO'])) {
+                                // For image/video headers - process uploaded media
+                                $mediaType = strtolower($cardComponentData['format']);
+                                $inputKey = "carousel_card_{$cardIndex}_{$mediaType}";
+
+                                if (!empty($inputs[$inputKey])) {
+                                    // Process uploaded media file
+                                    $isProcessed = $this->mediaEngine->whatsappMediaUploadProcess(['filepond' => $inputs[$inputKey]], "whatsapp_{$mediaType}");
+                                    if ($isProcessed->failed()) {
+                                        return $isProcessed;
+                                    }
+                                    $mediaUrl = $isProcessed->data('path');
+                                } else {
+                                    // Skip this card if no media uploaded
+                                    continue 2; // Skip to next card
+                                }
+
+                                $cardComponent['components'][] = [
+                                    'type' => 'HEADER',
+                                    'parameters' => [
+                                        [
+                                            'type' => strtoupper($cardComponentData['format']),
+                                            $mediaType => [
+                                                'link' => $mediaUrl
+                                            ]
+                                        ]
+                                    ]
+                                ];
+                            }
+                        } elseif ($cardComponentData['type'] == 'BUTTONS') {
+                            // Handle card buttons - only add if they have parameters
+                            foreach ($cardComponentData['buttons'] as $buttonIndex => $button) {
+                                if ($button['type'] == 'URL' && isset($button['url']) && Str::contains($button['url'], '{{1}}')) {
+                                    $cardComponent['components'][] = [
+                                        'type' => 'BUTTON',
+                                        'sub_type' => 'URL',
+                                        'index' => $buttonIndex,
+                                        'parameters' => [
+                                            [
+                                                'type' => 'text',
+                                                'text' => 'default_param'
+                                            ]
+                                        ]
+                                    ];
+                                }
+                                // SPM and QUICK_REPLY buttons don't need parameters
+                            }
+                        }
+                    }
+
+                    $carouselComponent['cards'][] = $cardComponent;
+                }
+
+                $componentBody[$mainIndex] = $carouselComponent;
+                $mainIndex++;
             } elseif ($templateComponent['type'] == 'BUTTONS') {
                 $componentButtonIndex = 0;
                 $skipComponentsCreations = [
@@ -1289,17 +1441,221 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
         $mediaData = [];
         $serviceName = getAppSettings('name');
 
-        $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage($contact->wa_id, [
-            'interactive_type' => '',
-            'media_link' => '', //'https://camo.envatousercontent.com/a58d29650808a6231c7b785929abc438ac9910a3/68747470733a2f2f692e696d6775722e636f6d2f5a36367a3834682e706e67',
-            'header_type' => '', // "text", "image", or "video"
-            'header_text' => '',
-            'body_text' => '',
-            'footer_text' => '',
-            'buttons' => [
-            ],
-            'cta_url' => null,
-        ], $vendorId);
+        // Get interactive message data from request or options
+        $interactiveData = [];
+        if (is_array($request) && isset($request['interactive_data'])) {
+            $interactiveData = $request['interactive_data'];
+        } elseif (!is_array($request) && $request->has('interactive_data')) {
+            $interactiveData = $request->interactive_data;
+        }
+
+        // Determine interactive type based on data structure
+        $interactiveType = null;
+        
+        // PRIORITY 1: Check for list data in sections
+        if (isset($interactiveData['list_data']['sections']) && !empty($interactiveData['list_data']['sections'])) {
+            $interactiveType = 'list';
+        }
+        // PRIORITY 2: Check for sections directly
+        elseif (isset($interactiveData['sections']) && !empty($interactiveData['sections'])) {
+            $interactiveType = 'list';
+        }
+        // PRIORITY 3: Check explicit type
+        elseif (isset($interactiveData['type']) && $interactiveData['type'] === 'list') {
+            $interactiveType = 'list';
+        }
+        // FALLBACK: Default to button type
+        else {
+            $interactiveType = 'button';
+        }
+
+        // Log the type determination
+        \Illuminate\Support\Facades\Log::info('Determined interactive message type', [
+            'type' => $interactiveType,
+            'has_list_data' => isset($interactiveData['list_data']),
+            'has_sections' => isset($interactiveData['sections']),
+            'explicit_type' => $interactiveData['type'] ?? 'not_set'
+        ]);
+
+        // Prepare interactive message payload according to WhatsApp API structure
+        $messagePayload = [
+            'type' => 'interactive',
+            'interactive' => [
+                'type' => $interactiveType
+            ]
+        ];
+
+        // Add header if provided
+        if (!empty($interactiveData['header_text'])) {
+            $messagePayload['interactive']['header'] = [
+                'type' => 'text',
+                'text' => $interactiveData['header_text']
+            ];
+        }
+
+        // Add body if provided
+        if (!empty($interactiveData['body_text'])) {
+            $messagePayload['interactive']['body'] = [
+                'text' => $interactiveData['body_text']
+            ];
+        }
+
+        // Add footer if provided
+        if (!empty($interactiveData['footer_text'])) {
+            $messagePayload['interactive']['footer'] = [
+                'text' => $interactiveData['footer_text']
+            ];
+        }
+
+        // Initialize sections variable for scope
+        $sections = [];
+
+        // Handle different interactive types
+        if ($interactiveType === 'list') {
+            // Process sections for list type
+            $sourceSections = [];
+            
+            // Check both possible locations for sections data
+            if (!empty($interactiveData['list_data']['sections'])) {
+                $sourceSections = $interactiveData['list_data']['sections'];
+            } elseif (!empty($interactiveData['sections'])) {
+                $sourceSections = $interactiveData['sections'];
+            }
+
+            // Process sections and rows
+            foreach ($sourceSections as $section) {
+                $processedSection = [
+                    'title' => $section['title'] ?? ''
+                ];
+
+                $rows = [];
+                foreach ($section['rows'] ?? [] as $row) {
+                    // Ensure row has required fields
+                    if (!empty($row['title'])) {
+                        $rows[] = [
+                            'id' => (string)($row['id'] ?? $row['row_id'] ?? uniqid()),
+                            'title' => $row['title'],
+                            'description' => $row['description'] ?? null
+                        ];
+                    }
+                }
+
+                if (!empty($rows)) {
+                    $processedSection['rows'] = $rows;
+                    $sections[] = $processedSection;
+                }
+            }
+
+            if (!empty($sections)) {
+                // For list type, add action with button and sections
+                $messagePayload['interactive']['action'] = [
+                    'button' => $interactiveData['list_data']['button_text'] ?? 
+                               $interactiveData['button_text'] ?? 
+                               'Select an option',
+                    'sections' => $sections
+                ];
+
+                // Log the final payload for debugging
+                \Illuminate\Support\Facades\Log::info('Sending list message payload', [
+                    'sections_count' => count($sections),
+                    'total_rows' => array_sum(array_map(function($section) { 
+                        return count($section['rows'] ?? []); 
+                    }, $sections)),
+                    'button_text' => $messagePayload['interactive']['action']['button']
+                ]);
+
+                // Log list processing for debugging
+                \Illuminate\Support\Facades\Log::info('Sending WhatsApp list message', [
+                    'sections_count' => count($sections),
+                    'total_rows' => array_sum(array_map(function($section) { 
+                        return count($section['rows']); 
+                    }, $sections)),
+                    'button_text' => $messagePayload['interactive']['action']['button']
+                ]);
+
+                // Log list processing for debugging
+                \Illuminate\Support\Facades\Log::info('Processing list-type interactive message', [
+                    'sections_count' => count($sections),
+                    'total_rows' => array_sum(array_map(function($section) { 
+                        return count($section['rows']); 
+                    }, $sections)),
+                    'button_text' => $messagePayload['list_data']['button_text']
+                ]);
+            } else {
+                // Fallback to button type if no valid sections
+                $messagePayload['interactive_type'] = 'button';
+                \Illuminate\Support\Facades\Log::warning('Fallback to button type - no valid sections found');
+            }
+        
+
+        } elseif ($interactiveType === 'button' && isset($interactiveData['buttons']) && is_array($interactiveData['buttons'])) {
+            $messagePayload['interactive']['action'] = [
+                'buttons' => array_map(function($button) {
+                    $buttonText = is_array($button) ? ($button['title'] ?? $button['text'] ?? '') : $button;
+                    return [
+                        'type' => 'reply',
+                        'reply' => [
+                            'id' => Str::random(10),
+                            'title' => $buttonText
+                        ]
+                    ];
+                }, $interactiveData['buttons'])
+            ];
+
+            // Log button processing
+            \Illuminate\Support\Facades\Log::info('Sending WhatsApp button message', [
+                'button_count' => count($interactiveData['buttons'])
+            ]);
+        }
+
+        // Send the interactive message using the WhatsApp API service
+        // For list messages, we need to pass the data in the format expected by WhatsAppApiService
+        if ($interactiveType === 'list') {
+            // Always use the proper list format for WhatsAppApiService, regardless of sections
+            $listMessageData = [
+                'interactive_type' => 'list',
+                'header_text' => $interactiveData['header_text'] ?? '',
+                'body_text' => $interactiveData['body_text'] ?? $messageBody ?? '',
+                'footer_text' => $interactiveData['footer_text'] ?? '',
+                'list_data' => [
+                    'button_text' => $interactiveData['list_data']['button_text'] ??
+                                   $interactiveData['button_text'] ??
+                                   'Select an option',
+                    'sections' => $sections
+                ]
+            ];
+
+            \Illuminate\Support\Facades\Log::info('Sending list message with proper format', [
+                'user' => $contact->wa_id,
+                'sections_count' => count($sections),
+                'button_text' => $listMessageData['list_data']['button_text'],
+                'list_data' => $listMessageData['list_data']
+            ]);
+
+            $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage($contact->wa_id, $listMessageData, $vendorId);
+        } elseif ($interactiveType === 'button' && isset($interactiveData['buttons'])) {
+            // Handle button messages with proper format for WhatsAppApiService
+            $buttonMessageData = [
+                'interactive_type' => 'button',
+                'header_text' => $interactiveData['header_text'] ?? '',
+                'body_text' => $interactiveData['body_text'] ?? $messageBody ?? '',
+                'footer_text' => $interactiveData['footer_text'] ?? '',
+                'buttons' => array_map(function($button) {
+                    return is_array($button) ? ($button['title'] ?? $button['text'] ?? '') : $button;
+                }, $interactiveData['buttons'])
+            ];
+
+            \Illuminate\Support\Facades\Log::info('Sending button message with proper format', [
+                'user' => $contact->wa_id,
+                'buttons_count' => count($buttonMessageData['buttons']),
+                'buttons' => $buttonMessageData['buttons']
+            ]);
+
+            $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage($contact->wa_id, $buttonMessageData, $vendorId);
+        } else {
+            // Fallback for other message types
+            $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage($contact->wa_id, $messagePayload, $vendorId);
+        }
         $messageWamid = Arr::get($sendMessageResult, 'messages.0.id');
         if (! $messageWamid) {
             return $this->engineFailedResponse([
@@ -1825,9 +2181,122 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
 
         $mediaData = [];
         $serviceName = getAppSettings('name');
+        $contact = $this->contactRepository->getVendorContact($contactUid, $vendorId);
+        if (__isEmpty($contact)) {
+            if (isExternalApiRequest()) {
+                $contact = $this->createAContactForApiRequest($request);
+            } else {
+                return $this->engineFailedResponse([], __tr('Requested contact does not found'));
+            }
+        }
+
+        // Log interaction message data
+        \Illuminate\Support\Facades\Log::info('Interactive Message Data', [
+            'interaction_data' => $interactionMessageData
+        ]);
+
         if ($interactionMessageData) {
-            $interactionMessageData['body_text'] = isDemo() ? "{$serviceName} DEMO - " . $interactionMessageData['body_text'] : $interactionMessageData['body_text'];
-            $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage($contact->wa_id, $interactionMessageData, $contact->vendors__id);
+            $serviceName = getAppSettings('name');
+
+            // Format the message data for WhatsApp API
+            $messagePayload = [
+                'type' => 'interactive'
+            ];
+
+            // Handle list type messages
+            if (isset($interactionMessageData['interactive_type']) && $interactionMessageData['interactive_type'] === 'list') {
+                $messagePayload['interactive'] = [
+                    'type' => 'list',
+                    'body' => [
+                        'text' => isDemo() ? "{$serviceName} DEMO - " . $interactionMessageData['body_text'] : $interactionMessageData['body_text']
+                    ],
+                    'action' => [
+                        'button' => $interactionMessageData['list_data']['button_text'] ?? 'Select an option',
+                        'sections' => []
+                    ]
+                ];
+
+                // Add header if present
+                if (!empty($interactionMessageData['header_text'])) {
+                    $messagePayload['interactive']['header'] = [
+                        'type' => 'text',
+                        'text' => $interactionMessageData['header_text']
+                    ];
+                }
+
+                // Add footer if present
+                if (!empty($interactionMessageData['footer_text'])) {
+                    $messagePayload['interactive']['footer'] = [
+                        'text' => $interactionMessageData['footer_text']
+                    ];
+                }
+
+                // Process sections
+                if (isset($interactionMessageData['list_data']['sections'])) {
+                    foreach ($interactionMessageData['list_data']['sections'] as $section) {
+                        $processedSection = [
+                            'title' => $section['title']
+                        ];
+
+                        $rows = [];
+                        foreach ($section['rows'] as $row) {
+                            // Handle both 'row_id' and 'id' fields for backward compatibility
+                            $rowId = $row['row_id'] ?? $row['id'] ?? '';
+
+                            $rows[] = [
+                                'id' => (string)$rowId,
+                                'title' => $row['title'] ?? '',
+                                'description' => $row['description'] ?? ''
+                            ];
+                        }
+
+                        if (!empty($rows)) {
+                            $processedSection['rows'] = $rows;
+                            $messagePayload['interactive']['action']['sections'][] = $processedSection;
+                        }
+                    }
+                }
+
+                // Log the final payload
+                \Illuminate\Support\Facades\Log::info('Sending List Message Payload', [
+                    'payload' => $messagePayload
+                ]);
+
+                // Convert messagePayload to the format expected by WhatsAppApiService
+                $apiServiceData = [
+                    'interactive_type' => 'list',
+                    'header_text' => $messagePayload['interactive']['header']['text'] ?? '',
+                    'body_text' => $messagePayload['interactive']['body']['text'] ?? '',
+                    'footer_text' => $messagePayload['interactive']['footer']['text'] ?? '',
+                    'list_data' => [
+                        'button_text' => $messagePayload['interactive']['action']['button'] ?? 'Select an option',
+                        'sections' => $messagePayload['interactive']['action']['sections'] ?? []
+                    ]
+                ];
+
+                \Illuminate\Support\Facades\Log::info('Converted list message for API service', [
+                    'api_service_data' => $apiServiceData
+                ]);
+
+                $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage(
+                    $contact->wa_id,
+                    $apiServiceData,
+                    $contact->vendors__id
+                );
+            } else {
+                // Handle other interactive message types (buttons, etc.)
+                $interactionMessageData['body_text'] = isDemo() ? "{$serviceName} DEMO - " . $interactionMessageData['body_text'] : $interactionMessageData['body_text'];
+
+                \Illuminate\Support\Facades\Log::info('Sending non-list interactive message', [
+                    'interaction_data' => $interactionMessageData
+                ]);
+
+                $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage(
+                    $contact->wa_id,
+                    $interactionMessageData,
+                    $contact->vendors__id
+                );
+            }
         } elseif ($isMediaMessage) {
             $fileUrl = $fileName = $fileOriginalName = null;
             $rawUploadData = [];
@@ -2073,10 +2542,293 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
         $isAiBotTimingsEnabled = getVendorSettings('enable_ai_bot_timing_restrictions', null, null, $contact->vendors__id);
         $isBotTimingsInTime = $this->isInAllowedBotTiming($contact->vendors__id);
         $selectedOtherBotsForTimingRestrictions = getVendorSettings('enable_selected_other_bot_timing_restrictions', null, null, $contact->vendors__id) ?: [];
-        // search for only likewise records or welcome messages
+        // Get active flow for this user if any
+        $activeFlow = UserActiveFlow::getActiveFlow($contact->wa_id);
+        
+        // Log the current state for debugging
+        Log::info('Processing WhatsApp message', [
+            'user' => $contact->wa_id,
+            'message' => $messageBody,
+            'active_flow' => $activeFlow ? $activeFlow->flow_id : 'none'
+        ]);
+
+        // PRIORITY CHECK: If there's an active flow waiting for input, try to process it first
+        if ($activeFlow && isset($activeFlow->__data['waiting_for_input']) && $activeFlow->__data['waiting_for_input']) {
+            Log::info('Active flow waiting for input detected, processing with FlowIntegrationService', [
+                'user' => $contact->wa_id,
+                'flow_id' => $activeFlow->flow_id,
+                'current_node' => $activeFlow->__data['current_node_id'] ?? 'unknown',
+                'message' => $messageBody
+            ]);
+
+            // Get any bot reply from the active flow to use as context
+            $flowBotReply = $this->botReplyRepository->fetchIt([
+                'bot_flows__id' => $activeFlow->flow_id,
+                'vendors__id' => $contact->vendors__id
+            ]);
+
+            if ($flowBotReply) {
+                // Try to process with the flow integration service
+                $flowIntegrationService = new FlowIntegrationService();
+                $nodeFlowResult = $flowIntegrationService->processNodeBasedFlow($contact, $messageBody, $flowBotReply, $options);
+
+                if ($nodeFlowResult && $nodeFlowResult['processed_by_new_flow']) {
+                    Log::info('User input processed by FlowIntegrationService', [
+                        'user' => $contact->wa_id,
+                        'flow_id' => $activeFlow->flow_id,
+                        'response_count' => count($nodeFlowResult['responses'] ?? []),
+                        'is_complete' => $nodeFlowResult['is_complete'] ?? false
+                    ]);
+
+                    // Process responses from flow system
+                    foreach ($nodeFlowResult['responses'] as $response) {
+                        $responseText = $response['text'] ?? '';
+                        $interactionData = null;
+                        $mediaMessageData = null;
+
+                        // Handle different response types
+                        if ($response['type'] === 'interactive') {
+                            if (isset($response['list_data'])) {
+                                $sections = [];
+                                foreach ($response['list_data']['sections'] as $section) {
+                                    $rows = [];
+                                    foreach ($section['rows'] as $row) {
+                                        $rows[] = [
+                                            'id' => (string)($row['id'] ?? $row['row_id'] ?? uniqid()),
+                                            'title' => $row['title'],
+                                            'description' => $row['description'] ?? null
+                                        ];
+                                    }
+                                    if (!empty($rows)) {
+                                        $sections[] = [
+                                            'title' => $section['title'],
+                                            'rows' => $rows
+                                        ];
+                                    }
+                                }
+
+                                $interactionData = [
+                                    'body_text' => $responseText,
+                                    'interactive_type' => 'list',
+                                    'list_data' => [
+                                        'button_text' => $response['list_data']['button_text'] ?? 'Select an option',
+                                        'sections' => $sections
+                                    ]
+                                ];
+                                $responseText = '';
+                            } elseif (isset($response['buttons'])) {
+                                $buttons = [];
+                                foreach ($response['buttons'] as $button) {
+                                    $buttons[] = $button['title'];
+                                }
+                                $interactionData = [
+                                    'body_text' => $responseText,
+                                    'interactive_type' => 'button',
+                                    'buttons' => $buttons,
+                                    'header_text' => $response['header_text'] ?? '',
+                                    'footer_text' => $response['footer_text'] ?? ''
+                                ];
+                                $responseText = '';
+                            }
+                        } elseif ($response['type'] === 'media_message') {
+                            $mediaMessageData = [
+                                'header_type' => $response['media_type'] ?? 'document',
+                                'media_link' => $response['media_url'] ?? '',
+                                'caption' => $response['caption'] ?? '',
+                                'file_name' => $response['filename'] ?? ''
+                            ];
+                            $responseText = '';
+                        }
+
+                        // Send the response
+                        $messageOptions = [
+                            'mediaMessageData' => $mediaMessageData,
+                            'from_phone_number_id' => $options['fromPhoneNumberId'],
+                            'node_based_flow' => true
+                        ];
+
+                        if ($response['type'] !== 'message') {
+                            $messageOptions['messageWamid'] = $options['messageWamid'];
+                        }
+
+                        $this->sendReplyBotMessage($contact->_uid, $responseText, $contact->vendors__id, $interactionData, $messageOptions);
+                    }
+
+                    if ($testBotId) {
+                        return $this->engineSuccessResponse([], __tr('Flow input processed successfully'));
+                    }
+
+                    // Successfully processed by flow system, return early
+                    return;
+                }
+            }
+        }
+        
+        // Get bot replies based on whether there's an active flow
         $allBotReplies = $this->botReplyRepository->getRelatedOrWelcomeBots($dataFetchConditions)->sortBy('priority_index');
+
+        // Also get bot flows that can be triggered directly (welcome and new_message types)
+        $triggerableFlows = $this->botFlowRepository->getTriggerableFlows([
+            'vendors__id' => $contact->vendors__id
+        ]);
+
+        // Convert bot flows to bot reply-like objects for processing
+        $flowReplies = $triggerableFlows->map(function($flow) {
+            // Create a pseudo bot reply object for flow processing
+            return new PseudoBotReply([
+                '_id' => null, // No bot reply ID
+                '_uid' => 'flow_' . $flow->_uid, // Unique identifier
+                'reply_trigger' => $flow->start_trigger,
+                'reply_text' => '', // Will be handled by flow system
+                'trigger_type' => $flow->trigger_type,
+                'priority_index' => 0, // High priority for direct flows
+                '__data' => [],
+                'bot_flows__id' => $flow->_id,
+                'status' => $flow->status,
+                'botFlow' => $flow, // Attach the flow object
+            ]);
+        });
+
+        // Merge bot replies with flow replies
+        $allBotReplies = $allBotReplies->merge($flowReplies)->sortBy('priority_index');
+
+        Log::info('Retrieved bot replies for processing', [
+            'user' => $contact->wa_id,
+            'message' => $messageBody,
+            'total_replies' => $allBotReplies->count(),
+            'flow_replies' => $allBotReplies->where('bot_flows__id', '!=', null)->count(),
+            'non_flow_replies' => $allBotReplies->where('bot_flows__id', null)->count(),
+            'new_message_replies' => $allBotReplies->where('trigger_type', 'new_message')->count(),
+            'welcome_replies' => $allBotReplies->where('trigger_type', 'welcome')->count(),
+            'direct_flow_replies' => $flowReplies->count(),
+            'trigger_types' => $allBotReplies->pluck('trigger_type')->unique()->values()->toArray(),
+            'active_flow' => $activeFlow ? $activeFlow->flow_id : 'none'
+        ]);
+        
         $isBotMatched = false;
         if (!__isEmpty($allBotReplies)) {
+            // FIRST: Check if the message matches any flow's start_trigger
+            // This should happen BEFORE filtering, regardless of whether there's an active flow
+            foreach ($allBotReplies as $botReply) {
+                // Check if this is a flow start trigger that matches the message
+                if ($botReply->bot_flows__id && $botReply->botFlow && $botReply->botFlow->start_trigger) {
+                    $triggerType = $botReply->botFlow->trigger_type ?? 'is';
+                    $isFlowStartMatch = $this->checkTriggerMatch($messageBody, $botReply->botFlow->start_trigger, $triggerType);
+
+                    if ($isFlowStartMatch) {
+                        if ($activeFlow && $activeFlow->flow_id !== $botReply->bot_flows__id) {
+                            // This message matches a start trigger from a different flow
+                            // Clear the current active flow and let the new flow be processed
+                            Log::info('Message matches start trigger of different flow, clearing active flow', [
+                                'user' => $contact->wa_id,
+                                'current_active_flow_id' => $activeFlow->flow_id,
+                                'new_flow_id' => $botReply->bot_flows__id,
+                                'trigger' => $messageBody,
+                                'start_trigger' => $botReply->botFlow->start_trigger,
+                                'trigger_type' => $triggerType
+                            ]);
+
+                            // Delete the current active flow
+                            UserActiveFlow::where('phone_number', $contact->wa_id)->delete();
+                            $activeFlow = null;
+                        } elseif (!$activeFlow) {
+                            // No active flow, this is a new flow start
+                            Log::info('Message matches flow start trigger, no active flow', [
+                                'user' => $contact->wa_id,
+                                'new_flow_id' => $botReply->bot_flows__id,
+                                'trigger' => $messageBody,
+                                'start_trigger' => $botReply->botFlow->start_trigger,
+                                'trigger_type' => $triggerType
+                            ]);
+                        }
+                        break; // Exit the loop since we found a matching start trigger
+                    }
+                }
+            }
+
+            // If there's an active flow, only process replies from that flow
+            // BUT allow welcome messages and non-flow messages to still work
+            if ($activeFlow) {
+                $allBotReplies = $allBotReplies->filter(function($reply) use ($activeFlow, $messageBody, $contact) {
+                    // Always allow welcome messages
+                    if ($reply->trigger_type == 'welcome') {
+                        return true;
+                    }
+
+                    // Always allow new_message triggers (they have their own logic to check for active flows)
+                    if ($reply->trigger_type == 'new_message') {
+                        return true;
+                    }
+
+                    // If there's an active flow, only allow replies from that flow
+                    if ($activeFlow && $reply->bot_flows__id) {
+                        // If this reply belongs to a different flow, ignore it
+                        if ($reply->bot_flows__id !== $activeFlow->flow_id) {
+                            return false;
+                        }
+
+                        try {
+                            // Get the last message sent to this contact
+                            $lastMessage = $this->whatsAppMessageLogRepository->fetchIt([
+                                'vendors__id' => $contact->vendors__id,
+                                'contacts__id' => $contact->_id,
+                                'type' => 'outgoing',
+                            ], ['_id' => 'desc']);
+
+                            // If the last message had buttons, this must be a button response
+                            if ($lastMessage && isset($lastMessage->__data['interaction_message']['buttons'])) {
+                                $buttons = $lastMessage->__data['interaction_message']['buttons'];
+                                return collect($buttons)->contains(function($button) use ($messageBody) {
+                                    return strtolower($button['title']) === strtolower($messageBody);
+                                });
+                            }
+                        } catch (\Exception $e) {
+                            Log::error('Error fetching last message for button validation', [
+                                'error' => $e->getMessage(),
+                                'contact_id' => $contact->_id
+                            ]);
+                        }
+
+                        // For non-button responses, use trigger type matching
+                        if ($reply->botFlow && $reply->botFlow->start_trigger) {
+                            $triggerType = $reply->botFlow->trigger_type ?? 'is';
+                            return $this->checkTriggerMatch($messageBody, $reply->botFlow->start_trigger, $triggerType);
+                        }
+
+                        // Fallback to exact match for non-flow replies
+                        return strtolower($reply->reply_trigger) === strtolower($messageBody);
+                    }
+
+                    // If no active flow, allow both non-flow replies and flow start triggers
+                    if (empty($reply->bot_flows__id)) {
+                        // Non-flow reply
+                        return true;
+                    } else {
+                        // Flow reply - check if it matches the start trigger or is a new_message trigger
+                        if ($reply->botFlow) {
+                            $triggerType = $reply->botFlow->trigger_type ?? 'is';
+
+                            // Allow new_message triggers when there's no active flow
+                            if ($triggerType === 'new_message') {
+                                return true;
+                            }
+
+                            // For other trigger types, check if message matches the start trigger
+                            if ($reply->botFlow->start_trigger) {
+                                return $this->checkTriggerMatch($messageBody, $reply->botFlow->start_trigger, $triggerType);
+                            }
+                        }
+                        return false;
+                    }
+                });
+
+                Log::info('Bot replies after filtering', [
+                    'user' => $contact->wa_id,
+                    'message' => $messageBody,
+                    'filtered_replies' => $allBotReplies->count(),
+                    'active_flow' => $activeFlow ? $activeFlow->flow_id : 'none'
+                ]);
+            }
             // check if we already have incoming message 2 days
             $isIncomingMessageExists = $this->whatsAppMessageLogRepository->countIt([
                 'vendors__id' => $contact->vendors__id,
@@ -2088,13 +2840,21 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                 ],
             ]) > 1;
             foreach ($allBotReplies as $botReply) {
+                Log::info('Processing bot reply', [
+                    'user' => $contact->wa_id,
+                    'bot_reply_id' => $botReply->_uid,
+                    'trigger_type' => $botReply->trigger_type,
+                    'reply_trigger' => $botReply->reply_trigger,
+                    'flow_id' => $botReply->bot_flows__id ?? 'none'
+                ]);
+
                 // if time restrictions
                 if ($isBotTimingsEnabled and !$isBotTimingsInTime and array_key_exists($botReply->trigger_type, $selectedOtherBotsForTimingRestrictions)) {
                     continue;
                 }
                 // get reply triggers
                 $replyTriggers = strtolower($botReply->reply_trigger);
-                if (!$testBotId and ($botReply->trigger_type != 'welcome') and $replyTriggers == '') {
+                if (!$testBotId and !in_array($botReply->trigger_type, ['welcome', 'new_message']) and $replyTriggers == '') {
                     continue;
                 }
                 // testing the bot reply
@@ -2105,14 +2865,14 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                 }
                 // create array of comma separated triggers
                 $replyTriggers = array_filter(explode(',', $replyTriggers) ?? []);
-                if ($testBotId or (empty($replyTriggers) and ($botReply->trigger_type == 'welcome'))) {
+                if ($testBotId or (empty($replyTriggers) and in_array($botReply->trigger_type, ['welcome', 'new_message']))) {
                     $replyTriggers = [
                         'dummy'
                     ];
                 }
                 foreach ($replyTriggers as $replyTrigger) {
                     $replyTrigger = trim($replyTrigger);
-                    if (!$testBotId and ($botReply->trigger_type != 'welcome') and $replyTrigger == '') {
+                    if (!$testBotId and !in_array($botReply->trigger_type, ['welcome', 'new_message']) and $replyTrigger == '') {
                         continue;
                     }
                     if ($testBotId) {
@@ -2135,9 +2895,25 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                     $interactionMessageData = $botReply->__data['interaction_message'] ?? null;
                     $mediaMessageData = $botReply->__data['media_message'] ?? null;
                     if ($botReply->trigger_type == 'welcome') {
+                        // For welcome triggers, check if this is a first-time contact
                         if (!$isIncomingMessageExists or $testBotId) {
                             $replyText = $botReply->reply_text;
                             $isBotMatchedForThisReply = true;
+
+                            Log::info('Welcome trigger matched', [
+                                'user' => $contact->wa_id,
+                                'message' => $messageBody,
+                                'bot_reply_id' => $botReply->_uid,
+                                'flow_id' => $botReply->bot_flows__id ?? 'none',
+                                'is_first_message' => !$isIncomingMessageExists
+                            ]);
+                        } else {
+                            Log::info('Welcome trigger skipped - not first message', [
+                                'user' => $contact->wa_id,
+                                'message' => $messageBody,
+                                'bot_reply_id' => $botReply->_uid,
+                                'flow_id' => $botReply->bot_flows__id ?? 'none'
+                            ]);
                         }
                     }
                     if ($botReply->trigger_type == 'start_promotional') {
@@ -2180,6 +2956,51 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                             $replyText = $botReply->reply_text;
                             $isBotMatchedForThisReply = true;
                         }
+                    } elseif ($botReply->trigger_type == 'new_message') {
+                        // New message trigger fires when user sends any message outside of active flows
+                        // This should only trigger if there's no active flow for this contact
+                        Log::info('Processing new_message trigger', [
+                            'user' => $contact->wa_id,
+                            'message' => $messageBody,
+                            'bot_reply_id' => $botReply->_uid,
+                            'flow_id' => $botReply->bot_flows__id ?? 'none',
+                            'has_active_flow' => !is_null($activeFlow),
+                            'active_flow_id' => $activeFlow ? $activeFlow->flow_id : null
+                        ]);
+
+                        if (!$activeFlow) {
+                            $replyText = $botReply->reply_text;
+                            $isBotMatchedForThisReply = true;
+
+                            Log::info('New message trigger matched', [
+                                'user' => $contact->wa_id,
+                                'message' => $messageBody,
+                                'bot_reply_id' => $botReply->_uid,
+                                'flow_id' => $botReply->bot_flows__id ?? 'none'
+                            ]);
+                        } else {
+                            Log::info('New message trigger skipped due to active flow', [
+                                'user' => $contact->wa_id,
+                                'active_flow_id' => $activeFlow->flow_id
+                            ]);
+                        }
+                    } elseif ($botReply->bot_flows__id && $botReply->botFlow) {
+                        // For flow bot replies, use the flow's start_trigger and trigger_type
+                        $flowTriggerType = $botReply->botFlow->trigger_type ?? 'is';
+                        $flowStartTrigger = $botReply->botFlow->start_trigger;
+
+                        if ($this->checkTriggerMatch($messageBody, $flowStartTrigger, $flowTriggerType)) {
+                            $replyText = $botReply->reply_text;
+                            $isBotMatchedForThisReply = true;
+
+                            Log::info('Flow bot reply matched using new trigger system', [
+                                'user' => $contact->wa_id,
+                                'message' => $messageBody,
+                                'flow_id' => $botReply->bot_flows__id,
+                                'trigger_type' => $flowTriggerType,
+                                'start_trigger' => $flowStartTrigger
+                            ]);
+                        }
                     } elseif ($botReply->trigger_type == 'is') {
                         if (Str::is($replyTrigger, $messageBody)) {
                             $replyText = $botReply->reply_text;
@@ -2213,6 +3034,337 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                     // if reply text is ready
                     if ($isBotMatchedForThisReply) {
                         $isBotMatched = true;
+
+                        // Always try new node-based flow processing first (works for both new and converted legacy flows)
+                        Log::info('Starting flow processing', [
+                            'user' => $contact->wa_id,
+                            'message' => $messageBody,
+                            'bot_reply_id' => $botReply->_uid,
+                            'flow_id' => $botReply->bot_flows__id ?? 'none'
+                        ]);
+
+                        $flowIntegrationService = new FlowIntegrationService();
+                        $nodeFlowResult = $flowIntegrationService->processNodeBasedFlow($contact, $messageBody, $botReply, $options);
+
+                        if ($nodeFlowResult && $nodeFlowResult['processed_by_new_flow']) {
+                            Log::info('Processing node-based flow responses', [
+                                'user' => $contact->wa_id,
+                                'response_count' => count($nodeFlowResult['responses']),
+                                'is_complete' => $nodeFlowResult['is_complete']
+                            ]);
+
+                            // Process responses from new flow system
+                            foreach ($nodeFlowResult['responses'] as $response) {
+                                // Initialize variables
+                                $responseText = '';
+                                $interactionData = null;
+                                $mediaMessageData = null;
+
+                                // Set response text if it exists
+                                if (isset($response['text'])) {
+                                    $responseText = $response['text'];
+                                }
+
+                                // Handle interactive responses
+                                if ($response['type'] === 'interactive') {
+                                    // Check if it has list_data (list type)
+                                    if (isset($response['list_data'])) {
+                                        // Format list data according to WhatsApp API requirements
+                                        $sections = [];
+                                        foreach ($response['list_data']['sections'] as $section) {
+                                            $rows = [];
+                                            foreach ($section['rows'] as $row) {
+                                                $rows[] = [
+                                                    'id' => (string)($row['id'] ?? $row['row_id'] ?? uniqid()),
+                                                    'title' => $row['title'],
+                                                    'description' => $row['description'] ?? null
+                                                ];
+                                            }
+                                            
+                                            if (!empty($rows)) {
+                                                $sections[] = [
+                                                    'title' => $section['title'],
+                                                    'rows' => $rows
+                                                ];
+                                            }
+                                        }
+
+                                        $interactionData = [
+                                            'body_text' => $responseText,
+                                            'interactive_type' => 'list',
+                                            'list_data' => [
+                                                'button_text' => $response['list_data']['button_text'] ?? 'Select an option',
+                                                'sections' => $sections
+                                            ]
+                                        ];
+
+                                        Log::info('Sending WhatsApp list message', [
+                                            'user' => $contact->wa_id,
+                                            'sections_count' => count($sections),
+                                            'total_rows' => array_sum(array_map(function($section) {
+                                                return count($section['rows']);
+                                            }, $sections)),
+                                            'button_text' => $interactionData['list_data']['button_text']
+                                        ]);
+
+                                        Log::info('Sending interactive list message from node flow', [
+                                            'user' => $contact->wa_id,
+                                            'list_data' => $response['list_data'],
+                                            'body_text' => $responseText,
+                                            'sections_count' => count($response['list_data']['sections'] ?? [])
+                                        ]);
+
+                                        // Send interactive message directly using WhatsApp API
+                                        $sendMessageResult = $this->whatsAppApiService->sendInteractiveMessage($contact->wa_id, $interactionData, $contact->vendors__id);
+                                        $messageWamid = Arr::get($sendMessageResult, 'messages.0.id');
+                                        
+                                        if ($messageWamid) {
+                                            $this->whatsAppMessageLogRepository->updateOrCreateWhatsAppMessageFromWebhook(
+                                                getVendorSettings('current_phone_number_id', null, null, $contact->vendors__id),
+                                                $contact->_id,
+                                                $contact->vendors__id,
+                                                $contact->wa_id,
+                                                $messageWamid,
+                                                'accepted',
+                                                $sendMessageResult,
+                                                $responseText,
+                                                null,
+                                                [],
+                                                false,
+                                                ['node_based_flow' => true]
+                                            );
+                                        }
+                                        continue; // Skip the regular sendReplyBotMessage call
+                                    }
+                                    // Handle button type interactive
+                                    elseif (isset($response['buttons'])) {
+                                        $buttons = [];
+                                        foreach ($response['buttons'] as $button) {
+                                            $buttons[] = $button['title'];
+                                        }
+
+                                        $interactionData = [
+                                            'body_text' => $responseText,
+                                            'interactive_type' => 'button',
+                                            'buttons' => $buttons,
+                                            'header_text' => $response['header_text'] ?? '',
+                                            'footer_text' => $response['footer_text'] ?? ''
+                                        ];
+                                        $responseText = ''; // Clear text as it's in body_text
+
+                                        Log::info('Sending interactive button message', [
+                                            'user' => $contact->wa_id,
+                                            'buttons' => $buttons,
+                                            'body_text' => $interactionData['body_text']
+                                        ]);
+                                    }
+                                } elseif ($response['type'] === 'media_message') {
+                                    // Handle media message responses
+                                    $mediaMessageData = [
+                                        'header_type' => $response['media_type'] ?? 'document',
+                                        'media_link' => $response['media_url'] ?? '',
+                                        'caption' => $response['caption'] ?? '',
+                                        'file_name' => $response['filename'] ?? ''
+                                    ];
+                                    $responseText = ''; // Clear text as it's in caption
+
+                                    Log::info('Processing media message from node-based flow', [
+                                        'user' => $contact->wa_id,
+                                        'media_type' => $mediaMessageData['header_type'],
+                                        'media_url' => $mediaMessageData['media_link'],
+                                        'caption' => $mediaMessageData['caption'],
+                                        'node_id' => $response['node_id'] ?? 'unknown'
+                                    ]);
+                                }
+
+                                // Prepare options for sending message
+                                $messageOptions = [
+                                    'mediaMessageData' => $mediaMessageData,
+                                    'from_phone_number_id' => $options['fromPhoneNumberId'],
+                                    'node_based_flow' => true
+                                ];
+
+                                // Only include messageWamid for non-message type responses (interactive, media)
+                                // This ensures direct messages for basic text responses
+                                if ($response['type'] !== 'message') {
+                                    $messageOptions['messageWamid'] = $options['messageWamid'];
+                                }
+
+                                // Send the response
+                                $this->sendReplyBotMessage($contact->_uid, $responseText, $contact->vendors__id, $interactionData, $messageOptions);
+                            }
+
+                            if ($testBotId) {
+                                return $this->engineSuccessResponse([], __tr('Node-based flow processed successfully'));
+                            }
+
+                            // Skip all legacy processing since new flow system handled it
+                            return;
+                        }
+
+                        // If this bot reply belongs to a flow but new flow system didn't process it,
+                        // it means the message is not a valid flow start trigger, so skip processing
+                        if ($botReply->bot_flows__id) {
+                            Log::info('Skipping flow processing - not a valid start trigger', [
+                                'user' => $contact->wa_id,
+                                'message' => $messageBody,
+                                'flow_id' => $botReply->bot_flows__id,
+                                'reply_trigger' => $botReply->reply_trigger
+                            ]);
+                            break; // Skip this bot reply and continue to next one
+                        }
+
+                        // Clear any existing active flows before processing new reply
+                        // UserActiveFlow::where('phone_number', $contact->wa_id)->delete();
+                        
+                        // Check if this is a flow start trigger (ONLY start_trigger)
+                        $isFlowStartTrigger = false;
+                        if ($botReply->bot_flows__id) {
+                            // Get the bot flow
+                            $botFlow = \App\Yantrana\Components\BotReply\Models\BotFlowModel::find($botReply->bot_flows__id);
+                            if ($botFlow) {
+                                // Check if message matches the flow start_trigger based on trigger type
+                                $triggerType = $botFlow->trigger_type ?? 'is';
+
+                                Log::info('Checking flow start trigger match', [
+                                    'message' => $messageBody,
+                                    'start_trigger' => $botFlow->start_trigger,
+                                    'trigger_type' => $triggerType,
+                                    'flow_id' => $botFlow->_uid,
+                                    'flow_title' => $botFlow->title ?? 'unknown'
+                                ]);
+
+                                $isFlowStartTrigger = $this->checkTriggerMatch($messageBody, $botFlow->start_trigger, $triggerType);
+
+                                if ($isFlowStartTrigger) {
+                                    Log::info('Message matches flow start_trigger in WhatsApp engine', [
+                                        'message' => $messageBody,
+                                        'start_trigger' => $botFlow->start_trigger,
+                                        'trigger_type' => $triggerType,
+                                        'flow_id' => $botFlow->_uid
+                                    ]);
+                                } else {
+                                    Log::info('Message does not match flow start_trigger in WhatsApp engine', [
+                                        'message' => $messageBody,
+                                        'start_trigger' => $botFlow->start_trigger ?? 'not_set',
+                                        'trigger_type' => $triggerType,
+                                        'flow_id' => $botFlow->_uid
+                                    ]);
+                                }
+                            }
+                        }
+
+                        // If this is a flow's start trigger, set it as active
+                        if ($botReply->bot_flows__id && ($isFlowStartTrigger || $testBotId)) {
+                            Log::info('Setting active flow', [
+                                'user' => $contact->wa_id,
+                                'flow_id' => $botReply->bot_flows__id,
+                                'trigger' => $messageBody,
+                                'reply_trigger' => $botReply->reply_trigger,
+                                'test_bot' => (bool)$testBotId,
+                                'is_start_trigger' => $isFlowStartTrigger,
+                                'clearing_existing_flow' => !is_null($activeFlow)
+                            ]);
+
+                            try {
+                                // Start transaction for flow state changes
+                                DB::beginTransaction();
+
+                                // Clear any existing active flow when starting a new one
+                                if ($activeFlow) {
+                                    UserActiveFlow::where('phone_number', $contact->wa_id)->delete();
+                                }
+
+                                // Set the new active flow
+                                $activeFlow = UserActiveFlow::setActiveFlow(
+                                    $contact->_id,
+                                    $botReply->bot_flows__id,
+                                    $contact->wa_id
+                                );
+                                
+                                // Initialize flow state if needed
+                                if (isset($botReply->__data['flow_init_state'])) {
+                                    $activeFlow->__data = array_merge(
+                                        $activeFlow->__data ?? [],
+                                        ['flow_state' => $botReply->__data['flow_init_state']]
+                                    );
+                                    $activeFlow->save();
+                                }
+                                
+                                DB::commit();
+                            } catch (\Exception $e) {
+                                DB::rollBack();
+                                Log::error('Failed to initialize flow', [
+                                    'error' => $e->getMessage(),
+                                    'user' => $contact->wa_id,
+                                    'flow_id' => $botReply->bot_flows__id
+                                ]);
+                            }
+                        }
+                        
+                            // If this is the last reply in a flow (no next steps), clear the active flow
+                            if ($activeFlow && $botReply->bot_flows__id == $activeFlow->flow_id) {
+                                $hasNextSteps = false;
+                                $nextStepType = 'none';
+                                
+                                // Check for buttons in interaction message
+                                if (isset($botReply->__data['interaction_message']['buttons']) && 
+                                    !empty($botReply->__data['interaction_message']['buttons'])) {
+                                    $hasNextSteps = true;
+                                    $nextStepType = 'buttons';
+                                }
+
+                                // Check for expected responses in flow data
+                                if (isset($botReply->__data['expected_responses']) && 
+                                    !empty($botReply->__data['expected_responses'])) {
+                                    $hasNextSteps = true;
+                                    $nextStepType = 'expected_responses';
+                                }
+                                
+                                if ($hasNextSteps) {
+                                    Log::info('Flow continuing - has next steps', [
+                                        'user' => $contact->wa_id,
+                                        'flow_id' => $activeFlow->flow_id,
+                                        'next_step_type' => $nextStepType
+                                    ]);
+                                }
+                                
+                                // If no next steps or this is a terminal node, end the flow
+                                if (!$hasNextSteps || isset($botReply->__data['is_terminal_node'])) {
+                                    Log::info('Ending flow - terminal node or no next steps', [
+                                        'user' => $contact->wa_id,
+                                        'flow_id' => $activeFlow->flow_id,
+                                        'last_reply_id' => $botReply->_id,
+                                        'next_step_type' => $nextStepType,
+                                        'is_terminal' => isset($botReply->__data['is_terminal_node'])
+                                    ]);
+                                    
+                                    // Delete the active flow since this is the last node
+                                    UserActiveFlow::where('phone_number', $contact->wa_id)->delete();
+                                    
+                                    // Trigger any completion callbacks if defined
+                                    if (isset($botReply->__data['completion_callback'])) {
+                                        try {
+                                            $callback = $botReply->__data['completion_callback'];
+                                            if (is_callable($callback)) {
+                                                call_user_func($callback, $contact, $activeFlow);
+                                            }
+                                        } catch (\Exception $e) {
+                                            Log::error('Flow completion callback failed', [
+                                                'error' => $e->getMessage(),
+                                                'flow_id' => $activeFlow->flow_id
+                                            ]);
+                                        }
+                                    }
+                                } else {
+                                    Log::info('Flow continuing - has next steps', [
+                                        'user' => $contact->wa_id,
+                                        'flow_id' => $activeFlow->flow_id,
+                                        'next_step_type' => $nextStepType
+                                    ]);
+                                }
+                            }
+
                         if ($replyText) {
                             $replyText = $this->dynamicValuesReplacement($replyText, $contact);
                         }
@@ -2495,7 +3647,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                     'file_name' => Arr::get($downloadedFileInfo, 'fileName'),
                     'original_filename' => Arr::get($downloadedFileInfo, 'fileName'),
                 ];
-            }elseif ($messageType === 'order') {
+            } elseif ($messageType === 'order') {
                 // Handle catalog order messages
                 $this->processCatalogOrderMessage($messageObject[0], $waId, $vendorId);
                 $messageBody = 'Order placed from catalog';
@@ -2609,12 +3761,12 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
 
             if ($messageBody) {
                 fromPhoneNumberIdForRequest($phoneNumberId);
-                // process the bot if needed any
-                
+
                 // Handle order flow interactions first
                 if ($this->handleOrderFlowInteractions($contact, $messageBody, $messageType, $messageObject[0] ?? [], $vendorId)) {
                     // Order flow handled, skip bot processing
                 } else {
+                    // process the bot if needed any
                     $this->processReplyBot($contact, $messageBody, null, [
                         'fromPhoneNumberId' => $phoneNumberId,
                         'messageWamid' => $messageWamid,
@@ -2930,7 +4082,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
         return true;
     }
 
-/**
+    /**
      * Process catalog order message
      *
      * @param array $orderMessage
@@ -3039,6 +4191,83 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
 
             return false;
         }
+    }
+
+    /**
+     * Check if message matches trigger based on trigger type
+     *
+     * @param string $messageBody
+     * @param string $trigger
+     * @param string $triggerType
+     * @return bool
+     */
+    private function checkTriggerMatch($messageBody, $trigger, $triggerType)
+    {
+        // Handle welcome trigger type
+        if ($triggerType === 'welcome') {
+            // Welcome triggers should always match for first-time contacts
+            // This will be handled in the main bot processing logic
+            return true;
+        }
+
+        // Handle new_message trigger type
+        if ($triggerType === 'new_message') {
+            // New message triggers should always match when there's no active flow
+            // This will be handled in the main bot processing logic
+            return true;
+        }
+
+        if (!$trigger) {
+            return false;
+        }
+
+        // Split trigger by commas and trim each trigger word
+        $triggerWords = array_map('trim', explode(',', $trigger));
+        $messageBody = strtolower(trim($messageBody));
+
+        // Check if message matches any of the trigger words based on trigger type
+        foreach ($triggerWords as $triggerWord) {
+            $triggerWord = strtolower(trim($triggerWord));
+            $isMatch = false;
+
+            switch ($triggerType) {
+                case 'is':
+                    $isMatch = $triggerWord === $messageBody;
+                    break;
+                case 'starts_with':
+                    $isMatch = str_starts_with($messageBody, $triggerWord);
+                    break;
+                case 'ends_with':
+                    $isMatch = str_ends_with($messageBody, $triggerWord);
+                    break;
+                case 'contains_word':
+                    // Match whole words only
+                    $isMatch = preg_match('/\b' . preg_quote($triggerWord, '/') . '\b/i', $messageBody);
+                    break;
+                case 'contains':
+                    $isMatch = str_contains($messageBody, $triggerWord);
+                    break;
+                case 'stop_promotional':
+                    // Handle stop promotional logic if needed
+                    $isMatch = $triggerWord === $messageBody;
+                    break;
+                default:
+                    $isMatch = $triggerWord === $messageBody;
+                    break;
+            }
+
+            if ($isMatch) {
+                Log::info('Trigger match found', [
+                    'messageBody' => $messageBody,
+                    'triggerWord' => $triggerWord,
+                    'triggerType' => $triggerType,
+                    'trigger' => $trigger
+                ]);
+                return true;
+            }
+        }
+
+        return false;
     }
 
 

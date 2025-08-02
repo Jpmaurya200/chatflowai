@@ -173,6 +173,11 @@ $techAppConfig = [
             'description' => __tr('This trigger subject will disable AI chat for this contact.'),
             'priority_index' => 10,
         ],
+        'new_message' => [
+            'title' => __tr('New Message'),
+            'description' => __tr('This trigger fires whenever a user sends a new message to the bot — outside of any active flow or session.'),
+            'priority_index' => 11,
+        ],
     ],
     'demo_protected_bots' => env('DEMO_PROTECTED_BOTS', ''),
     /* Mail Drivers
