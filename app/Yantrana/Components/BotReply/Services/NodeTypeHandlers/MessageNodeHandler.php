@@ -26,9 +26,9 @@ class MessageNodeHandler extends BaseNodeHandler
             $text = $payload['text'] ?? '';
         }
 
-        // Process dynamic variables
-        $userResponses = $this->getUserResponses($context);
-        $processedText = $this->processDynamicVariables($text, $userResponses);
+        // Process dynamic variables including contact variables
+        $variables = $this->getAllVariables($context);
+        $processedText = $this->processDynamicVariables($text, $variables);
 
         $isTerminal = empty($payload['next_node']);
 

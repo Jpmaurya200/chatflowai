@@ -14,6 +14,7 @@ use App\Yantrana\Base\BaseRequestTwo;
 use Illuminate\Database\Query\Builder;
 use App\Yantrana\Components\BotReply\BotFlowEngine;
 use App\Yantrana\Components\BotReply\BotReplyEngine;
+use App\Yantrana\Components\User\Repositories\UserRepository;
 
 class BotFlowController extends BaseController
 {       /**
@@ -27,19 +28,27 @@ class BotFlowController extends BaseController
     protected $botReplyEngine;
 
     /**
+     * @var  UserRepository $userRepository - User Repository
+     */
+    protected $userRepository;
+
+    /**
       * Constructor
       *
       * @param  BotFlowEngine $botFlowEngine - BotFlow Engine
       * @param  BotReplyEngine $botReplyEngine - BotReply Engine
+      * @param  UserRepository $userRepository - User Repository
       *
       * @return  void
       *-----------------------------------------------------------------------*/
     public function __construct(
         BotFlowEngine $botFlowEngine,
-        BotReplyEngine $botReplyEngine
+        BotReplyEngine $botReplyEngine,
+        UserRepository $userRepository
     ) {
         $this->botFlowEngine = $botFlowEngine;
         $this->botReplyEngine = $botReplyEngine;
+        $this->userRepository = $userRepository;
     }
 
 
@@ -106,19 +115,31 @@ class BotFlowController extends BaseController
             ], [], true);
         }
         $vendorId = getVendorId();
-        // process the validation based on the provided rules
-        $request->validate([
+
+        // Prepare validation rules
+        $validationRules = [
             'title' => [
                 "required",
                 "max:150",
                 Rule::unique('bot_flows')->where(fn (Builder $query) => $query->where('vendors__id', $vendorId))
             ],
-            'start_trigger' => [
+            'trigger_type' => [
+                "required",
+                "in:" . implode(',', array_keys(configItem('bot_reply_trigger_types')))
+            ]
+        ];
+
+        // Add start_trigger validation only if trigger_type is not 'welcome' or 'new_message'
+        if (!in_array($request->trigger_type, ['welcome', 'new_message'])) {
+            $validationRules['start_trigger'] = [
                 "required",
                 "max:255",
                 Rule::unique('bot_flows')->where(fn (Builder $query) => $query->where('vendors__id', $vendorId))
-            ]
-        ]);
+            ];
+        }
+
+        // process the validation based on the provided rules
+        $request->validate($validationRules);
         // ask engine to process the request
         $processReaction = $this->botFlowEngine->processBotFlowCreate($request->all());
         // get back with response
@@ -159,12 +180,23 @@ class BotFlowController extends BaseController
                 22 => __tr('Functionality is disabled in this demo.')
             ], [], true);
         }
-        // process the validation based on the provided rules
-        $request->validate([
+        // Prepare validation rules
+        $validationRules = [
             'botFlowIdOrUid' => 'required',
             "title" => "required|max:150",
-            "start_trigger" => "required|max:255",
-        ]);
+            'trigger_type' => [
+                "required",
+                "in:" . implode(',', array_keys(configItem('bot_reply_trigger_types')))
+            ]
+        ];
+
+        // Add start_trigger validation only if trigger_type is not 'welcome' or 'new_message'
+        if (!in_array($request->trigger_type, ['welcome', 'new_message'])) {
+            $validationRules['start_trigger'] = "required|max:255";
+        }
+
+        // process the validation based on the provided rules
+        $request->validate($validationRules);
         // ask engine to process the request
         $processReaction = $this->botFlowEngine->processBotFlowUpdate($request->get('botFlowIdOrUid'), $request);
         // get back with response
@@ -207,9 +239,18 @@ class BotFlowController extends BaseController
         validateVendorAccess('manage_bot_replies');
         $processReaction = $this->botFlowEngine->prepareBotFlowBuilderData($botFlowIdOrUid);
         abortIf($processReaction->failed());
+
+        // Get vendor team members for team assignment nodes
+        $vendorId = getVendorId();
+        $vendorTeamMembers = $this->userRepository->getVendorMessagingUsers($vendorId);
+
         // load the view
+        $preData = $this->botReplyEngine->preDataForBots();
         return $this->loadView('bot-reply.bot-flow.builder', array_merge([
-            'dynamicFields' => $this->botReplyEngine->preDataForBots()->data('dynamicFields'),
+            'dynamicFields' => $preData->data('dynamicFields'),
+            'contactCustomFields' => $preData->data('contactCustomFields'),
+            'whatsAppTemplates' => $preData->data('whatsAppTemplates'),
+            'vendorTeamMembers' => $vendorTeamMembers,
             'botFlowUid' => $botFlowIdOrUid
         ], $processReaction->data()));
     }

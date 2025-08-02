@@ -12,12 +12,15 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use App\Yantrana\Base\BaseEngine;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\Log;
 use App\Yantrana\Components\Media\MediaEngine;
 use App\Yantrana\Components\WhatsAppService\WhatsAppServiceEngine;
 use App\Yantrana\Components\BotReply\Repositories\BotFlowRepository;
 use App\Yantrana\Components\BotReply\Repositories\BotReplyRepository;
 use App\Yantrana\Components\BotReply\Interfaces\BotReplyEngineInterface;
 use App\Yantrana\Components\Contact\Repositories\ContactCustomFieldRepository;
+use App\Yantrana\Components\User\Repositories\UserRepository;
+use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppTemplateRepository;
 
 class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
 {
@@ -47,6 +50,16 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
     protected $botFlowRepository;
 
     /**
+     * @var  UserRepository $userRepository - User Repository
+     */
+    protected $userRepository;
+
+    /**
+     * @var  WhatsAppTemplateRepository $whatsAppTemplateRepository - WhatsApp Template Repository
+     */
+    protected $whatsAppTemplateRepository;
+
+    /**
       * Constructor
       *
       * @param  BotReplyRepository $botReplyRepository - BotReply Repository
@@ -54,6 +67,8 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
       * @param  MediaEngine $mediaEngine
       * @param  WhatsAppServiceEngine $whatsAppServiceEngine
       * @param  BotFlowRepository $botFlowRepository
+      * @param  UserRepository $userRepository
+      * @param  WhatsAppTemplateRepository $whatsAppTemplateRepository - WhatsApp Template Repository
       *
       * @return  void
       *-----------------------------------------------------------------------*/
@@ -64,12 +79,16 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
         MediaEngine $mediaEngine,
         WhatsAppServiceEngine $whatsAppServiceEngine,
         BotFlowRepository $botFlowRepository,
+        UserRepository $userRepository,
+        WhatsAppTemplateRepository $whatsAppTemplateRepository,
     ) {
         $this->botReplyRepository = $botReplyRepository;
         $this->contactCustomFieldRepository = $contactCustomFieldRepository;
         $this->mediaEngine = $mediaEngine;
         $this->whatsAppServiceEngine = $whatsAppServiceEngine;
         $this->botFlowRepository = $botFlowRepository;
+        $this->userRepository = $userRepository;
+        $this->whatsAppTemplateRepository = $whatsAppTemplateRepository;
     }
 
     /**
@@ -99,8 +118,13 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
             $dynamicFieldsToReplace[] = "{{$customField->input_name}}";
         }
 
+        // Get WhatsApp templates for the vendor
+        $whatsAppTemplates = $this->whatsAppTemplateRepository->getApprovedTemplatesByNewest();
+
         return $this->engineSuccessResponse([
-            'dynamicFields' => $dynamicFieldsToReplace
+            'dynamicFields' => $dynamicFieldsToReplace,
+            'contactCustomFields' => $customFields, // Pass custom fields to view
+            'whatsAppTemplates' => $whatsAppTemplates // Pass WhatsApp templates to view
         ]);
     }
 
@@ -142,7 +166,8 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                     $botReplyType = __tr('Media');
                 } elseif($rowData['__data']['interaction_message'] ?? null) {
                     $botReplyType = __tr('Interactive/Buttons');
-                    ;
+                } elseif($rowData['__data']['stay_in_session_message'] ?? null) {
+                    $botReplyType = __tr('Stay in Session');
                 }
                 return $botReplyType;
             },
@@ -374,6 +399,228 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                     'file_name' => $isProcessed->data('fileName'),
                 ]
             ];
+        } elseif($messageType == 'goto') {
+            // Validate that target node exists
+            if (empty($inputData['goto_target_node'])) {
+                return $this->engineResponse(2, null, __tr('Target node is required for goto nodes'));
+            }
+
+            // Verify target node exists in the same bot flow
+            $targetNode = $this->botReplyRepository->fetchIt([
+                '_uid' => $inputData['goto_target_node'],
+                'bot_flows__id' => $inputData['bot_flows__id'] ?? null,
+                'vendors__id' => $vendorId,
+            ]);
+
+            if (__isEmpty($targetNode)) {
+                return $this->engineResponse(2, null, __tr('Selected target node does not exist'));
+            }
+
+            $inputData['reply_text'] = '';
+            $inputData['__data'] = [
+                'goto_message' => [
+                    'redirect_to_node' => $inputData['goto_target_node'],
+                    'target_node_name' => $targetNode->name,
+                ]
+            ];
+        } elseif($messageType == 'question') {
+            $conditionalFlows = [];
+            if (!empty($inputData['conditional_flows'])) {
+                foreach ($inputData['conditional_flows'] as $flow) {
+                    if (!empty($flow['condition_value']) && !empty($flow['target_node'])) {
+                        $conditionalFlows[] = [
+                            'label' => $flow['label'] ?? '',
+                            'condition_type' => $flow['condition_type'] ?? 'equals',
+                            'condition_value' => $flow['condition_value'],
+                            'target_node' => $flow['target_node']
+                        ];
+                    }
+                }
+            }
+
+            $inputData['__data'] = [
+                'question_message' => [
+                    'variable_name' => $inputData['question_variable_name'] ?? '',
+                    'input_type' => $inputData['question_input_type'] ?? 'text',
+                    'validation_rules' => [
+                        'min_length' => (int)($inputData['question_min_length'] ?? 1),
+                        'max_length' => (int)($inputData['question_max_length'] ?? 500),
+                    ],
+                    'placeholder_text' => $inputData['question_placeholder'] ?? '',
+                    'error_message' => $inputData['question_error_message'] ?? '',
+                    'success_message' => $inputData['question_success_message'] ?? '',
+                    'store_in_field' => $inputData['question_store_field'] ?? '',
+                    'is_required' => (bool)($inputData['question_is_required'] ?? true),
+                    'conditional_flows' => $conditionalFlows,
+                    'default_next_node' => $inputData['question_default_next_node'] ?? null,
+                ]
+            ];
+        } elseif($messageType == 'wait') {
+            // For wait nodes, use the wait_message field or fallback to default
+            $waitMessage = $inputData['wait_message'] ?? 'Please wait...';
+            $inputData['reply_text'] = $waitMessage; // Set the main reply_text field
+            
+            $inputData['__data'] = [
+                'wait_message' => [
+                    'wait_delay_seconds' => (int)($inputData['wait_delay_seconds'] ?? 5),
+                    'wait_message' => $waitMessage,
+                ]
+            ];
+        } elseif($messageType == 'team_assignment') {
+            // Validate that the assigned team member exists and has messaging permission
+            if (empty($inputData['assigned_team_member'])) {
+                return $this->engineResponse(2, null, __tr('Please select a team member to assign the conversation to'));
+            }
+
+            $assignedTeamMember = $this->userRepository->getVendorUserByUid(
+                $inputData['assigned_team_member'],
+                $vendorId
+            );
+
+            if (__isEmpty($assignedTeamMember)) {
+                // Debug logging to help identify the issue
+                Log::info('Team member not found during validation', [
+                    'selected_team_member_uid' => $inputData['assigned_team_member'],
+                    'vendor_id' => $vendorId,
+                ]);
+
+                return $this->engineResponse(2, null, __tr('Selected team member not found. Please ensure the team member exists and belongs to your organization.'));
+            }
+
+            // Verify the team member has messaging permission
+            $vendorTeamMembers = $this->userRepository->getVendorMessagingUsers($vendorId);
+            $hasMessagingPermission = $vendorTeamMembers->where('_uid', $inputData['assigned_team_member'])->count() > 0;
+
+            if (!$hasMessagingPermission) {
+                // Debug logging to help identify the issue
+                Log::info('Team assignment validation failed', [
+                    'selected_team_member_uid' => $inputData['assigned_team_member'],
+                    'vendor_id' => $vendorId,
+                    'available_team_members' => $vendorTeamMembers->pluck('_uid')->toArray(),
+                    'team_member_found_in_users' => !__isEmpty($assignedTeamMember),
+                ]);
+
+                return $this->engineResponse(2, null, __tr('Selected team member does not have messaging permission. Please ensure the team member has messaging permission enabled in their user settings.'));
+            }
+
+            // For team assignment nodes, use the assignment_message or fallback to default
+            $assignmentMessage = $inputData['assignment_message'] ?? '';
+            $inputData['reply_text'] = $assignmentMessage ?: ''; // Set the main reply_text field or empty string
+            
+            $inputData['__data'] = [
+                'team_assignment_message' => [
+                    'assignment_message' => $assignmentMessage,
+                    'assigned_team_member' => $inputData['assigned_team_member'],
+                    'assigned_team_member_name' => $assignedTeamMember->full_name,
+                    'assigned_team_member_email' => $assignedTeamMember->email,
+                ]
+            ];
+        } elseif($messageType == 'webhook') {
+            // Validate webhook URL
+            if (empty($inputData['webhook_url'])) {
+                return $this->engineResponse(2, null, __tr('Webhook URL is required'));
+            }
+
+            if (!filter_var($inputData['webhook_url'], FILTER_VALIDATE_URL)) {
+                return $this->engineResponse(2, null, __tr('Invalid webhook URL format'));
+            }
+
+            // Process response mapping
+            $responseMapping = [];
+            if (!empty($inputData['response_mapping'])) {
+                foreach ($inputData['response_mapping'] as $mapping) {
+                    if (!empty($mapping['source_path']) && !empty($mapping['target_variable'])) {
+                        $responseMapping[] = [
+                            'source_path' => $mapping['source_path'],
+                            'target_variable' => $mapping['target_variable']
+                        ];
+                    }
+                }
+            }
+
+            // For webhook nodes, use the success_message or fallback to default
+            $webhookMessage = $inputData['success_message'] ?? 'Processing webhook...';
+            $inputData['reply_text'] = $webhookMessage; // Set the main reply_text field
+            
+            $inputData['__data'] = [
+                'webhook_message' => [
+                    'webhook_url' => $inputData['webhook_url'],
+                    'http_method' => $inputData['http_method'] ?? 'POST',
+                    'request_body' => $inputData['request_body'] ?? '{}',
+                    'timeout' => (int)($inputData['timeout'] ?? 30),
+                    'success_message' => $webhookMessage,
+                    'error_message' => $inputData['error_message'] ?? 'Webhook execution failed',
+                    'response_mapping' => $responseMapping,
+                ]
+            ];
+        } elseif($messageType == 'custom_field') {
+            // Validate custom field selection
+            if (empty($inputData['custom_field_id'])) {
+                return $this->engineResponse(2, null, __tr('Custom field selection is required'));
+            }
+
+            if (empty($inputData['question_text'])) {
+                return $this->engineResponse(2, null, __tr('Question text is required'));
+            }
+
+            // Verify the custom field exists and belongs to the vendor
+            $customField = $this->contactCustomFieldRepository->fetchIt([
+                '_id' => $inputData['custom_field_id'],
+                'vendors__id' => $vendorId
+            ]);
+
+            if (__isEmpty($customField)) {
+                return $this->engineResponse(2, null, __tr('Selected custom field not found. Please ensure the custom field exists and belongs to your organization.'));
+            }
+
+            // For custom field nodes, use the question_text
+            $questionText = $inputData['question_text'];
+            $inputData['reply_text'] = $questionText; // Set the main reply_text field
+            
+            $inputData['__data'] = [
+                'custom_field_message' => [
+                    'custom_field_id' => $inputData['custom_field_id'],
+                    'custom_field_name' => $inputData['custom_field_name'] ?? $customField->input_name,
+                    'custom_field_type' => $customField->input_type,
+                    'question_text' => $questionText,
+                ]
+            ];
+        } elseif($messageType == 'whatsapp_template') {
+            // Validate WhatsApp template selection
+            if (empty($inputData['whatsapp_template_id'])) {
+                return $this->engineResponse(2, null, __tr('WhatsApp template selection is required'));
+            }
+
+            // Verify the template exists and belongs to the vendor
+            $whatsAppTemplate = $this->whatsAppTemplateRepository->fetchIt([
+                '_id' => $inputData['whatsapp_template_id'],
+                'vendors__id' => $vendorId
+            ]);
+
+            if (__isEmpty($whatsAppTemplate)) {
+                return $this->engineResponse(2, null, __tr('Selected WhatsApp template not found. Please ensure the template exists and belongs to your organization.'));
+            }
+
+            // For WhatsApp template nodes, set a default reply text
+            $inputData['reply_text'] = __tr('Available WhatsApp Templates:');
+            
+            $inputData['__data'] = [
+                'whatsapp_template_message' => [
+                    'whatsapp_template_id' => $inputData['whatsapp_template_id'],
+                    'template_name' => $whatsAppTemplate->template_name,
+                    'template_language' => $whatsAppTemplate->language,
+                ]
+            ];
+        } elseif($messageType == 'stay_in_session') {
+            // For stay in session nodes, use the session_message field or fallback to empty
+            $sessionMessage = $inputData['session_message'] ?? '';
+            $inputData['reply_text'] = ''; // Stay in session nodes don't need reply_text
+
+            $inputData['__data'] = [
+                'stay_in_session_message' => [
+                    'session_message' => $sessionMessage,
+                ]
+            ];
         }
         // ask to add record
         $engineResponse = $this->botReplyRepository->processTransaction(function () use (&$inputData, &$vendorId) {
@@ -399,9 +646,20 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                 'bot_flows__id' => $inputData['bot_flows__id'],
                 'vendors__id' => $vendorId,
             ]);
-            updateClientModels([
+
+            $responseData = [
                 'flowBots' => $flowBots,
-            ]);
+            ];
+
+            // If it's a goto node, add auto-connection data
+            if ($messageType === 'goto' && !empty($inputData['goto_target_node'])) {
+                $responseData['autoConnectGoto'] = [
+                    'gotoNodeId' => $engineResponse[1]['_uid'] ?? null,
+                    'targetNodeId' => $inputData['goto_target_node']
+                ];
+            }
+
+            updateClientModels($responseData);
         }
         return $this->engineResponse($engineResponse);
 
@@ -512,6 +770,203 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                     'caption' => $inputData['caption'] ?? '',
                 ]
             ];
+        } elseif($messageType == 'goto') {
+            // Validate that target node exists
+            if (empty($inputData['goto_target_node'])) {
+                return $this->engineResponse(2, null, __tr('Target node is required for goto nodes'));
+            }
+
+            // Verify target node exists in the same bot flow
+            $targetNode = $this->botReplyRepository->fetchIt([
+                '_uid' => $inputData['goto_target_node'],
+                'bot_flows__id' => $botFlowId,
+                'vendors__id' => $vendorId,
+            ]);
+
+            if (__isEmpty($targetNode)) {
+                return $this->engineResponse(2, null, __tr('Selected target node does not exist'));
+            }
+
+            $updateData['reply_text'] = '';
+            $updateData['__data'] = [
+                'goto_message' => [
+                    'redirect_to_node' => $inputData['goto_target_node'],
+                    'target_node_name' => $targetNode->name,
+                ]
+            ];
+        } elseif($messageType == 'question') {
+            $conditionalFlows = [];
+            if (!empty($inputData['conditional_flows'])) {
+                foreach ($inputData['conditional_flows'] as $flow) {
+                    if (!empty($flow['condition_value']) && !empty($flow['target_node'])) {
+                        $conditionalFlows[] = [
+                            'label' => $flow['label'] ?? '',
+                            'condition_type' => $flow['condition_type'] ?? 'equals',
+                            'condition_value' => $flow['condition_value'],
+                            'target_node' => $flow['target_node']
+                        ];
+                    }
+                }
+            }
+
+            $updateData['__data'] = [
+                'question_message' => [
+                    'variable_name' => $inputData['question_variable_name'] ?? '',
+                    'input_type' => $inputData['question_input_type'] ?? 'text',
+                    'validation_rules' => [
+                        'min_length' => (int)($inputData['question_min_length'] ?? 1),
+                        'max_length' => (int)($inputData['question_max_length'] ?? 500),
+                    ],
+                    'placeholder_text' => $inputData['question_placeholder'] ?? '',
+                    'error_message' => $inputData['question_error_message'] ?? '',
+                    'success_message' => $inputData['question_success_message'] ?? '',
+                    'store_in_field' => $inputData['question_store_field'] ?? '',
+                    'is_required' => (bool)($inputData['question_is_required'] ?? true),
+                    'conditional_flows' => $conditionalFlows,
+                    'default_next_node' => $inputData['question_default_next_node'] ?? null,
+                ]
+            ];
+        } elseif($messageType == 'wait') {
+            $updateData['__data'] = [
+                'wait_message' => [
+                    'wait_delay_seconds' => (int)($inputData['wait_delay_seconds'] ?? 5),
+                    'wait_message' => $inputData['wait_message'] ?? $inputData['reply_text'] ?? 'Please wait...',
+                ]
+            ];
+        } elseif($messageType == 'team_assignment') {
+            // Validate that the assigned team member exists and has messaging permission
+            if (empty($inputData['assigned_team_member'])) {
+                return $this->engineResponse(2, null, __tr('Please select a team member to assign the conversation to'));
+            }
+
+            $assignedTeamMember = $this->userRepository->getVendorUserByUid(
+                $inputData['assigned_team_member'],
+                $vendorId
+            );
+
+            if (__isEmpty($assignedTeamMember)) {
+                // Debug logging to help identify the issue
+                Log::info('Team member not found during update validation', [
+                    'selected_team_member_uid' => $inputData['assigned_team_member'],
+                    'vendor_id' => $vendorId,
+                ]);
+
+                return $this->engineResponse(2, null, __tr('Selected team member not found. Please ensure the team member exists and belongs to your organization.'));
+            }
+
+            // Verify the team member has messaging permission
+            $vendorTeamMembers = $this->userRepository->getVendorMessagingUsers($vendorId);
+            $hasMessagingPermission = $vendorTeamMembers->where('_uid', $inputData['assigned_team_member'])->count() > 0;
+
+            if (!$hasMessagingPermission) {
+                // Debug logging to help identify the issue
+                Log::info('Team assignment update validation failed', [
+                    'selected_team_member_uid' => $inputData['assigned_team_member'],
+                    'vendor_id' => $vendorId,
+                    'available_team_members' => $vendorTeamMembers->pluck('_uid')->toArray(),
+                    'team_member_found_in_users' => !__isEmpty($assignedTeamMember),
+                ]);
+
+                return $this->engineResponse(2, null, __tr('Selected team member does not have messaging permission. Please ensure the team member has messaging permission enabled in their user settings.'));
+            }
+
+            $updateData['reply_text'] = $inputData['assignment_message'] ?? '';
+            $updateData['__data'] = [
+                'team_assignment_message' => [
+                    'assignment_message' => $inputData['assignment_message'] ?? '',
+                    'assigned_team_member' => $inputData['assigned_team_member'],
+                    'assigned_team_member_name' => $assignedTeamMember->full_name,
+                    'assigned_team_member_email' => $assignedTeamMember->email,
+                ]
+            ];
+        } elseif($messageType == 'webhook') {
+            // Validate webhook URL
+            if (empty($inputData['webhook_url'])) {
+                return $this->engineResponse(2, null, __tr('Webhook URL is required'));
+            }
+
+            if (!filter_var($inputData['webhook_url'], FILTER_VALIDATE_URL)) {
+                return $this->engineResponse(2, null, __tr('Invalid webhook URL format'));
+            }
+
+            // Process response mapping
+            $responseMapping = [];
+            if (!empty($inputData['response_mapping'])) {
+                foreach ($inputData['response_mapping'] as $mapping) {
+                    if (!empty($mapping['source_path']) && !empty($mapping['target_variable'])) {
+                        $responseMapping[] = [
+                            'source_path' => $mapping['source_path'],
+                            'target_variable' => $mapping['target_variable']
+                        ];
+                    }
+                }
+            }
+
+            $updateData['__data'] = [
+                'webhook_message' => [
+                    'webhook_url' => $inputData['webhook_url'],
+                    'http_method' => $inputData['http_method'] ?? 'POST',
+                    'request_body' => $inputData['request_body'] ?? '{}',
+                    'timeout' => (int)($inputData['timeout'] ?? 30),
+                    'success_message' => $inputData['success_message'] ?? 'Webhook executed successfully',
+                    'error_message' => $inputData['error_message'] ?? 'Webhook execution failed',
+                    'response_mapping' => $responseMapping,
+                ]
+            ];
+        } elseif($messageType == 'custom_field') {
+            // Validate custom field selection
+            if (empty($inputData['custom_field_id'])) {
+                return $this->engineResponse(2, null, __tr('Custom field selection is required'));
+            }
+
+            if (empty($inputData['question_text'])) {
+                return $this->engineResponse(2, null, __tr('Question text is required'));
+            }
+
+            // Verify the custom field exists and belongs to the vendor
+            $customField = $this->contactCustomFieldRepository->fetchIt([
+                '_id' => $inputData['custom_field_id'],
+                'vendors__id' => $vendorId
+            ]);
+
+            if (__isEmpty($customField)) {
+                return $this->engineResponse(2, null, __tr('Selected custom field not found. Please ensure the custom field exists and belongs to your organization.'));
+            }
+
+            $updateData['__data'] = [
+                'custom_field_message' => [
+                    'custom_field_id' => $inputData['custom_field_id'],
+                    'custom_field_name' => $inputData['custom_field_name'] ?? $customField->input_name,
+                    'custom_field_type' => $customField->input_type,
+                    'question_text' => $inputData['question_text'],
+                ]
+            ];
+        } elseif($messageType == 'whatsapp_template') {
+            // Validate WhatsApp template selection
+            if (empty($inputData['whatsapp_template_id'])) {
+                return $this->engineResponse(2, null, __tr('WhatsApp template selection is required'));
+            }
+
+            // Verify the template exists and belongs to the vendor
+            $whatsAppTemplate = $this->whatsAppTemplateRepository->fetchIt([
+                '_id' => $inputData['whatsapp_template_id'],
+                'vendors__id' => $vendorId
+            ]);
+
+            if (__isEmpty($whatsAppTemplate)) {
+                return $this->engineResponse(2, null, __tr('Selected WhatsApp template not found. Please ensure the template exists and belongs to your organization.'));
+            }
+
+            // For WhatsApp template nodes, set a default reply text
+            $updateData['reply_text'] = __tr('Available WhatsApp Templates:');
+            
+            $updateData['__data'] = [
+                'whatsapp_template_message' => [
+                    'whatsapp_template_id' => $inputData['whatsapp_template_id'],
+                    'template_name' => $whatsAppTemplate->template_name,
+                    'template_language' => $whatsAppTemplate->language,
+                ]
+            ];
         } elseif($messageType == 'interactive') {
             $interactiveType = $inputData['interactive_type'] ?? 'button';
             $ctaUrlButton = null;
@@ -537,6 +992,16 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                     'buttons' => $currentInputButtonsData,
                     'cta_url' => $ctaUrlButton,
                     'list_data' => $listData,
+                ]
+            ];
+        } elseif($messageType == 'stay_in_session') {
+            // For stay in session nodes, update the session message
+            $sessionMessage = $inputData['session_message'] ?? '';
+            $updateData['reply_text'] = ''; // Stay in session nodes don't need reply_text
+
+            $updateData['__data'] = [
+                'stay_in_session_message' => [
+                    'session_message' => $sessionMessage,
                 ]
             ];
         }
@@ -652,6 +1117,7 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                 $updateData['__data'] = json_encode($botData);
                 $isUpdated = $this->botReplyRepository->updateForListAndButtonMessage($botReply->_id, $updateData);
             } else {
+                // Handle goto and question nodes, and other simple updates
                 $isUpdated = $this->botReplyRepository->updateIt($botReply, $updateData);
                 if($request->has('footer_text') and !$request->footer_text) {
                     $isUpdated = $this->botReplyRepository->updateForListAndButtonMessage($botReply->_id, [
@@ -673,10 +1139,19 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
         });
         // if bot flow
         if($botFlowId and ($engineResponse[0] == 1)) {
-            // reloadPage
-            return $this->engineResponse(21, [
+            $responseData = [
                 'reloadPage' => true
-            ]);
+            ];
+
+            // If it's a goto node, add auto-connection data
+            if ($messageType === 'goto' && !empty($inputData['goto_target_node'])) {
+                $responseData['autoConnectGoto'] = [
+                    'gotoNodeId' => $botReply->_uid,
+                    'targetNodeId' => $inputData['goto_target_node']
+                ];
+            }
+
+            return $this->engineResponse(21, $responseData);
         }
         return $this->engineResponse($engineResponse);
     }

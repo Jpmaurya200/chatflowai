@@ -14,6 +14,10 @@ use App\Yantrana\Base\BaseController;
 use Illuminate\Database\Query\Builder;
 use App\Yantrana\Support\CommonPostRequest;
 use App\Yantrana\Components\BotReply\BotReplyEngine;
+use App\Yantrana\Components\BotReply\Repositories\BotReplyRepository;
+use App\Yantrana\Components\Contact\Repositories\ContactCustomFieldRepository;
+use App\Yantrana\Components\User\Repositories\UserRepository;
+use Illuminate\Support\Facades\Log;
 
 class BotReplyController extends BaseController
 {
@@ -23,15 +27,40 @@ class BotReplyController extends BaseController
     protected $botReplyEngine;
 
     /**
+     * @var  UserRepository $userRepository - User Repository
+     */
+    protected $userRepository;
+
+    /**
+     * @var  BotReplyRepository $botReplyRepository - BotReply Repository
+     */
+    protected $botReplyRepository;
+
+    /**
+     * @var  ContactCustomFieldRepository $contactCustomFieldRepository - ContactCustomField Repository
+     */
+    protected $contactCustomFieldRepository;
+
+    /**
       * Constructor
       *
       * @param  BotReplyEngine $botReplyEngine - BotReply Engine
+      * @param  UserRepository $userRepository - User Repository
+      * @param  BotReplyRepository $botReplyRepository - BotReply Repository
+      * @param  ContactCustomFieldRepository $contactCustomFieldRepository - ContactCustomField Repository
       *
       * @return  void
       *-----------------------------------------------------------------------*/
-    public function __construct(BotReplyEngine $botReplyEngine)
-    {
+    public function __construct(
+        BotReplyEngine $botReplyEngine,
+        UserRepository $userRepository,
+        BotReplyRepository $botReplyRepository,
+        ContactCustomFieldRepository $contactCustomFieldRepository
+    ) {
         $this->botReplyEngine = $botReplyEngine;
+        $this->userRepository = $userRepository;
+        $this->botReplyRepository = $botReplyRepository;
+        $this->contactCustomFieldRepository = $contactCustomFieldRepository;
     }
 
 
@@ -45,8 +74,31 @@ class BotReplyController extends BaseController
     {
         validateVendorAccess('manage_bot_replies');
         // load the view
+        $preData = $this->botReplyEngine->preDataForBots();
+
+        // Get vendor team members for team assignment nodes
+        $vendorId = getVendorId();
+        $vendorTeamMembers = $this->userRepository->getVendorMessagingUsers($vendorId);
+
+        // Debug logging to see what users are available
+        Log::info('Vendor team members for dropdown', [
+            'vendor_id' => $vendorId,
+            'team_members_count' => $vendorTeamMembers->count(),
+            'team_members' => $vendorTeamMembers->map(function($user) {
+                return [
+                    '_uid' => $user->_uid,
+                    'full_name' => $user->full_name,
+                    'email' => $user->email,
+                    'role_id' => $user->user_roles__id,
+                ];
+            })->toArray()
+        ]);
+
         return $this->loadView('bot-reply.list', [
-            'dynamicFields' => $this->botReplyEngine->preDataForBots()->data('dynamicFields')
+            'dynamicFields' => $preData->data('dynamicFields'),
+            'contactCustomFields' => $preData->data('contactCustomFields'),
+            'whatsAppTemplates' => $preData->data('whatsAppTemplates'),
+            'vendorTeamMembers' => $vendorTeamMembers
         ]);
     }
     /**
@@ -154,8 +206,44 @@ class BotReplyController extends BaseController
         if(in_array($request->message_type, [
             'simple',
             'interactive',
+            'question',
         ])) {
             $validations['reply_text'] = "required";
+        }
+        // For node types that map their own text fields to reply_text in the engine,
+        // we validate their specific required fields instead of reply_text
+        if($request->message_type == 'wait') {
+            // wait_message is optional, but if provided should be reasonable length
+            $validations['wait_message'] = 'nullable|string|max:500';
+            $validations['wait_delay_seconds'] = 'required|integer|min:1|max:3600';
+        }
+        if($request->message_type == 'team_assignment') {
+            $validations['assigned_team_member'] = 'required';
+            $validations['assignment_message'] = 'nullable|string|max:500';
+        }
+        if($request->message_type == 'webhook') {
+            $validations['webhook_url'] = 'required|url';
+            $validations['http_method'] = 'required|in:GET,POST,PUT,PATCH,DELETE';
+            $validations['success_message'] = 'nullable|string|max:500';
+            $validations['error_message'] = 'nullable|string|max:500';
+            $validations['timeout'] = 'nullable|integer|min:5|max:120';
+        }
+        if($request->message_type == 'custom_field') {
+            $validations['custom_field_id'] = 'required';
+            $validations['question_text'] = 'required|string|max:500';
+        }
+        if($request->message_type == 'whatsapp_template') {
+            $validations['whatsapp_template_id'] = 'required';
+        }
+        // Stay in session nodes don't require reply_text
+        if($request->message_type == 'stay_in_session') {
+            // No reply_text validation needed for stay_in_session nodes
+        }
+        if($request->message_type == 'goto') {
+            $validations['goto_target_node'] = "required";
+        }
+        if($request->message_type == 'question') {
+            $validations['question_store_field'] = 'required|string|max:50';
         }
         if(in_array($request->message_type, [
             'media',
@@ -274,6 +362,33 @@ class BotReplyController extends BaseController
         validateVendorAccess('manage_bot_replies');
         // ask engine to process the request
         $processReaction = $this->botReplyEngine->prepareBotReplyUpdateData($botReplyIdOrUid);
+
+        if ($processReaction->success()) {
+            // Get vendor team members for team assignment nodes
+            $vendorId = getVendorId();
+            $vendorTeamMembers = $this->userRepository->getVendorMessagingUsers($vendorId);
+
+            // Get contact custom fields for question and custom field nodes
+            $contactCustomFields = $this->contactCustomFieldRepository->fetchItAll([
+                'vendors__id' => $vendorId
+            ]);
+
+            // Get flow bots for goto nodes (if this is part of a flow)
+            $flowBots = [];
+            $botReplyData = $processReaction->data();
+            if (!empty($botReplyData['bot_flows__id'])) {
+                $flowBots = $this->botReplyRepository->fetchItAll([
+                    'bot_flows__id' => $botReplyData['bot_flows__id'],
+                    'vendors__id' => $vendorId,
+                ]);
+            }
+
+            // Add all necessary data to the response
+            $processReaction->updateData('vendorTeamMembers', $vendorTeamMembers->toArray());
+            $processReaction->updateData('contactCustomFields', $contactCustomFields->toArray());
+            $processReaction->updateData('flowBots', is_array($flowBots) ? $flowBots : $flowBots->toArray());
+        }
+
         // get back to controller with engine response
         return $this->processResponse($processReaction, [], [], true);
     }
@@ -323,8 +438,44 @@ class BotReplyController extends BaseController
         if(in_array($request->message_type, [
             'simple',
             'interactive',
+            'question',
         ])) {
             $validations['reply_text'] = "required";
+        }
+        // For node types that map their own text fields to reply_text in the engine,
+        // we validate their specific required fields instead of reply_text
+        if($request->message_type == 'wait') {
+            // wait_message is optional, but if provided should be reasonable length
+            $validations['wait_message'] = 'nullable|string|max:500';
+            $validations['wait_delay_seconds'] = 'required|integer|min:1|max:3600';
+        }
+        if($request->message_type == 'team_assignment') {
+            $validations['assigned_team_member'] = 'required';
+            $validations['assignment_message'] = 'nullable|string|max:500';
+        }
+        if($request->message_type == 'webhook') {
+            $validations['webhook_url'] = 'required|url';
+            $validations['http_method'] = 'required|in:GET,POST,PUT,PATCH,DELETE';
+            $validations['success_message'] = 'nullable|string|max:500';
+            $validations['error_message'] = 'nullable|string|max:500';
+            $validations['timeout'] = 'nullable|integer|min:5|max:120';
+        }
+        if($request->message_type == 'custom_field') {
+            $validations['custom_field_id'] = 'required';
+            $validations['question_text'] = 'required|string|max:500';
+        }
+        if($request->message_type == 'whatsapp_template') {
+            $validations['whatsapp_template_id'] = 'required';
+        }
+        // Stay in session nodes don't require reply_text
+        if($request->message_type == 'stay_in_session') {
+            // No reply_text validation needed for stay_in_session nodes
+        }
+        if($request->message_type == 'goto') {
+            $validations['goto_target_node'] = "required";
+        }
+        if($request->message_type == 'question') {
+            $validations['question_store_field'] = 'required|string|max:50';
         }
         if(in_array($request->message_type, [
             'media',

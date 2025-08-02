@@ -33,6 +33,7 @@ class BotFlowRepository extends BaseRepository implements BotFlowRepositoryInter
             // searchable columns
             'searchable' => [
                 'title',
+                'trigger_type',
                 'start_trigger',
             ]
         ];
@@ -75,6 +76,7 @@ class BotFlowRepository extends BaseRepository implements BotFlowRepositoryInter
         $keyValues = [
             'title',
             'start_trigger',
+            'trigger_type',
             'status' => 2, // unpublished / inactive
             'vendors__id' => getVendorId(),
         ];
@@ -90,5 +92,28 @@ class BotFlowRepository extends BaseRepository implements BotFlowRepositoryInter
      */
     function updateBotFlowData($botFlowId, $updateData) {
         return $this->primaryModel::where('_id', $botFlowId)->update($updateData);
+    }
+
+    /**
+     * Get bot flows that can be triggered (welcome and new_message types)
+     *
+     * @param array $whereConditions
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getTriggerableFlows($whereConditions = [])
+    {
+        return $this->primaryModel::select([
+            '_id',
+            '_uid',
+            'title',
+            'start_trigger',
+            'trigger_type',
+            'status',
+            'vendors__id'
+        ])
+        ->where($whereConditions)
+        ->whereIn('trigger_type', ['welcome', 'new_message'])
+        ->where('status', 1) // only active flows
+        ->get();
     }
 }

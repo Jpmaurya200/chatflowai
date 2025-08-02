@@ -134,6 +134,7 @@ class BotReplyRepository extends BaseRepository implements BotReplyRepositoryInt
     function getRelatedOrWelcomeBots($whereConditions = []) {
         return $this->primaryModel::select([
             '_id',
+            '_uid',
             'reply_trigger',
             'reply_text',
             'trigger_type',
@@ -141,6 +142,6 @@ class BotReplyRepository extends BaseRepository implements BotReplyRepositoryInt
             '__data',
             'bot_flows__id',
             'status',
-        ])->where($whereConditions)->get();
+        ])->with('botFlow')->where($whereConditions)->get();
     }
 }

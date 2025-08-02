@@ -43,6 +43,20 @@ class BotReplyModel extends BaseModel
             'interaction_message' => 'array:extend',
             // store the media message data
             'media_message' => 'array:extend',
+            // store the question message data
+            'question_message' => 'array:extend',
+            // store the goto message data
+            'goto_message' => 'array:extend',
+            // store the team assignment message data
+            'team_assignment_message' => 'array:extend',
+            // store the wait message data
+            'wait_message' => 'array:extend',
+            // store the webhook message data
+            'webhook_message' => 'array:extend',
+            // store the custom field message data
+            'custom_field_message' => 'array:extend',
+            // store the stay in session message data
+            'stay_in_session_message' => 'array:extend',
         ],
     ];
 

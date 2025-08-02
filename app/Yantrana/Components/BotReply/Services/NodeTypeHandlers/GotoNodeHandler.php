@@ -128,6 +128,8 @@ class GotoNodeHandler extends BaseNodeHandler
             return 'media';
         } elseif (isset($data['goto_message'])) {
             return 'goto';
+        } elseif (isset($data['stay_in_session_message'])) {
+            return 'stay_in_session';
         } else {
             return 'message';
         }
