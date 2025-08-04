@@ -51,57 +51,232 @@
                                     <div class="row">
                                         <div class="col-md-6">
                                             <h5>Order Notifications</h5>
-                                            <div class="form-check">
+                                            <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="order_confirmation" name="notification_types[]" value="order_confirmation" 
                                                     {{ in_array('order_confirmation', $integration->getNotificationTypes()) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="order_confirmation">
                                                     Order Confirmation
                                                 </label>
+                                                <div class="mt-2">
+                                                    <select name="template_uid[order_confirmation]" class="form-control form-control-sm template-select" data-notification-type="order_confirmation">
+                                                        <option value="">Select Template</option>
+                                                        @foreach($templates as $template)
+                                                            <option value="{{ $template->_uid }}" 
+                                                                {{ $integration->getTemplateUid('order_confirmation') == $template->_uid ? 'selected' : '' }}
+                                                                data-template-components="{{ json_encode($template->__data['template']['components'] ?? []) }}">
+                                                                {{ $template->template_name }} ({{ $template->language }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <!-- Variable Mapping Section -->
+                                                <div class="variable-mapping-section mt-3" id="variable-mapping-order_confirmation" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="template-variables-container">
+                                                                <!-- Template variables will be populated here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="form-check">
+                                            <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="payment_confirmation" name="notification_types[]" value="payment_confirmation"
                                                     {{ in_array('payment_confirmation', $integration->getNotificationTypes()) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="payment_confirmation">
                                                     Payment Confirmation
                                                 </label>
+                                                <div class="mt-2">
+                                                    <select name="template_uid[payment_confirmation]" class="form-control form-control-sm template-select" data-notification-type="payment_confirmation">
+                                                        <option value="">Select Template</option>
+                                                        @foreach($templates as $template)
+                                                            <option value="{{ $template->_uid }}" 
+                                                                {{ $integration->getTemplateUid('payment_confirmation') == $template->_uid ? 'selected' : '' }}
+                                                                data-template-components="{{ json_encode($template->__data['template']['components'] ?? []) }}">
+                                                                {{ $template->template_name }} ({{ $template->language }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <!-- Variable Mapping Section -->
+                                                <div class="variable-mapping-section mt-3" id="variable-mapping-payment_confirmation" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="template-variables-container">
+                                                                <!-- Template variables will be populated here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="form-check">
+                                            <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="shipment_tracking" name="notification_types[]" value="shipment_tracking"
                                                     {{ in_array('shipment_tracking', $integration->getNotificationTypes()) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="shipment_tracking">
                                                     Shipment Tracking
                                                 </label>
+                                                <div class="mt-2">
+                                                    <select name="template_uid[shipment_tracking]" class="form-control form-control-sm template-select" data-notification-type="shipment_tracking">
+                                                        <option value="">Select Template</option>
+                                                        @foreach($templates as $template)
+                                                            <option value="{{ $template->_uid }}" 
+                                                                {{ $integration->getTemplateUid('shipment_tracking') == $template->_uid ? 'selected' : '' }}
+                                                                data-template-components="{{ json_encode($template->__data['template']['components'] ?? []) }}">
+                                                                {{ $template->template_name }} ({{ $template->language }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <!-- Variable Mapping Section -->
+                                                <div class="variable-mapping-section mt-3" id="variable-mapping-shipment_tracking" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="template-variables-container">
+                                                                <!-- Template variables will be populated here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="form-check">
+                                            <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="delivery_confirmation" name="notification_types[]" value="delivery_confirmation"
                                                     {{ in_array('delivery_confirmation', $integration->getNotificationTypes()) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="delivery_confirmation">
                                                     Delivery Confirmation
                                                 </label>
+                                                <div class="mt-2">
+                                                    <select name="template_uid[delivery_confirmation]" class="form-control form-control-sm template-select" data-notification-type="delivery_confirmation">
+                                                        <option value="">Select Template</option>
+                                                        @foreach($templates as $template)
+                                                            <option value="{{ $template->_uid }}" 
+                                                                {{ $integration->getTemplateUid('delivery_confirmation') == $template->_uid ? 'selected' : '' }}
+                                                                data-template-components="{{ json_encode($template->__data['template']['components'] ?? []) }}">
+                                                                {{ $template->template_name }} ({{ $template->language }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <!-- Variable Mapping Section -->
+                                                <div class="variable-mapping-section mt-3" id="variable-mapping-delivery_confirmation" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="template-variables-container">
+                                                                <!-- Template variables will be populated here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <h5>Special Notifications</h5>
-                                            <div class="form-check">
+                                            <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="cod_verification" name="notification_types[]" value="cod_verification"
                                                     {{ in_array('cod_verification', $integration->getNotificationTypes()) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="cod_verification">
                                                     COD Verification (India)
                                                 </label>
+                                                <div class="mt-2">
+                                                    <select name="template_uid[cod_verification]" class="form-control form-control-sm template-select" data-notification-type="cod_verification">
+                                                        <option value="">Select Template</option>
+                                                        @foreach($templates as $template)
+                                                            <option value="{{ $template->_uid }}" 
+                                                                {{ $integration->getTemplateUid('cod_verification') == $template->_uid ? 'selected' : '' }}
+                                                                data-template-components="{{ json_encode($template->__data['template']['components'] ?? []) }}">
+                                                                {{ $template->template_name }} ({{ $template->language }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <!-- Variable Mapping Section -->
+                                                <div class="variable-mapping-section mt-3" id="variable-mapping-cod_verification" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="template-variables-container">
+                                                                <!-- Template variables will be populated here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="form-check">
+                                            <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="order_cancelled" name="notification_types[]" value="order_cancelled"
                                                     {{ in_array('order_cancelled', $integration->getNotificationTypes()) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="order_cancelled">
                                                     Order Cancelled
                                                 </label>
+                                                <div class="mt-2">
+                                                    <select name="template_uid[order_cancelled]" class="form-control form-control-sm template-select" data-notification-type="order_cancelled">
+                                                        <option value="">Select Template</option>
+                                                        @foreach($templates as $template)
+                                                            <option value="{{ $template->_uid }}" 
+                                                                {{ $integration->getTemplateUid('order_cancelled') == $template->_uid ? 'selected' : '' }}
+                                                                data-template-components="{{ json_encode($template->__data['template']['components'] ?? []) }}">
+                                                                {{ $template->template_name }} ({{ $template->language }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <!-- Variable Mapping Section -->
+                                                <div class="variable-mapping-section mt-3" id="variable-mapping-order_cancelled" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="template-variables-container">
+                                                                <!-- Template variables will be populated here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="form-check">
+                                            <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="refund_processed" name="notification_types[]" value="refund_processed"
                                                     {{ in_array('refund_processed', $integration->getNotificationTypes()) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="refund_processed">
                                                     Refund Processed
                                                 </label>
+                                                <div class="mt-2">
+                                                    <select name="template_uid[refund_processed]" class="form-control form-control-sm template-select" data-notification-type="refund_processed">
+                                                        <option value="">Select Template</option>
+                                                        @foreach($templates as $template)
+                                                            <option value="{{ $template->_uid }}" 
+                                                                {{ $integration->getTemplateUid('refund_processed') == $template->_uid ? 'selected' : '' }}
+                                                                data-template-components="{{ json_encode($template->__data['template']['components'] ?? []) }}">
+                                                                {{ $template->template_name }} ({{ $template->language }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <!-- Variable Mapping Section -->
+                                                <div class="variable-mapping-section mt-3" id="variable-mapping-refund_processed" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="template-variables-container">
+                                                                <!-- Template variables will be populated here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -351,6 +526,119 @@ $(document).ready(function() {
                 btn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Send Test Notification');
             }
         });
+    });
+
+    // Template variable mapping functionality
+    const shopifyVariables = @json($shopifyVariables);
+    
+    // Handle template selection change
+    $('.template-select').on('change', function() {
+        const notificationType = $(this).data('notification-type');
+        const selectedOption = $(this).find('option:selected');
+        const templateComponents = selectedOption.data('template-components');
+        const mappingSection = $(`#variable-mapping-${notificationType}`);
+        
+        if (selectedOption.val() && templateComponents) {
+            // Show mapping section
+            mappingSection.show();
+            
+            // Generate variable mapping form
+            const variablesContainer = mappingSection.find('.template-variables-container');
+            variablesContainer.empty();
+            
+            // Extract variables from template components
+            const variables = extractTemplateVariables(templateComponents);
+            
+            if (variables.length > 0) {
+                variables.forEach((variable, index) => {
+                    const variableHtml = `
+                        <div class="form-group mb-3">
+                            <label class="form-label">${variable.label}</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control form-control-sm" 
+                                           value="${variable.name}" readonly>
+                                    <small class="form-text text-muted">Template Variable</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <select name="variable_mappings[${notificationType}][${variable.name}]" 
+                                            class="form-control form-control-sm shopify-variable-select">
+                                        <option value="">Select Shopify Variable</option>
+                                        ${generateShopifyVariableOptions(shopifyVariables)}
+                                    </select>
+                                    <small class="form-text text-muted">Map to Shopify Data</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    variablesContainer.append(variableHtml);
+                });
+            } else {
+                variablesContainer.html('<p class="text-muted">No variables found in this template.</p>');
+            }
+        } else {
+            // Hide mapping section
+            mappingSection.hide();
+        }
+    });
+    
+    // Function to extract template variables
+    function extractTemplateVariables(components) {
+        const variables = [];
+        const pattern = /\{\{(\d+)\}\}/g;
+        
+        components.forEach(component => {
+            if (component.type === 'HEADER' && component.format === 'TEXT') {
+                const matches = component.text.match(pattern);
+                if (matches) {
+                    matches.forEach(match => {
+                        const varNumber = match.replace(/\{\{(\d+)\}\}/, '$1');
+                        variables.push({
+                            name: `header_field_${varNumber}`,
+                            label: `Header Variable ${varNumber}`
+                        });
+                    });
+                }
+            } else if (component.type === 'BODY') {
+                const matches = component.text.match(pattern);
+                if (matches) {
+                    matches.forEach(match => {
+                        const varNumber = match.replace(/\{\{(\d+)\}\}/, '$1');
+                        variables.push({
+                            name: `field_${varNumber}`,
+                            label: `Body Variable ${varNumber}`
+                        });
+                    });
+                }
+            } else if (component.type === 'BUTTONS') {
+                component.buttons.forEach(button => {
+                    if (button.type === 'URL' && button.url.includes('{{1}}')) {
+                        variables.push({
+                            name: 'button_0',
+                            label: 'Button URL Variable'
+                        });
+                    }
+                });
+            }
+        });
+        
+        return variables;
+    }
+    
+    // Function to generate Shopify variable options
+    function generateShopifyVariableOptions(variables) {
+        let options = '';
+        Object.entries(variables).forEach(([key, label]) => {
+            options += `<option value="${key}">${label}</option>`;
+        });
+        return options;
+    }
+    
+    // Trigger change event for existing selections
+    $('.template-select').each(function() {
+        if ($(this).val()) {
+            $(this).trigger('change');
+        }
     });
 });
 </script>

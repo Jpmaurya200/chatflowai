@@ -44,6 +44,7 @@ class ShopifyOrderNotificationModel extends BaseModel
      * @var array - The attributes that are mass assignable.
      */
     protected $fillable = [
+        '_uid',
         'shopify_orders__id',
         'vendors__id',
         'contacts__id',
@@ -167,7 +168,9 @@ class ShopifyOrderNotificationModel extends BaseModel
      */
     public function setNotificationData(array $data): void
     {
-        $this->__data['notification_data'] = $data;
+        $currentData = $this->__data ?? [];
+        $currentData['notification_data'] = $data;
+        $this->__data = $currentData;
     }
 
     /**
@@ -183,13 +186,15 @@ class ShopifyOrderNotificationModel extends BaseModel
      */
     public function setWhatsAppMessageData(array $data): void
     {
-        $this->__data['whatsapp_message_data'] = $data;
+        $currentData = $this->__data ?? [];
+        $currentData['whatsapp_message_data'] = $data;
+        $this->__data = $currentData;
     }
 
     /**
      * Mark as sent
      */
-    public function markAsSent(string $messageId = null): void
+    public function markAsSent(?string $messageId = null): void
     {
         $this->status = 'sent';
         $this->message_id = $messageId;
@@ -220,7 +225,7 @@ class ShopifyOrderNotificationModel extends BaseModel
     /**
      * Mark as failed
      */
-    public function markAsFailed(string $errorMessage = null): void
+    public function markAsFailed(?string $errorMessage = null): void
     {
         $this->status = 'failed';
         $this->error_message = $errorMessage;

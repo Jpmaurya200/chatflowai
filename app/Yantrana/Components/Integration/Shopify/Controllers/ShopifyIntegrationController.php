@@ -81,8 +81,18 @@ class ShopifyIntegrationController extends BaseController
         $vendorId = getVendorId();
         $integration = $this->shopifyIntegrationRepository->getByVendorId($vendorId);
         $availableIntegrations = $this->integrationEngine->getAvailableIntegrations();
+        
+        // Get available WhatsApp templates
+        $templates = app(\App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppTemplateRepository::class)
+            ->fetchItAll([
+                'vendors__id' => $vendorId,
+                'status' => 'APPROVED'
+            ]);
 
-        return view('integration.shopify.settings', compact('integration', 'availableIntegrations'));
+        // Get available Shopify variables
+        $shopifyVariables = \App\Yantrana\Components\Integration\Shopify\Models\ShopifyIntegrationModel::getAvailableShopifyVariables();
+
+        return view('integration.shopify.settings', compact('integration', 'availableIntegrations', 'templates', 'shopifyVariables'));
     }
 
     /**
@@ -170,7 +180,11 @@ class ShopifyIntegrationController extends BaseController
     {
         $request->validate([
             'notification_types' => 'required|array',
-            'notification_types.*' => 'string|in:order_confirmation,payment_confirmation,shipment_tracking,delivery_confirmation,cod_verification,order_cancelled,refund_processed'
+            'notification_types.*' => 'string|in:order_confirmation,payment_confirmation,shipment_tracking,delivery_confirmation,cod_verification,order_cancelled,refund_processed',
+            'template_uid' => 'array',
+            'template_uid.*' => 'nullable|string',
+            'variable_mappings' => 'array',
+            'variable_mappings.*' => 'array'
         ]);
 
         $vendorId = getVendorId();
@@ -184,6 +198,19 @@ class ShopifyIntegrationController extends BaseController
         }
 
         $integration->setNotificationTypes($request->notification_types);
+        
+        // Save template mappings
+        if ($request->has('template_uid')) {
+            $integration->setTemplateMappings($request->template_uid);
+        }
+        
+        // Save variable mappings
+        if ($request->has('variable_mappings')) {
+            foreach ($request->variable_mappings as $notificationType => $variables) {
+                $integration->setVariableMappings($notificationType, $variables);
+            }
+        }
+        
         $integration->save();
 
         return response()->json([
@@ -391,5 +418,76 @@ class ShopifyIntegrationController extends BaseController
             'vendor_id' => getVendorId(),
             'request_data' => $request->all()
         ]);
+    }
+
+    public function testNotification(Request $request)
+    {
+        try {
+            $vendorId = getVendorId();
+            
+            // Validate request
+            $request->validate([
+                'notification_type' => 'required|string',
+                'phone_number' => 'required|string',
+                'customer_name' => 'required|string',
+                'order_number' => 'required|string',
+                'order_total' => 'required|numeric',
+                'currency' => 'required|string|size:3',
+            ]);
+
+            // Create sample order data
+            $orderData = [
+                'id' => 'TEST-' . time(),
+                'order_number' => $request->order_number,
+                'name' => $request->customer_name,
+                'email' => 'test@example.com',
+                'phone' => $request->phone_number,
+                'total_price' => $request->order_total,
+                'currency' => $request->currency,
+                'financial_status' => 'paid',
+                'fulfillment_status' => 'unfulfilled',
+                'status' => 'open',
+                'tracking_number' => $request->tracking_number,
+                'carrier' => $request->carrier,
+            ];
+
+            // Send test notification
+            $result = $this->integrationEngine->sendOrderNotification(
+                'shopify',
+                $orderData,
+                $request->notification_type,
+                $vendorId
+            );
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Test notification sent successfully',
+                    'message_id' => $result['message_id'] ?? null,
+                    'data' => $result
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'] ?? 'Failed to send test notification'
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Test notification error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send test notification: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function testNotifications(Request $request)
+    {
+        return view('integration.shopify.test-notifications');
     }
 } 

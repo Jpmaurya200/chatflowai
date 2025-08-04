@@ -96,6 +96,9 @@
                                             <a href="{{ route('vendor.integration.shopify.orders') }}" class="btn btn-primary btn-sm">
                                                 View All Orders
                                             </a>
+                                            <a href="{{ route('vendor.integration.shopify.test_notifications') }}" class="btn btn-warning btn-sm ml-1">
+                                                <i class="fas fa-vial"></i> Test Notifications
+                                            </a>
                                         </div>
                                     </div>
                                     <div class="card-body table-responsive p-0">

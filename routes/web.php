@@ -1373,6 +1373,18 @@ Route::middleware([
                         ShopifyIntegrationController::class,
                         'testMethod',
                     ])->name('vendor.integration.shopify.test');
+                    
+                    // Test notifications page
+                    Route::get('/test-notifications', [
+                        ShopifyIntegrationController::class,
+                        'testNotifications',
+                    ])->name('vendor.integration.shopify.test_notifications');
+                    
+                    // Test notification sending
+                    Route::post('/test-notification', [
+                        ShopifyIntegrationController::class,
+                        'testNotification',
+                    ])->name('vendor.integration.shopify.test_notification');
                 });
             });
             // Integration Routes Group End
@@ -1512,11 +1524,11 @@ Route::any('whatsapp-webhook/{vendorUid}', [
     'webhook',
 ])->name('vendor.whatsapp_webhook');
 
-// Shopify webhook
+// Shopify webhook (without any middleware)
 Route::any('shopify-webhook/{vendorId?}', [
     ShopifyWebhookController::class,
     'handleWebhook',
-])->name('shopify.webhook');
+])->name('shopify.webhook')->withoutMiddleware(['web', 'auth', 'session']);
 
 // Test route for debugging
 Route::get('/test-shopify-route', function() {
@@ -1529,17 +1541,23 @@ Route::post('/test-shopify-connect', [
     'connect',
 ])->name('test.shopify.connect');
 
-// Shopify webhook with vendor ID
+// Shopify webhook with vendor ID (without any middleware)
 Route::any('shopify-webhook/vendor/{vendorId}', [
     ShopifyWebhookController::class,
     'handleWebhookWithVendor',
-])->name('shopify.webhook.vendor');
+])->name('shopify.webhook.vendor')->withoutMiddleware(['web', 'auth', 'session']);
 
-// Shopify webhook verification
+// Shopify webhook verification (without any middleware)
 Route::any('shopify-webhook/verify', [
     ShopifyWebhookController::class,
     'verifyWebhook',
-])->name('shopify.webhook.verify');
+])->name('shopify.webhook.verify')->withoutMiddleware(['web', 'auth', 'session']);
+
+// Shopify webhook test endpoint (without any middleware)
+Route::any('shopify-webhook/test/{vendorId?}', [
+    ShopifyWebhookController::class,
+    'testWebhook',
+])->name('shopify.webhook.test')->withoutMiddleware(['web', 'auth', 'session']);
 
 // Payment webhooks (outside vendor middleware)
 Route::post('/whatsapp/payment/webhook/razorpay', [

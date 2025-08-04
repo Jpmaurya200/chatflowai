@@ -62,6 +62,7 @@ class ShopifyOrderModel extends BaseModel
      * @var array - The attributes that are mass assignable.
      */
     protected $fillable = [
+        '_uid',
         'shopify_integrations__id',
         'vendors__id',
         'contacts__id',
@@ -301,5 +302,32 @@ class ShopifyOrderModel extends BaseModel
     public function getRefunds(): array
     {
         return $this->__data['refunds'] ?? [];
+    }
+
+    /**
+     * Get customer name
+     */
+    public function getCustomerName(): string
+    {
+        $customerData = $this->__data['customer_data'] ?? [];
+        return $customerData['first_name'] . ' ' . $customerData['last_name'] ?? $this->name ?? '';
+    }
+
+    /**
+     * Get customer first name
+     */
+    public function getCustomerFirstName(): string
+    {
+        $customerData = $this->__data['customer_data'] ?? [];
+        return $customerData['first_name'] ?? '';
+    }
+
+    /**
+     * Get customer last name
+     */
+    public function getCustomerLastName(): string
+    {
+        $customerData = $this->__data['customer_data'] ?? [];
+        return $customerData['last_name'] ?? '';
     }
 } 

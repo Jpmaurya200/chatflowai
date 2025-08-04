@@ -203,4 +203,116 @@ class ShopifyIntegrationModel extends BaseModel
         $data['credentials'] = $credentials;
         $this->__data = $data;
     }
+
+    /**
+     * Get template mappings
+     */
+    public function getTemplateMappings(): array
+    {
+        return $this->__data['template_mappings'] ?? [];
+    }
+
+    /**
+     * Set template mappings
+     */
+    public function setTemplateMappings(array $mappings): void
+    {
+        $data = $this->__data ?? [];
+        $data['template_mappings'] = $mappings;
+        $this->__data = $data;
+    }
+
+    /**
+     * Get template UID for a specific notification type
+     */
+    public function getTemplateUid(string $notificationType): ?string
+    {
+        $mappings = $this->getTemplateMappings();
+        return $mappings[$notificationType] ?? null;
+    }
+
+    /**
+     * Get variable mappings for a specific notification type
+     */
+    public function getVariableMappings(string $notificationType): array
+    {
+        $mappings = $this->getTemplateMappings();
+        return $mappings[$notificationType . '_variables'] ?? [];
+    }
+
+    /**
+     * Set variable mappings for a specific notification type
+     */
+    public function setVariableMappings(string $notificationType, array $variables): void
+    {
+        $mappings = $this->getTemplateMappings();
+        $mappings[$notificationType . '_variables'] = $variables;
+        $this->setTemplateMappings($mappings);
+    }
+
+    /**
+     * Get all available Shopify order variables
+     */
+    public static function getAvailableShopifyVariables(): array
+    {
+        return [
+            // Order Information
+            'order_number' => 'Order Number',
+            'order_name' => 'Order Name',
+            'order_id' => 'Order ID',
+            'total_price' => 'Total Price',
+            'subtotal_price' => 'Subtotal Price',
+            'total_tax' => 'Total Tax',
+            'total_discounts' => 'Total Discounts',
+            'currency' => 'Currency',
+            'financial_status' => 'Payment Status',
+            'fulfillment_status' => 'Fulfillment Status',
+            'order_date' => 'Order Date',
+            'processed_at' => 'Processed Date',
+            
+            // Customer Information
+            'customer_name' => 'Customer Name',
+            'customer_email' => 'Customer Email',
+            'customer_phone' => 'Customer Phone',
+            'customer_first_name' => 'Customer First Name',
+            'customer_last_name' => 'Customer Last Name',
+            
+            // Address Information
+            'shipping_address_name' => 'Shipping Address Name',
+            'shipping_address_company' => 'Shipping Company',
+            'shipping_address_address1' => 'Shipping Address Line 1',
+            'shipping_address_address2' => 'Shipping Address Line 2',
+            'shipping_address_city' => 'Shipping City',
+            'shipping_address_province' => 'Shipping Province/State',
+            'shipping_address_country' => 'Shipping Country',
+            'shipping_address_zip' => 'Shipping ZIP/Postal Code',
+            'shipping_address_phone' => 'Shipping Phone',
+            
+            'billing_address_name' => 'Billing Address Name',
+            'billing_address_company' => 'Billing Company',
+            'billing_address_address1' => 'Billing Address Line 1',
+            'billing_address_address2' => 'Billing Address Line 2',
+            'billing_address_city' => 'Billing City',
+            'billing_address_province' => 'Billing Province/State',
+            'billing_address_country' => 'Billing Country',
+            'billing_address_zip' => 'Billing ZIP/Postal Code',
+            'billing_address_phone' => 'Billing Phone',
+            
+            // Line Items
+            'line_items_summary' => 'Order Items Summary',
+            'total_items' => 'Total Items Count',
+            'total_weight' => 'Total Weight',
+            
+            // Fulfillment
+            'tracking_number' => 'Tracking Number',
+            'tracking_company' => 'Shipping Company',
+            'tracking_url' => 'Tracking URL',
+            'fulfillment_date' => 'Fulfillment Date',
+            
+            // Additional
+            'note' => 'Order Note',
+            'tags' => 'Order Tags',
+            'shop_domain' => 'Shop Domain',
+        ];
+    }
 } 

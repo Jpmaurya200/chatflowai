@@ -109,7 +109,7 @@ class ShopifyOrderNotificationRepository extends BaseRepository
     /**
      * Mark notification as sent
      */
-    public function markAsSent(int $notificationId, string $messageId = null): bool
+    public function markAsSent(int $notificationId, ?string $messageId = null): bool
     {
         return $this->model->where('_id', $notificationId)->update([
             'status' => 'sent',
@@ -143,7 +143,7 @@ class ShopifyOrderNotificationRepository extends BaseRepository
     /**
      * Mark notification as failed
      */
-    public function markAsFailed(int $notificationId, string $errorMessage = null): bool
+    public function markAsFailed(int $notificationId, ?string $errorMessage = null): bool
     {
         return $this->model->where('_id', $notificationId)->update([
             'status' => 'failed',

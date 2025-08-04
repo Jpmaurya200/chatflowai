@@ -19,6 +19,7 @@ use App\Yantrana\Components\Integration\Shopify\Repositories\ShopifyOrderNotific
 use App\Yantrana\Components\Integration\Shopify\Models\ShopifyIntegrationModel;
 use App\Yantrana\Components\Integration\Shopify\Models\ShopifyOrderModel;
 use App\Yantrana\Components\Integration\Shopify\Models\ShopifyOrderNotificationModel;
+use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppTemplateRepository;
 
 class ShopifyService
 {
@@ -48,6 +49,11 @@ class ShopifyService
     protected $shopifyOrderNotificationRepository;
 
     /**
+     * @var WhatsAppTemplateRepository - WhatsApp Template Repository
+     */
+    protected $whatsAppTemplateRepository;
+
+    /**
      * Constructor
      */
     public function __construct(
@@ -55,13 +61,15 @@ class ShopifyService
         ContactRepository $contactRepository,
         ShopifyIntegrationRepository $shopifyIntegrationRepository,
         ShopifyOrderRepository $shopifyOrderRepository,
-        ShopifyOrderNotificationRepository $shopifyOrderNotificationRepository
+        ShopifyOrderNotificationRepository $shopifyOrderNotificationRepository,
+        WhatsAppTemplateRepository $whatsAppTemplateRepository
     ) {
         $this->whatsAppServiceEngine = $whatsAppServiceEngine;
         $this->contactRepository = $contactRepository;
         $this->shopifyIntegrationRepository = $shopifyIntegrationRepository;
         $this->shopifyOrderRepository = $shopifyOrderRepository;
         $this->shopifyOrderNotificationRepository = $shopifyOrderNotificationRepository;
+        $this->whatsAppTemplateRepository = $whatsAppTemplateRepository;
     }
 
     /**
@@ -220,9 +228,15 @@ class ShopifyService
             }
 
             // Get integration
-            $integration = $this->shopifyIntegrationRepository->getByShopDomain($shopDomain);
+            $integration = null;
+            if ($shopDomain) {
+                $integration = $this->shopifyIntegrationRepository->getByShopDomain($shopDomain);
+            } elseif ($vendorId) {
+                $integration = $this->shopifyIntegrationRepository->getActiveByVendorId($vendorId);
+            }
+            
             if (!$integration || !$integration->isActive()) {
-                throw new Exception('No active integration found for shop: ' . $shopDomain);
+                throw new Exception('No active integration found for shop: ' . ($shopDomain ?? 'unknown') . ' or vendor: ' . $vendorId);
             }
 
             // Process based on topic
@@ -461,15 +475,22 @@ class ShopifyService
                 'status' => 'pending',
             ]);
 
-            // Prepare message content
-            $messageContent = $this->prepareNotificationMessage($order, $notificationType);
+            // Get template for this notification type
+            $template = $this->getTemplateForNotificationType($notificationType, $order->vendors__id);
+            
+            if (!$template) {
+                throw new Exception("No template found for notification type: {$notificationType}");
+            }
+
+            // Prepare template variables using mappings
+            $templateVariables = $this->prepareTemplateVariables($order, $notificationType, $integration);
 
             // Send via WhatsApp
             $whatsAppResult = $this->whatsAppServiceEngine->sendTemplateMessageProcess(
                 [
                     'contact_uid' => $order->contact->uid,
-                    'message' => $messageContent,
-                    'template_name' => $this->getTemplateName($notificationType),
+                    'template_uid' => $template->_uid,
+                    'template_variables' => $templateVariables,
                 ],
                 $order->contact,
                 false,
@@ -477,9 +498,9 @@ class ShopifyService
                 $order->vendors__id
             );
 
-            if ($whatsAppResult['success']) {
-                $notification->markAsSent($whatsAppResult['data']['message_id'] ?? null);
-                $notification->setWhatsAppMessageData($whatsAppResult['data'] ?? []);
+            if ($whatsAppResult->success()) {
+                $notification->markAsSent($whatsAppResult->data('message_id') ?? null);
+                $notification->setWhatsAppMessageData($whatsAppResult->data() ?? []);
                 $notification->save();
 
                 return [
@@ -488,12 +509,12 @@ class ShopifyService
                     'notification_id' => $notification->_id,
                 ];
             } else {
-                $notification->markAsFailed($whatsAppResult['message'] ?? 'WhatsApp sending failed');
+                $notification->markAsFailed($whatsAppResult->message() ?? 'WhatsApp sending failed');
                 $notification->save();
 
                 return [
                     'success' => false,
-                    'message' => 'Failed to send notification: ' . ($whatsAppResult['message'] ?? 'Unknown error'),
+                    'message' => 'Failed to send notification: ' . ($whatsAppResult->message() ?? 'Unknown error'),
                 ];
             }
 
@@ -512,72 +533,208 @@ class ShopifyService
     }
 
     /**
-     * Prepare notification message
+     * Prepare template variables using mappings
      */
-    protected function prepareNotificationMessage(ShopifyOrderModel $order, string $notificationType): string
+    protected function prepareTemplateVariables(ShopifyOrderModel $order, string $notificationType, ShopifyIntegrationModel $integration): array
     {
-        $message = '';
+        $variables = [];
+        $variableMappings = $integration->getVariableMappings($notificationType);
+        
+        // Get order data as array for easy access
+        $orderData = $this->getOrderDataForVariables($order);
+        
+        // Map template variables to Shopify data
+        foreach ($variableMappings as $templateVariable => $shopifyVariable) {
+            if (!empty($shopifyVariable) && isset($orderData[$shopifyVariable])) {
+                $variables[$templateVariable] = $orderData[$shopifyVariable];
+            }
+        }
+        
+        return $variables;
+    }
 
-        switch ($notificationType) {
-            case 'order_confirmation':
-                $message = "🎉 Order Confirmed!\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Total: {$order->formatted_total_price}\n";
-                $message .= "Status: {$order->status_label}\n\n";
-                $message .= "Thank you for your order! We'll keep you updated on your order status.";
-                break;
+    /**
+     * Get order data formatted for template variables
+     */
+    protected function getOrderDataForVariables(ShopifyOrderModel $order): array
+    {
+        $data = [
+            // Order Information
+            'order_number' => $order->order_number,
+            'order_name' => $order->name,
+            'order_id' => $order->shopify_order_id,
+            'total_price' => $order->formatted_total_price,
+            'subtotal_price' => number_format($order->subtotal_price, 2),
+            'total_tax' => number_format($order->total_tax, 2),
+            'total_discounts' => number_format($order->total_discounts, 2),
+            'currency' => $order->currency,
+            'financial_status' => $order->financial_status_label,
+            'fulfillment_status' => $order->fulfillment_status_label,
+            'order_date' => $order->created_at_shopify ? $order->created_at_shopify->format('M d, Y') : '',
+            'processed_at' => $order->processed_at ? $order->processed_at->format('M d, Y') : '',
+            
+            // Customer Information
+            'customer_name' => $order->getCustomerName(),
+            'customer_email' => $order->email,
+            'customer_phone' => $order->phone,
+            'customer_first_name' => $order->getCustomerFirstName(),
+            'customer_last_name' => $order->getCustomerLastName(),
+            
+            // Address Information
+            'shipping_address_name' => $order->getShippingAddress()['name'] ?? '',
+            'shipping_address_company' => $order->getShippingAddress()['company'] ?? '',
+            'shipping_address_address1' => $order->getShippingAddress()['address1'] ?? '',
+            'shipping_address_address2' => $order->getShippingAddress()['address2'] ?? '',
+            'shipping_address_city' => $order->getShippingAddress()['city'] ?? '',
+            'shipping_address_province' => $order->getShippingAddress()['province'] ?? '',
+            'shipping_address_country' => $order->getShippingAddress()['country'] ?? '',
+            'shipping_address_zip' => $order->getShippingAddress()['zip'] ?? '',
+            'shipping_address_phone' => $order->getShippingAddress()['phone'] ?? '',
+            
+            'billing_address_name' => $order->getBillingAddress()['name'] ?? '',
+            'billing_address_company' => $order->getBillingAddress()['company'] ?? '',
+            'billing_address_address1' => $order->getBillingAddress()['address1'] ?? '',
+            'billing_address_address2' => $order->getBillingAddress()['address2'] ?? '',
+            'billing_address_city' => $order->getBillingAddress()['city'] ?? '',
+            'billing_address_province' => $order->getBillingAddress()['province'] ?? '',
+            'billing_address_country' => $order->getBillingAddress()['country'] ?? '',
+            'billing_address_zip' => $order->getBillingAddress()['zip'] ?? '',
+            'billing_address_phone' => $order->getBillingAddress()['phone'] ?? '',
+            
+            // Line Items
+            'line_items_summary' => $order->getFormattedLineItems(),
+            'total_items' => $order->total_items,
+            'total_weight' => $order->total_weight,
+            
+            // Fulfillment
+            'tracking_number' => $this->getTrackingNumber($order),
+            'tracking_company' => $this->getTrackingCompany($order),
+            'tracking_url' => $this->getTrackingUrl($order),
+            'fulfillment_date' => $this->getFulfillmentDate($order),
+            
+            // Additional
+            'note' => $order->note ?? '',
+            'tags' => $order->tags ?? '',
+            'shop_domain' => $order->integration->shop_domain ?? '',
+        ];
+        
+        return $data;
+    }
 
-            case 'payment_confirmation':
-                $message = "💳 Payment Confirmed!\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Amount: {$order->formatted_total_price}\n";
-                $message .= "Payment Status: {$order->financial_status_label}\n\n";
-                $message .= "Your payment has been received. We're processing your order!";
-                break;
+    /**
+     * Get tracking number from fulfillments
+     */
+    protected function getTrackingNumber(ShopifyOrderModel $order): string
+    {
+        $fulfillments = $order->getFulfillments();
+        if (!empty($fulfillments)) {
+            foreach ($fulfillments as $fulfillment) {
+                if (!empty($fulfillment['tracking_number'])) {
+                    return $fulfillment['tracking_number'];
+                }
+            }
+        }
+        return '';
+    }
 
-            case 'shipment_tracking':
-                $message = "📦 Order Shipped!\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Status: {$order->fulfillment_status_label}\n\n";
-                $message .= "Your order has been shipped and is on its way to you!";
-                break;
+    /**
+     * Get tracking company from fulfillments
+     */
+    protected function getTrackingCompany(ShopifyOrderModel $order): string
+    {
+        $fulfillments = $order->getFulfillments();
+        if (!empty($fulfillments)) {
+            foreach ($fulfillments as $fulfillment) {
+                if (!empty($fulfillment['tracking_company'])) {
+                    return $fulfillment['tracking_company'];
+                }
+            }
+        }
+        return '';
+    }
 
-            case 'delivery_confirmation':
-                $message = "✅ Order Delivered!\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Status: Delivered\n\n";
-                $message .= "Your order has been delivered. Thank you for shopping with us!";
-                break;
+    /**
+     * Get tracking URL from fulfillments
+     */
+    protected function getTrackingUrl(ShopifyOrderModel $order): string
+    {
+        $fulfillments = $order->getFulfillments();
+        if (!empty($fulfillments)) {
+            foreach ($fulfillments as $fulfillment) {
+                if (!empty($fulfillment['tracking_url'])) {
+                    return $fulfillment['tracking_url'];
+                }
+            }
+        }
+        return '';
+    }
 
-            case 'cod_verification':
-                $message = "💰 COD Payment Required!\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Amount: {$order->formatted_total_price}\n\n";
-                $message .= "Please have the exact amount ready for cash on delivery.";
-                break;
+    /**
+     * Get fulfillment date
+     */
+    protected function getFulfillmentDate(ShopifyOrderModel $order): string
+    {
+        $fulfillments = $order->getFulfillments();
+        if (!empty($fulfillments)) {
+            foreach ($fulfillments as $fulfillment) {
+                if (!empty($fulfillment['created_at'])) {
+                    return date('M d, Y', strtotime($fulfillment['created_at']));
+                }
+            }
+        }
+        return '';
+    }
 
-            case 'order_cancelled':
-                $message = "❌ Order Cancelled!\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Status: Cancelled\n\n";
-                $message .= "Your order has been cancelled. If you have any questions, please contact us.";
-                break;
-
-            case 'refund_processed':
-                $message = "💸 Refund Processed!\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Refund Amount: {$order->formatted_total_price}\n\n";
-                $message .= "Your refund has been processed and will be credited to your original payment method.";
-                break;
-
-            default:
-                $message = "Order Update\n\n";
-                $message .= "Order #{$order->order_number}\n";
-                $message .= "Status: {$order->status_label}\n";
-                $message .= "Total: {$order->formatted_total_price}";
+    /**
+     * Get template for notification type
+     */
+    protected function getTemplateForNotificationType(string $notificationType, int $vendorId)
+    {
+        // Get the integration to check for configured templates
+        $integration = $this->shopifyIntegrationRepository->getByVendorId($vendorId);
+        
+        if ($integration) {
+            // Check if there's a configured template for this notification type
+            $templateUid = $integration->getTemplateUid($notificationType);
+            
+            if ($templateUid) {
+                $template = $this->whatsAppTemplateRepository->fetchIt($templateUid);
+                if ($template && $template->vendors__id == $vendorId) {
+                    return $template;
+                }
+            }
         }
 
-        return $message;
+        // Fallback: try to get template by name (exact match)
+        $template = $this->whatsAppTemplateRepository->fetchIt([
+            'template_name' => $notificationType,
+            'vendors__id' => $vendorId,
+            'status' => 'APPROVED'
+        ]);
+
+        if ($template) {
+            return $template;
+        }
+
+        // If not found, try to get template by partial name match
+        $template = $this->whatsAppTemplateRepository->fetchIt([
+            'vendors__id' => $vendorId,
+            'status' => 'APPROVED'
+        ], function($query) use ($notificationType) {
+            return $query->where('template_name', 'LIKE', "%{$notificationType}%");
+        });
+
+        if ($template) {
+            return $template;
+        }
+
+        // If still not found, get the first available template
+        $template = $this->whatsAppTemplateRepository->fetchIt([
+            'vendors__id' => $vendorId,
+            'status' => 'APPROVED'
+        ]);
+
+        return $template;
     }
 
     /**
@@ -603,9 +760,21 @@ class ShopifyService
      */
     protected function getOrCreateContact(array $orderData, int $vendorId)
     {
-        $phone = $orderData['phone'] ?? '';
-        $email = $orderData['email'] ?? '';
-        $name = $orderData['name'] ?? '';
+        // Extract phone from various possible locations in Shopify order data
+        $phone = $orderData['phone'] ?? 
+                 $orderData['customer']['phone'] ?? 
+                 $orderData['billing_address']['phone'] ?? 
+                 $orderData['shipping_address']['phone'] ?? '';
+        
+        // Extract email from various possible locations
+        $email = $orderData['email'] ?? 
+                 $orderData['customer']['email'] ?? '';
+        
+        // Extract name from various possible locations
+        $name = $orderData['name'] ?? 
+                $orderData['customer']['first_name'] ?? 
+                $orderData['billing_address']['first_name'] ?? 
+                $orderData['shipping_address']['first_name'] ?? '';
 
         if (!$phone && !$email) {
             throw new Exception('No phone or email found in order data');
@@ -614,24 +783,28 @@ class ShopifyService
         // Try to find existing contact
         $contact = null;
         if ($phone) {
-            $contact = $this->contactRepository->getByPhone($phone, $vendorId);
+            $contact = $this->contactRepository->getVendorContactByWaId($phone, $vendorId);
         }
         
         if (!$contact && $email) {
-            $contact = $this->contactRepository->getByEmail($email, $vendorId);
+            $contact = $this->contactRepository->fetchIt([
+                'vendors__id' => $vendorId,
+                'email' => $email,
+            ]);
         }
 
         // Create new contact if not found
         if (!$contact) {
             $contactData = [
                 'vendors__id' => $vendorId,
-                'name' => $name,
+                'first_name' => $name,
                 'email' => $email,
-                'phone' => $phone,
+                'phone_number' => $phone, // ContactRepository expects phone_number
+                'wa_id' => $phone,
                 'status' => 'active',
             ];
 
-            $contact = $this->contactRepository->create($contactData);
+            $contact = $this->contactRepository->storeContact($contactData, $vendorId);
         }
 
         return $contact;

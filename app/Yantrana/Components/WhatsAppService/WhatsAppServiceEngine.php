@@ -979,11 +979,11 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             return $this->engineResponse(22, null, $vendorPlanDetails['message']);
         }
 
-        $inputs = $inputs ?: $request->all();
-        if ($request->template_name and isExternalApiRequest()) {
+        $inputs = $inputs ?: (is_array($request) ? $request : $request->all());
+        if ((is_array($request) ? ($request['template_name'] ?? false) : $request->template_name) and isExternalApiRequest()) {
             $whatsAppTemplate = $whatsAppTemplate ?: $this->whatsAppTemplateRepository->fetchIt([
-                'template_name' => $request->template_name,
-                'language' => $request->template_language
+                'template_name' => is_array($request) ? $request['template_name'] : $request->template_name,
+                'language' => is_array($request) ? $request['template_language'] : $request->template_language
             ]);
         } else {
             $whatsAppTemplate = $whatsAppTemplate ?: $this->whatsAppTemplateRepository->fetchIt($inputs['template_uid']);
@@ -1083,7 +1083,9 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             }
         }
         if (!$isForCampaign) {
-            $request->validate($componentValidations);
+            if (!is_array($request)) {
+                $request->validate($componentValidations);
+            }
         }
         unset($componentValidations);
 
@@ -1379,7 +1381,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                 'templateComponents' => $templateComponents,
                 'messageComponents' => $messageComponents,
                 'inputs' => $inputs,
-                'fromPhoneNumberId' => $request->from_phone_number_id,
+                'fromPhoneNumberId' => is_array($request) ? ($request['from_phone_number_id'] ?? null) : $request->from_phone_number_id,
             ], __tr('Message prepared for WhatsApp campaign'));
         }
 
@@ -1389,7 +1391,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             'first_name' => $contact->first_name,
             'last_name' => $contact->last_name,
             'countries__id' => $contact->countries__id,
-            'is_template_test_contact' => $request->is_template_test_contact
+            'is_template_test_contact' => is_array($request) ? ($request['is_template_test_contact'] ?? false) : $request->is_template_test_contact
         ];
         $processedResponse = $this->sendActualWhatsAppTemplateMessage(
             $vendorId,
@@ -1403,7 +1405,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             $messageComponents,
             $campaignId,
             $contactsData,
-            $request->from_phone_number_id
+            is_array($request) ? ($request['from_phone_number_id'] ?? null) : $request->from_phone_number_id
         );
         $processedResponse->updateData('inputs', $inputs);
         return $processedResponse;
