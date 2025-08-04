@@ -27,6 +27,8 @@ use App\Yantrana\Components\WhatsAppService\Controllers\WhatsAppCommerceControll
 use App\Yantrana\Components\WhatsAppService\Controllers\WhatsAppOrderController;
 use App\Yantrana\Components\Flows\Controllers\WhatsAppFlowController;
 use App\Yantrana\Components\Sheets\Controllers\GoogleSheetScriptController;
+use App\Yantrana\Components\Integration\Shopify\Controllers\ShopifyIntegrationController;
+use App\Yantrana\Components\Integration\Shopify\Controllers\ShopifyWebhookController;
 
 
 
@@ -1287,6 +1289,93 @@ Route::middleware([
                 // ContactGroup Routes Group End
             });
             // Contact Routes Group End
+
+            // Integration Routes Group Start
+            Route::prefix('/integration')->group(function () {
+                
+                // Shopify Integration Routes
+                Route::prefix('/shopify')->group(function () {
+                    
+                    // Dashboard
+                    Route::get('/dashboard', [
+                        ShopifyIntegrationController::class,
+                        'dashboard',
+                    ])->name('vendor.integration.shopify.dashboard');
+
+                    // Settings
+                    Route::get('/settings', [
+                        ShopifyIntegrationController::class,
+                        'settings',
+                    ])->name('vendor.integration.shopify.settings');
+
+                    // Connect integration
+                    Route::post('/connect', [
+                        ShopifyIntegrationController::class,
+                        'connect',
+                    ])->name('vendor.integration.shopify.connect');
+
+                    // Disconnect integration
+                    Route::post('/disconnect', [
+                        ShopifyIntegrationController::class,
+                        'disconnect',
+                    ])->name('vendor.integration.shopify.disconnect');
+
+                    // Update notification settings
+                    Route::post('/update-notification-settings', [
+                        ShopifyIntegrationController::class,
+                        'updateNotificationSettings',
+                    ])->name('vendor.integration.shopify.update_notification_settings');
+
+                    // Get integration status
+                    Route::get('/status', [
+                        ShopifyIntegrationController::class,
+                        'getStatus',
+                    ])->name('vendor.integration.shopify.status');
+
+                    // Orders
+                    Route::get('/orders', [
+                        ShopifyIntegrationController::class,
+                        'orders',
+                    ])->name('vendor.integration.shopify.orders');
+
+                    // Order details
+                    Route::get('/orders/{orderId}', [
+                        ShopifyIntegrationController::class,
+                        'orderDetails',
+                    ])->name('vendor.integration.shopify.order_details');
+
+                    // Notifications
+                    Route::get('/notifications', [
+                        ShopifyIntegrationController::class,
+                        'notifications',
+                    ])->name('vendor.integration.shopify.notifications');
+
+                    // Resend notification
+                    Route::post('/notifications/{notificationId}/resend', [
+                        ShopifyIntegrationController::class,
+                        'resendNotification',
+                    ])->name('vendor.integration.shopify.resend_notification');
+
+                    // Get statistics
+                    Route::get('/statistics', [
+                        ShopifyIntegrationController::class,
+                        'getStatistics',
+                    ])->name('vendor.integration.shopify.statistics');
+
+                    // Test webhook
+                    Route::post('/test-webhook', [
+                        ShopifyIntegrationController::class,
+                        'testWebhook',
+                    ])->name('vendor.integration.shopify.test_webhook');
+
+                    // Test method for debugging
+                    Route::get('/test', [
+                        ShopifyIntegrationController::class,
+                        'testMethod',
+                    ])->name('vendor.integration.shopify.test');
+                });
+            });
+            // Integration Routes Group End
         });
 });
 // subscription payment webhook for stripe
@@ -1422,6 +1511,35 @@ Route::any('whatsapp-webhook/{vendorUid}', [
     WhatsAppServiceController::class,
     'webhook',
 ])->name('vendor.whatsapp_webhook');
+
+// Shopify webhook
+Route::any('shopify-webhook/{vendorId?}', [
+    ShopifyWebhookController::class,
+    'handleWebhook',
+])->name('shopify.webhook');
+
+// Test route for debugging
+Route::get('/test-shopify-route', function() {
+    return response()->json(['success' => true, 'message' => 'Shopify route test successful']);
+})->name('test.shopify.route');
+
+// Test Shopify connect route (outside vendor middleware)
+Route::post('/test-shopify-connect', [
+    App\Yantrana\Components\Integration\Shopify\Controllers\ShopifyIntegrationController::class,
+    'connect',
+])->name('test.shopify.connect');
+
+// Shopify webhook with vendor ID
+Route::any('shopify-webhook/vendor/{vendorId}', [
+    ShopifyWebhookController::class,
+    'handleWebhookWithVendor',
+])->name('shopify.webhook.vendor');
+
+// Shopify webhook verification
+Route::any('shopify-webhook/verify', [
+    ShopifyWebhookController::class,
+    'verifyWebhook',
+])->name('shopify.webhook.verify');
 
 // Payment webhooks (outside vendor middleware)
 Route::post('/whatsapp/payment/webhook/razorpay', [

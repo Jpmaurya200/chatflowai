@@ -1,0 +1,395 @@
+<?php
+/**
+ * ShopifyIntegrationController.php - Controller file
+ *
+ * This file is part of the Shopify Integration component.
+ *-----------------------------------------------------------------------------*/
+
+namespace App\Yantrana\Components\Integration\Shopify\Controllers;
+
+use Illuminate\Http\Request;
+use App\Yantrana\Base\BaseController;
+use App\Yantrana\Components\Integration\IntegrationEngine;
+use App\Yantrana\Components\Integration\Shopify\Repositories\ShopifyIntegrationRepository;
+use App\Yantrana\Components\Integration\Shopify\Repositories\ShopifyOrderRepository;
+use App\Yantrana\Components\Integration\Shopify\Repositories\ShopifyOrderNotificationRepository;
+
+class ShopifyIntegrationController extends BaseController
+{
+    /**
+     * @var IntegrationEngine - Integration Engine
+     */
+    protected $integrationEngine;
+
+    /**
+     * @var ShopifyIntegrationRepository - Shopify Integration Repository
+     */
+    protected $shopifyIntegrationRepository;
+
+    /**
+     * @var ShopifyOrderRepository - Shopify Order Repository
+     */
+    protected $shopifyOrderRepository;
+
+    /**
+     * @var ShopifyOrderNotificationRepository - Shopify Order Notification Repository
+     */
+    protected $shopifyOrderNotificationRepository;
+
+    /**
+     * Constructor
+     */
+    public function __construct(
+        IntegrationEngine $integrationEngine,
+        ShopifyIntegrationRepository $shopifyIntegrationRepository,
+        ShopifyOrderRepository $shopifyOrderRepository,
+        ShopifyOrderNotificationRepository $shopifyOrderNotificationRepository
+    ) {
+        $this->integrationEngine = $integrationEngine;
+        $this->shopifyIntegrationRepository = $shopifyIntegrationRepository;
+        $this->shopifyOrderRepository = $shopifyOrderRepository;
+        $this->shopifyOrderNotificationRepository = $shopifyOrderNotificationRepository;
+    }
+
+    /**
+     * Show integration dashboard
+     */
+    public function dashboard(Request $request)
+    {
+        $vendorId = getVendorId();
+        
+        $integration = $this->shopifyIntegrationRepository->getByVendorId($vendorId);
+        $orderStatistics = $this->shopifyOrderRepository->getOrderStatistics($vendorId);
+        $notificationStatistics = $this->shopifyOrderNotificationRepository->getNotificationStatistics($vendorId);
+        $recentOrders = $this->shopifyOrderRepository->getByVendorId($vendorId, 10);
+        $recentNotifications = $this->shopifyOrderNotificationRepository->getByVendorId($vendorId, 10);
+
+        return view('integration.shopify.dashboard', compact(
+            'integration',
+            'orderStatistics',
+            'notificationStatistics',
+            'recentOrders',
+            'recentNotifications'
+        ));
+    }
+
+    /**
+     * Show integration settings
+     */
+    public function settings(Request $request)
+    {
+        $vendorId = getVendorId();
+        $integration = $this->shopifyIntegrationRepository->getByVendorId($vendorId);
+        $availableIntegrations = $this->integrationEngine->getAvailableIntegrations();
+
+        return view('integration.shopify.settings', compact('integration', 'availableIntegrations'));
+    }
+
+    /**
+     * Connect Shopify integration
+     */
+    public function connect(Request $request)
+    {
+        \Log::info('Shopify connect method called', [
+            'request_data' => $request->all(),
+            'vendor_id' => getVendorId()
+        ]);
+
+        try {
+            $request->validate([
+                'shop_domain' => 'required|string',
+                'access_token' => 'required|string',
+            ]);
+
+            $vendorId = getVendorId();
+            
+            \Log::info('Shopify connect attempt', [
+                'vendor_id' => $vendorId,
+                'shop_domain' => $request->shop_domain,
+                'has_token' => !empty($request->access_token)
+            ]);
+            
+            $result = $this->integrationEngine->connectIntegration('shopify', [
+                'shop_domain' => $request->shop_domain,
+                'access_token' => $request->access_token,
+            ], $vendorId);
+
+            \Log::info('Shopify connect result', $result);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Shopify integration connected successfully',
+                    'data' => $result['data'] ?? []
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message']
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Shopify connect error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to connect Shopify: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Disconnect Shopify integration
+     */
+    public function disconnect(Request $request)
+    {
+        $vendorId = getVendorId();
+        
+        $result = $this->integrationEngine->disconnectIntegration('shopify', $vendorId);
+
+        if ($result['success']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Shopify integration disconnected successfully'
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message']
+            ], 400);
+        }
+    }
+
+    /**
+     * Update notification settings
+     */
+    public function updateNotificationSettings(Request $request)
+    {
+        $request->validate([
+            'notification_types' => 'required|array',
+            'notification_types.*' => 'string|in:order_confirmation,payment_confirmation,shipment_tracking,delivery_confirmation,cod_verification,order_cancelled,refund_processed'
+        ]);
+
+        $vendorId = getVendorId();
+        $integration = $this->shopifyIntegrationRepository->getByVendorId($vendorId);
+
+        if (!$integration) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No Shopify integration found'
+            ], 404);
+        }
+
+        $integration->setNotificationTypes($request->notification_types);
+        $integration->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification settings updated successfully'
+        ]);
+    }
+
+    /**
+     * Get integration status
+     */
+    public function getStatus(Request $request)
+    {
+        $vendorId = getVendorId();
+        $status = $this->integrationEngine->getIntegrationStatus('shopify', $vendorId);
+
+        return response()->json($status);
+    }
+
+    /**
+     * Show orders list
+     */
+    public function orders(Request $request)
+    {
+        $vendorId = getVendorId();
+        
+        $status = $request->get('status');
+        $financialStatus = $request->get('financial_status');
+        $fulfillmentStatus = $request->get('fulfillment_status');
+        $search = $request->get('search');
+        
+        $orders = $this->shopifyOrderRepository->getByVendorId($vendorId, 50);
+
+        // Apply filters
+        if ($status) {
+            $orders = $orders->where('status', $status);
+        }
+        if ($financialStatus) {
+            $orders = $orders->where('financial_status', $financialStatus);
+        }
+        if ($fulfillmentStatus) {
+            $orders = $orders->where('fulfillment_status', $fulfillmentStatus);
+        }
+
+        return view('integration.shopify.orders', compact('orders', 'status', 'financialStatus', 'fulfillmentStatus', 'search'));
+    }
+
+    /**
+     * Show order details
+     */
+    public function orderDetails(Request $request, $orderId)
+    {
+        $vendorId = getVendorId();
+        $order = $this->shopifyOrderRepository->getByShopifyOrderId($orderId, $vendorId);
+
+        if (!$order) {
+            abort(404, 'Order not found');
+        }
+
+        $notifications = $this->shopifyOrderNotificationRepository->getByOrderId($order->_id);
+
+        return view('integration.shopify.order-details', compact('order', 'notifications'));
+    }
+
+    /**
+     * Show notifications list
+     */
+    public function notifications(Request $request)
+    {
+        $vendorId = getVendorId();
+        
+        $status = $request->get('status');
+        $notificationType = $request->get('notification_type');
+        
+        $notifications = $this->shopifyOrderNotificationRepository->getByVendorId($vendorId, 50);
+
+        // Apply filters
+        if ($status) {
+            $notifications = $notifications->where('status', $status);
+        }
+        if ($notificationType) {
+            $notifications = $notifications->where('notification_type', $notificationType);
+        }
+
+        return view('integration.shopify.notifications', compact('notifications', 'status', 'notificationType'));
+    }
+
+    /**
+     * Resend notification
+     */
+    public function resendNotification(Request $request, $notificationId)
+    {
+        $vendorId = getVendorId();
+        $notification = $this->shopifyOrderNotificationRepository->find($notificationId);
+
+        if (!$notification || $notification->vendors__id !== $vendorId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Notification not found'
+            ], 404);
+        }
+
+        // Reset notification status
+        $notification->status = 'pending';
+        $notification->sent_at = null;
+        $notification->delivered_at = null;
+        $notification->read_at = null;
+        $notification->error_message = null;
+        $notification->save();
+
+        // Resend notification
+        $result = $this->integrationEngine->sendOrderNotification(
+            'shopify',
+            $notification->order->__data['shopify_order_data'] ?? [],
+            $notification->notification_type,
+            $vendorId
+        );
+
+        if ($result['success']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification resent successfully'
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message']
+            ], 400);
+        }
+    }
+
+    /**
+     * Get statistics
+     */
+    public function getStatistics(Request $request)
+    {
+        $vendorId = getVendorId();
+        
+        $orderStatistics = $this->shopifyOrderRepository->getOrderStatistics($vendorId);
+        $notificationStatistics = $this->shopifyOrderNotificationRepository->getNotificationStatistics($vendorId);
+
+        return response()->json([
+            'orders' => $orderStatistics,
+            'notifications' => $notificationStatistics
+        ]);
+    }
+
+    /**
+     * Test webhook
+     */
+    public function testWebhook(Request $request)
+    {
+        $vendorId = getVendorId();
+        $integration = $this->shopifyIntegrationRepository->getByVendorId($vendorId);
+
+        if (!$integration || !$integration->isActive()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active Shopify integration found'
+            ], 404);
+        }
+
+        // Send test notification
+        $testOrderData = [
+            'id' => 'test_order_' . time(),
+            'order_number' => 'TEST-' . time(),
+            'name' => 'Test Order',
+            'email' => 'test@example.com',
+            'phone' => '+1234567890',
+            'currency' => 'USD',
+            'financial_status' => 'paid',
+            'fulfillment_status' => 'unfulfilled',
+            'total_price' => '99.99',
+            'status' => 'open',
+        ];
+
+        $result = $this->integrationEngine->sendOrderNotification(
+            'shopify',
+            $testOrderData,
+            'order_confirmation',
+            $vendorId
+        );
+
+        if ($result['success']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Test notification sent successfully'
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send test notification: ' . $result['message']
+            ], 400);
+        }
+    }
+
+    /**
+     * Test method for debugging
+     */
+    public function testMethod(Request $request)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Shopify controller test successful',
+            'vendor_id' => getVendorId(),
+            'request_data' => $request->all()
+        ]);
+    }
+} 

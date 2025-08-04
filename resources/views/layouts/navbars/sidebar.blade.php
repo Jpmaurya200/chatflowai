@@ -99,6 +99,14 @@
         color: #8D5DEA;
     }
     
+    .icon-integration {
+        color: #28a745;
+    }
+    
+    .icon-shopify {
+        color: #96bf47;
+    }
+    
     /* Submenu styling */
     .lw-expandable-nav {
         padding-left: 10px;
@@ -438,6 +446,27 @@
                         <i class="fa fa-shopping-cart icon-orders"></i>
                         {{ __tr('WhatsApp Orders') }}
                     </a>
+                </li>
+                @endif
+                
+                <!-- Integration Section -->
+                @if (hasVendorAccess('administrative'))
+                <li class="nav-item">
+                    <a class="nav-link" href="#vendorIntegrationSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="false" aria-controls="vendorIntegrationSubmenuNav">
+                        <i class="fas fa-plug icon-integration"></i>
+                        <span class="">{{ __tr('Integrations') }}</span>
+                    </a>
+                    <div class="collapse lw-expandable-nav" id="vendorIntegrationSubmenuNav">
+                        <ul class="nav nav-sm flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.integration.shopify.dashboard') }}"
+                                    href="{{ route('vendor.integration.shopify.dashboard') }}">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-shopify icon-shopify"></i> {{ __tr('Shopify') }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </li>
                 @endif
                 @if (hasVendorAccess('manage_contacts')  )
