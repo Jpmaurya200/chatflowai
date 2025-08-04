@@ -5,15 +5,37 @@ $onlyTemplatePreview = request()->has('only-preview');
     @if(!$onlyTemplatePreview)
     <div class="col-sm-12 col-md-8 col-lg-6 lw-template-structure-form">
         <input type="hidden" name="template_uid" value="{{ $template->_uid }}">
-        <fieldset>
-            <legend>{{ __tr('Template') }} <template x-if="selectedTemplate">
-                    <button class="btn btn-secondary btn-sm" @click.prevent="selectedTemplate = ''">{{ __tr('Change')
-                        }}</button>
-                </template></legend>
-            <h3><strong>{{ $template->template_name }}</strong></h3>
-            <h4>{{ __tr('Language Code') }}: <strong>{{ $template->language }}</strong></h4>
-            <h4>{{ __tr('Category') }}: <strong>{{ $template->category }}</strong></h4>
+        <fieldset 
+            class="p-4 rounded mb-4"
+            style="border: 1px solid #22A755; background-color: #f3fff5; max-width: 600px; margin: auto;">
+
+            <legend class="text-success fw-bold d-flex justify-content-between align-items-center" style="font-size: 1.25rem;">
+                {{ __tr('Template') }}
+                <template x-if="selectedTemplate">
+                    <button class="btn btn-outline-success btn-sm ms-auto" @click.prevent="selectedTemplate = ''">
+                        {{ __tr('Change') }}
+                    </button>
+                </template>
+            </legend>
+
+            <table class="table table-bordered table-sm mt-3" style="background-color: #ffffff;">
+                <tbody>
+                    <tr>
+                        <th style="width: 40%;">{{ __tr('Template Name') }}</th>
+                        <td><strong>{{ $template->template_name }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>{{ __tr('Language Code') }}</th>
+                        <td><strong>{{ $template->language }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>{{ __tr('Category') }}</th>
+                        <td><strong>{{ $template->category }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
         </fieldset>
+
         {{-- Header --}}
         @if($headerFormat)
         <fieldset class="lw-template-header-variables-container">
@@ -109,6 +131,73 @@ $onlyTemplatePreview = request()->has('only-preview');
         </fieldset>
         @endif
         {{-- /Button Variables --}}
+
+        {{-- Carousel Cards --}}
+        @if(!empty($isCarouselTemplate) && !empty($carouselCards))
+        <fieldset>
+            <legend>{{ __tr('Carousel Cards Media') }}</legend>
+            <div class="alert alert-info">
+                <i class="fa fa-info-circle"></i>
+                {{ __tr('Upload media files for each carousel card that requires images or videos. Product cards will use items from your catalog.') }}
+            </div>
+
+            @foreach($carouselCards as $cardIndex => $card)
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fa fa-layer-group"></i>
+                        {{ __tr('Card') }} {{ $cardIndex + 1 }}
+                        @foreach($card['components'] as $component)
+                            @if($component['type'] == 'HEADER')
+                                - {{ ucfirst(strtolower($component['format'])) }} {{ __tr('Header') }}
+                            @endif
+                        @endforeach
+                    </h6>
+                </div>
+                <div class="card-body">
+                    @foreach($card['components'] as $component)
+                        @if($component['type'] == 'HEADER')
+                            @if($component['format'] == 'IMAGE')
+                            <div class="form-group">
+                                <label for="lwCarouselCard{{ $cardIndex }}ImageFilepond">{{ __tr('Select Image for Card') }} {{ $cardIndex + 1 }}</label>
+                                <input id="lwCarouselCard{{ $cardIndex }}ImageFilepond" type="file" data-allow-revert="true"
+                                    data-label-idle="{{ __tr('Select Image') }}" class="lw-file-uploader" data-instant-upload="true"
+                                    data-action="<?= route('media.upload_temp_media', 'whatsapp_image') ?>" data-allowed-media='{{ getMediaRestriction('whatsapp_image') }}'
+                                    data-file-input-element="#lwCarouselCard{{ $cardIndex }}Image">
+                                <input id="lwCarouselCard{{ $cardIndex }}Image" type="hidden" value="" name="carousel_card_{{ $cardIndex }}_image" />
+                            </div>
+                            @elseif($component['format'] == 'VIDEO')
+                            <div class="form-group">
+                                <label for="lwCarouselCard{{ $cardIndex }}VideoFilepond">{{ __tr('Select Video for Card') }} {{ $cardIndex + 1 }}</label>
+                                <input id="lwCarouselCard{{ $cardIndex }}VideoFilepond" type="file" data-allow-revert="true"
+                                    data-label-idle="{{ __tr('Select Video') }}" class="lw-file-uploader" data-instant-upload="true"
+                                    data-action="<?= route('media.upload_temp_media', 'whatsapp_video') ?>" data-allowed-media='{{ getMediaRestriction('whatsapp_video') }}'
+                                    data-file-input-element="#lwCarouselCard{{ $cardIndex }}Video">
+                                <input id="lwCarouselCard{{ $cardIndex }}Video" type="hidden" value="" name="carousel_card_{{ $cardIndex }}_video" />
+                            </div>
+                            @elseif($component['format'] == 'PRODUCT')
+                            <div class="alert alert-warning">
+                                <i class="fa fa-shopping-bag"></i>
+                                {{ __tr('This card will display a product from your catalog. No media upload required.') }}
+                            </div>
+                            @endif
+                        @endif
+                    @endforeach
+
+                    {{-- Show card body text for reference --}}
+                    @foreach($card['components'] as $component)
+                        @if($component['type'] == 'BODY')
+                        <div class="alert alert-light">
+                            <strong>{{ __tr('Card Text:') }}</strong> {{ $component['text'] }}
+                        </div>
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+            @endforeach
+        </fieldset>
+        @endif
+        {{-- /Carousel Cards --}}
     </div>
     {{-- Message Preview --}}
     <div class="col-sm-12 col-md-8 col-lg-6">

@@ -94,7 +94,7 @@ class WhatsAppTemplateController extends BaseController
                 'alpha_dash',
             ],
             'template_body' => [
-                'required',
+                'required', // Always required, including for carousel
                 'max:1024',
             ],
             'template_footer' => [
@@ -110,10 +110,99 @@ class WhatsAppTemplateController extends BaseController
                 ]),
             ],
         ];
+
+        // Add carousel-specific validations
+        if($request->media_header_type === 'carousel') {
+            // Debug: Log carousel cards data
+            \Illuminate\Support\Facades\Log::info('Carousel template validation - carousel_cards data:', [
+                'carousel_cards' => $request->carousel_cards,
+                'media_header_type' => $request->media_header_type
+            ]);
+            $validations['carousel_cards'] = [
+                'required',
+                'array',
+                'min:2',
+                'max:10'
+            ];
+            $validations['carousel_cards.*.header_type'] = [
+                'required',
+                Rule::in(['image', 'video', 'product'])
+            ];
+            $validations['carousel_cards.*.body_text'] = [
+                'nullable',
+                'max:160'
+            ];
+            $validations['carousel_cards.*.buttons'] = [
+                'nullable',
+                'array',
+                'max:1' // Carousel cards support only 1 button each
+            ];
+            $validations['carousel_cards.*.buttons.*.type'] = [
+                'required_with:carousel_cards.*.buttons',
+                Rule::in(['QUICK_REPLY', 'URL_BUTTON', 'SPM'])
+            ];
+            $validations['carousel_cards.*.buttons.*.text'] = [
+                'required_with:carousel_cards.*.buttons',
+                'max:25'
+            ];
+            // Add URL validation only for URL_BUTTON type buttons
+            if(!empty($request->carousel_cards)) {
+                foreach($request->carousel_cards as $cardIndex => $cardData) {
+                    if(!empty($cardData['buttons'])) {
+                        foreach($cardData['buttons'] as $buttonIndex => $buttonData) {
+                            if(($buttonData['type'] ?? '') === 'URL_BUTTON') {
+                                $validations["carousel_cards.{$cardIndex}.buttons.{$buttonIndex}.url"] = [
+                                    'required',
+                                    'url',
+                                    'max:2000'
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+            // Temporarily disable media file validation to test file upload functionality
+            // TODO: Re-enable once file upload integration is confirmed working
+            /*
+            // Add conditional validation for media files in carousel cards
+            if(!empty($request->carousel_cards)) {
+                foreach($request->carousel_cards as $cardIndex => $cardData) {
+                    $headerType = $cardData['header_type'] ?? '';
+
+                    // Only validate uploaded_media_file_name for image and video header types
+                    if($headerType === 'image') {
+                        $validations["carousel_cards.{$cardIndex}.uploaded_media_file_name"] = [
+                            'required_if:carousel_cards.' . $cardIndex . '.header_type,image',
+                            'nullable',
+                            'string'
+                        ];
+                    } elseif($headerType === 'video') {
+                        $validations["carousel_cards.{$cardIndex}.uploaded_media_file_name"] = [
+                            'required_if:carousel_cards.' . $cardIndex . '.header_type,video',
+                            'nullable',
+                            'string'
+                        ];
+                    }
+                    // Product header type doesn't need uploaded_media_file_name validation
+                }
+            }
+            */
+            // if(!empty($request->carousel_cards)) {
+            //     foreach($request->carousel_cards as $cardIndex => $cardData) {
+            //         if(in_array($cardData['header_type'] ?? '', ['image', 'video'])) {
+            //             $validations["carousel_cards.{$cardIndex}.uploaded_media_file_name"] = [
+            //                 'required',
+            //                 'string'
+            //             ];
+            //         }
+            //     }
+            // }
+        }
         if($request->media_header_type) {
             if(!in_array($request->media_header_type, [
                 'text',
                 'location',
+                'carousel', // Exclude carousel from requiring main uploaded_media_file_name
             ])) {
                 $validations["uploaded_media_file_name"] = [
                     'required',
@@ -215,7 +304,7 @@ class WhatsAppTemplateController extends BaseController
         }
         $validations = [
             'template_body' => [
-                'required',
+                'required_unless:media_header_type,carousel',
                 'max:1024',
             ],
             'template_uid' => [
@@ -234,10 +323,80 @@ class WhatsAppTemplateController extends BaseController
                 ]),
             ], */
         ];
+
+        // Add carousel-specific validations for update
+        if($request->media_header_type === 'carousel') {
+            $validations['carousel_cards'] = [
+                'required',
+                'array',
+                'min:2',
+                'max:10'
+            ];
+            $validations['carousel_cards.*.header_type'] = [
+                'required',
+                Rule::in(['image', 'video', 'product'])
+            ];
+            $validations['carousel_cards.*.body_text'] = [
+                'nullable',
+                'max:160'
+            ];
+            $validations['carousel_cards.*.buttons'] = [
+                'nullable',
+                'array',
+                'max:2'
+            ];
+            $validations['carousel_cards.*.buttons.*.type'] = [
+                'required_with:carousel_cards.*.buttons',
+                Rule::in(['QUICK_REPLY', 'URL_BUTTON', 'SPM'])
+            ];
+            $validations['carousel_cards.*.buttons.*.text'] = [
+                'required_with:carousel_cards.*.buttons',
+                'max:25'
+            ];
+            $validations['carousel_cards.*.buttons.*.url'] = [
+                'required_if:carousel_cards.*.buttons.*.type,URL_BUTTON',
+                'url',
+                'max:2000'
+            ];
+            // Temporarily disable media file validation for update to test file upload functionality
+            // TODO: Re-enable once file upload integration is confirmed working
+            /*
+            // Add conditional validation for media files in carousel cards for update
+            if(!empty($request->carousel_cards)) {
+                foreach($request->carousel_cards as $cardIndex => $cardData) {
+                    $headerType = $cardData['header_type'] ?? '';
+
+                    // Only validate uploaded_media_file_name for image and video header types
+                    if($headerType === 'image') {
+                        $validations["carousel_cards.{$cardIndex}.uploaded_media_file_name"] = [
+                            'required_if:carousel_cards.' . $cardIndex . '.header_type,image',
+                            'nullable',
+                            'string'
+                        ];
+                    } elseif($headerType === 'video') {
+                        $validations["carousel_cards.{$cardIndex}.uploaded_media_file_name"] = [
+                            'required_if:carousel_cards.' . $cardIndex . '.header_type,video',
+                            'nullable',
+                            'string'
+                        ];
+                    }
+                    // Product header type doesn't need uploaded_media_file_name validation
+                }
+            }
+            */
+            //             $validations["carousel_cards.{$cardIndex}.uploaded_media_file_name"] = [
+            //                 'required',
+            //                 'string'
+            //             ];
+            //         }
+            //     }
+            // }
+        }
         if($request->media_header_type) {
             if(!in_array($request->media_header_type, [
                 'text',
                 'location',
+                'carousel', // Exclude carousel from requiring main uploaded_media_file_name
             ])) {
                 $validations["uploaded_media_file_name"] = [
                     'required',
