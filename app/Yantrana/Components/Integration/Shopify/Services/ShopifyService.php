@@ -277,6 +277,15 @@ class ShopifyService
     public function sendOrderNotification(array $orderData, string $notificationType, $vendorId = null)
     {
         try {
+            \Log::info('Starting order notification process', [
+                'notification_type' => $notificationType,
+                'vendor_id' => $vendorId,
+                'order_id' => $orderData['id'] ?? 'unknown',
+                'order_data_keys' => array_keys($orderData),
+                'customer_data_exists' => isset($orderData['customer']),
+                'customer_id' => $orderData['customer']['id'] ?? 'no_customer_id'
+            ]);
+
             $integration = $this->shopifyIntegrationRepository->getActiveByVendorId($vendorId);
             if (!$integration) {
                 throw new Exception('No active Shopify integration found');
@@ -346,8 +355,32 @@ class ShopifyService
         
         // Check if order confirmation is enabled
         $notificationTypes = $integration->getNotificationTypes();
+        
+        // If no notification types are configured, enable default ones
+        if (empty($notificationTypes)) {
+            $notificationTypes = ['order_confirmation', 'payment_confirmation', 'shipment_tracking'];
+            \Log::info('No notification types configured, using defaults', [
+                'integration_id' => $integration->_id,
+                'vendor_id' => $integration->vendors__id,
+                'default_types' => $notificationTypes
+            ]);
+        }
+        
+        \Log::info('Processing order created webhook', [
+            'integration_id' => $integration->_id,
+            'vendor_id' => $integration->vendors__id,
+            'notification_types' => $notificationTypes,
+            'has_order_confirmation' => in_array('order_confirmation', $notificationTypes),
+            'order_id' => $orderData['id'] ?? 'unknown'
+        ]);
+        
         if (in_array('order_confirmation', $notificationTypes)) {
             $this->sendOrderNotification($orderData, 'order_confirmation', $integration->vendors__id);
+        } else {
+            \Log::info('Order confirmation notification not enabled, skipping', [
+                'integration_id' => $integration->_id,
+                'vendor_id' => $integration->vendors__id
+            ]);
         }
 
         return ['success' => true, 'message' => 'Order created processed'];
@@ -362,6 +395,12 @@ class ShopifyService
         
         // Check if payment confirmation is enabled
         $notificationTypes = $integration->getNotificationTypes();
+        
+        // If no notification types are configured, enable default ones
+        if (empty($notificationTypes)) {
+            $notificationTypes = ['order_confirmation', 'payment_confirmation', 'shipment_tracking'];
+        }
+        
         if (in_array('payment_confirmation', $notificationTypes)) {
             $this->sendOrderNotification($orderData, 'payment_confirmation', $integration->vendors__id);
         }
@@ -378,6 +417,12 @@ class ShopifyService
         
         // Check if shipment tracking is enabled
         $notificationTypes = $integration->getNotificationTypes();
+        
+        // If no notification types are configured, enable default ones
+        if (empty($notificationTypes)) {
+            $notificationTypes = ['order_confirmation', 'payment_confirmation', 'shipment_tracking'];
+        }
+        
         if (in_array('shipment_tracking', $notificationTypes)) {
             $this->sendOrderNotification($orderData, 'shipment_tracking', $integration->vendors__id);
         }
@@ -394,6 +439,12 @@ class ShopifyService
         
         // Check if order cancelled notification is enabled
         $notificationTypes = $integration->getNotificationTypes();
+        
+        // If no notification types are configured, enable default ones
+        if (empty($notificationTypes)) {
+            $notificationTypes = ['order_confirmation', 'payment_confirmation', 'shipment_tracking', 'order_cancelled'];
+        }
+        
         if (in_array('order_cancelled', $notificationTypes)) {
             $this->sendOrderNotification($orderData, 'order_cancelled', $integration->vendors__id);
         }
@@ -453,6 +504,12 @@ class ShopifyService
         
         // Check if refund notification is enabled
         $notificationTypes = $integration->getNotificationTypes();
+        
+        // If no notification types are configured, enable default ones
+        if (empty($notificationTypes)) {
+            $notificationTypes = ['order_confirmation', 'payment_confirmation', 'shipment_tracking', 'order_cancelled', 'refund_processed'];
+        }
+        
         if (in_array('refund_processed', $notificationTypes)) {
             $this->sendOrderNotification($orderData, 'refund_processed', $integration->vendors__id);
         }
@@ -760,6 +817,16 @@ class ShopifyService
      */
     protected function getOrCreateContact(array $orderData, int $vendorId)
     {
+        \Log::info('Starting getOrCreateContact method', [
+            'order_id' => $orderData['id'] ?? 'unknown',
+            'vendor_id' => $vendorId,
+            'has_customer_data' => isset($orderData['customer']),
+            'has_billing_address' => isset($orderData['billing_address']),
+            'has_shipping_address' => isset($orderData['shipping_address']),
+            'customer_keys' => isset($orderData['customer']) ? array_keys($orderData['customer']) : 'no_customer',
+            'billing_keys' => isset($orderData['billing_address']) ? array_keys($orderData['billing_address']) : 'no_billing'
+        ]);
+
         // Extract phone from various possible locations in Shopify order data
         $phone = $orderData['phone'] ?? 
                  $orderData['customer']['phone'] ?? 
@@ -771,19 +838,169 @@ class ShopifyService
                  $orderData['customer']['email'] ?? '';
         
         // Extract name from various possible locations
-        $name = $orderData['name'] ?? 
-                $orderData['customer']['first_name'] ?? 
-                $orderData['billing_address']['first_name'] ?? 
-                $orderData['shipping_address']['first_name'] ?? '';
+        $firstName = $orderData['customer']['first_name'] ?? 
+                    $orderData['billing_address']['first_name'] ?? 
+                    $orderData['shipping_address']['first_name'] ?? '';
+        
+        $lastName = $orderData['customer']['last_name'] ?? 
+                   $orderData['billing_address']['last_name'] ?? 
+                   $orderData['shipping_address']['last_name'] ?? '';
+        
+        $name = trim($firstName . ' ' . $lastName);
 
+        // For COD orders, try to extract phone from billing address if not found
+        if (!$phone && isset($orderData['billing_address'])) {
+            $phone = $orderData['billing_address']['phone'] ?? '';
+        }
+
+        // For orders without customer data, try to use order name as fallback
+        if (!$name && isset($orderData['name'])) {
+            $name = $orderData['name'];
+        }
+
+        // If we don't have contact info but have a customer ID, try to fetch from Shopify API
+        if ((!$phone || !$email) && isset($orderData['customer']['id'])) {
+            $customerData = $this->fetchCustomerFromShopify($orderData['customer']['id'], $vendorId);
+            if ($customerData && is_array($customerData)) {
+                // Try to get phone from various locations
+                if (!$phone) {
+                    $phone = $customerData['phone'] ?? '';
+                    if (empty($phone) && isset($customerData['default_address']['phone'])) {
+                        $phone = $customerData['default_address']['phone'];
+                    }
+                    if (empty($phone) && isset($customerData['addresses']) && is_array($customerData['addresses'])) {
+                        foreach ($customerData['addresses'] as $address) {
+                            if (!empty($address['phone'])) {
+                                $phone = $address['phone'];
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Try to get email
+                if (!$email && isset($customerData['email']) && !empty($customerData['email'])) {
+                    $email = $customerData['email'];
+                }
+                
+                // Try to get name from various locations
+                if (!$name) {
+                    if (isset($customerData['first_name']) && !empty($customerData['first_name'])) {
+                        $firstName = $customerData['first_name'];
+                        $lastName = isset($customerData['last_name']) ? $customerData['last_name'] : '';
+                        $name = trim($firstName . ' ' . $lastName);
+                    } elseif (isset($customerData['default_address']['first_name']) && !empty($customerData['default_address']['first_name'])) {
+                        $firstName = $customerData['default_address']['first_name'];
+                        $lastName = isset($customerData['default_address']['last_name']) ? $customerData['default_address']['last_name'] : '';
+                        $name = trim($firstName . ' ' . $lastName);
+                    }
+                }
+                
+                \Log::info('Fetched customer data from Shopify API', [
+                    'customer_id' => $orderData['customer']['id'],
+                    'phone' => $phone,
+                    'email' => $email,
+                    'name' => $name,
+                    'customer_data_keys' => array_keys($customerData),
+                    'found_phone' => !empty($phone),
+                    'found_email' => !empty($email),
+                    'found_name' => !empty($name)
+                ]);
+            } else {
+                \Log::warning('Failed to fetch customer data from Shopify API or data is invalid', [
+                    'customer_id' => $orderData['customer']['id'],
+                    'customer_data' => $customerData
+                ]);
+            }
+        }
+
+        // If we still don't have contact info, try to fetch from Shopify API using customer ID
+        if ((!$phone || !$email) && isset($orderData['customer']['id'])) {
+            $customerId = $orderData['customer']['id'];
+            \Log::info('Attempting to fetch customer data from Shopify API', [
+                'customer_id' => $customerId,
+                'current_phone' => $phone,
+                'current_email' => $email
+            ]);
+            
+            $customerData = $this->fetchCustomerFromShopify($customerId, $vendorId);
+            if ($customerData && is_array($customerData)) {
+                // Update phone if not found
+                if (!$phone) {
+                    $phone = $customerData['phone'] ?? '';
+                    if (empty($phone) && isset($customerData['default_address']['phone'])) {
+                        $phone = $customerData['default_address']['phone'];
+                    }
+                    if (empty($phone) && isset($customerData['addresses']) && is_array($customerData['addresses'])) {
+                        foreach ($customerData['addresses'] as $address) {
+                            if (!empty($address['phone'])) {
+                                $phone = $address['phone'];
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Update email if not found
+                if (!$email && isset($customerData['email']) && !empty($customerData['email'])) {
+                    $email = $customerData['email'];
+                }
+                
+                // Update name if not found
+                if (!$name) {
+                    if (isset($customerData['first_name']) && !empty($customerData['first_name'])) {
+                        $firstName = $customerData['first_name'];
+                        $lastName = isset($customerData['last_name']) ? $customerData['last_name'] : '';
+                        $name = trim($firstName . ' ' . $lastName);
+                    } elseif (isset($customerData['default_address']['first_name']) && !empty($customerData['default_address']['first_name'])) {
+                        $firstName = $customerData['default_address']['first_name'];
+                        $lastName = isset($customerData['default_address']['last_name']) ? $customerData['default_address']['last_name'] : '';
+                        $name = trim($firstName . ' ' . $lastName);
+                    }
+                }
+                
+                \Log::info('Successfully updated contact info from Shopify API', [
+                    'customer_id' => $customerId,
+                    'phone' => $phone,
+                    'email' => $email,
+                    'name' => $name,
+                    'found_phone' => !empty($phone),
+                    'found_email' => !empty($email),
+                    'found_name' => !empty($name)
+                ]);
+            } else {
+                \Log::warning('Failed to fetch customer data from Shopify API', [
+                    'customer_id' => $customerId
+                ]);
+            }
+        }
+
+        \Log::info('Extracted contact information', [
+            'phone' => $phone,
+            'email' => $email,
+            'name' => $name,
+            'has_phone' => !empty($phone),
+            'has_email' => !empty($email)
+        ]);
+
+        // If we still don't have contact info after all attempts, log and skip
         if (!$phone && !$email) {
-            throw new Exception('No phone or email found in order data');
+            \Log::warning('No contact information found after all attempts', [
+                'order_id' => $orderData['id'] ?? 'unknown',
+                'order_number' => $orderData['order_number'] ?? $orderData['name'] ?? 'unknown',
+                'customer_id' => $orderData['customer']['id'] ?? 'no_customer_id',
+                'customer_data' => $orderData['customer'] ?? 'no_customer_data'
+            ]);
+            
+            throw new Exception('No phone or email found in order data after attempting to fetch from Shopify API');
         }
 
         // Try to find existing contact
         $contact = null;
         if ($phone) {
-            $contact = $this->contactRepository->getVendorContactByWaId($phone, $vendorId);
+            // Convert phone to integer for getVendorContactByWaId method
+            $phoneInt = (int) preg_replace('/[^0-9]/', '', $phone);
+            $contact = $this->contactRepository->getVendorContactByWaId($phoneInt, $vendorId);
         }
         
         if (!$contact && $email) {
@@ -802,12 +1019,178 @@ class ShopifyService
                 'phone_number' => $phone, // ContactRepository expects phone_number
                 'wa_id' => $phone,
                 'status' => 'active',
+                '__data' => [
+                    'shopify_customer_id' => $orderData['customer']['id'] ?? null,
+                    'shopify_order_id' => $orderData['id'] ?? null,
+                    'order_number' => $orderData['order_number'] ?? $orderData['name'] ?? null,
+                ]
             ];
 
+            \Log::info('Creating new contact', $contactData);
             $contact = $this->contactRepository->storeContact($contactData, $vendorId);
+            
+            if (!$contact) {
+                throw new Exception('Failed to create contact');
+            }
         }
 
         return $contact;
+    }
+
+    /**
+     * Fetch customer data from Shopify API
+     */
+    protected function fetchCustomerFromShopify(int $customerId, int $vendorId)
+    {
+        try {
+            $integration = $this->shopifyIntegrationRepository->getActiveByVendorId($vendorId);
+            if (!$integration) {
+                \Log::error('No active Shopify integration found for vendor', ['vendor_id' => $vendorId]);
+                return null;
+            }
+
+            $shopDomain = $integration->shop_domain;
+            $accessToken = $integration->access_token;
+
+            \Log::info('Fetching customer data from Shopify API', [
+                'customer_id' => $customerId,
+                'shop_domain' => $shopDomain
+            ]);
+
+            $response = Http::timeout(30)->withHeaders([
+                'X-Shopify-Access-Token' => $accessToken,
+            ])->get("https://{$shopDomain}/admin/api/2023-10/customers/{$customerId}.json");
+
+            if (!$response->successful()) {
+                \Log::error('Failed to fetch customer from Shopify API', [
+                    'customer_id' => $customerId,
+                    'status' => $response->status(),
+                    'response' => $response->body()
+                ]);
+                return null;
+            }
+
+            $customerData = $response->json()['customer'] ?? null;
+            
+            if ($customerData && is_array($customerData)) {
+                // Clean and validate the customer data
+                $cleanedData = $this->cleanCustomerData($customerData);
+                
+                \Log::info('Successfully fetched and cleaned customer data from Shopify API', [
+                    'customer_id' => $customerId,
+                    'has_phone' => !empty($cleanedData['phone']),
+                    'has_email' => !empty($cleanedData['email']),
+                    'has_name' => !empty($cleanedData['first_name']),
+                    'phone' => $cleanedData['phone'] ?? 'NOT_FOUND',
+                    'email' => $cleanedData['email'] ?? 'NOT_FOUND',
+                    'first_name' => $cleanedData['first_name'] ?? 'NOT_FOUND',
+                    'last_name' => $cleanedData['last_name'] ?? 'NOT_FOUND',
+                    'default_address' => isset($cleanedData['default_address']) ? 'EXISTS' : 'NOT_FOUND',
+                    'addresses_count' => isset($cleanedData['addresses']) ? count($cleanedData['addresses']) : 0
+                ]);
+                
+                return $cleanedData;
+            } else {
+                \Log::warning('Customer data from Shopify API is invalid or empty', [
+                    'customer_id' => $customerId,
+                    'customer_data' => $customerData
+                ]);
+                return null;
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Exception while fetching customer from Shopify API', [
+                'customer_id' => $customerId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Clean and validate customer data from Shopify API
+     */
+    protected function cleanCustomerData(array $customerData): array
+    {
+        $cleaned = [];
+        
+        // Basic customer information
+        $cleaned['id'] = $customerData['id'] ?? null;
+        $cleaned['email'] = trim($customerData['email'] ?? '');
+        $cleaned['phone'] = trim($customerData['phone'] ?? '');
+        $cleaned['first_name'] = trim($customerData['first_name'] ?? '');
+        $cleaned['last_name'] = trim($customerData['last_name'] ?? '');
+        $cleaned['note'] = trim($customerData['note'] ?? '');
+        $cleaned['tags'] = trim($customerData['tags'] ?? '');
+        
+        // Clean phone number - remove any non-numeric characters except + and -
+        if (!empty($cleaned['phone'])) {
+            $cleaned['phone'] = preg_replace('/[^0-9+\-()\s]/', '', $cleaned['phone']);
+            $cleaned['phone'] = trim($cleaned['phone']);
+        }
+        
+        // Clean email - basic validation
+        if (!empty($cleaned['email']) && !filter_var($cleaned['email'], FILTER_VALIDATE_EMAIL)) {
+            \Log::warning('Invalid email format from Shopify customer data', [
+                'email' => $cleaned['email'],
+                'customer_id' => $cleaned['id']
+            ]);
+            $cleaned['email'] = ''; // Clear invalid email
+        }
+        
+        // Default address
+        if (isset($customerData['default_address']) && is_array($customerData['default_address'])) {
+            $defaultAddress = $customerData['default_address'];
+            $cleaned['default_address'] = [
+                'first_name' => trim($defaultAddress['first_name'] ?? ''),
+                'last_name' => trim($defaultAddress['last_name'] ?? ''),
+                'company' => trim($defaultAddress['company'] ?? ''),
+                'address1' => trim($defaultAddress['address1'] ?? ''),
+                'address2' => trim($defaultAddress['address2'] ?? ''),
+                'city' => trim($defaultAddress['city'] ?? ''),
+                'province' => trim($defaultAddress['province'] ?? ''),
+                'country' => trim($defaultAddress['country'] ?? ''),
+                'zip' => trim($defaultAddress['zip'] ?? ''),
+                'phone' => trim($defaultAddress['phone'] ?? ''),
+            ];
+            
+            // Clean phone from default address
+            if (!empty($cleaned['default_address']['phone'])) {
+                $cleaned['default_address']['phone'] = preg_replace('/[^0-9+\-()\s]/', '', $cleaned['default_address']['phone']);
+                $cleaned['default_address']['phone'] = trim($cleaned['default_address']['phone']);
+            }
+        }
+        
+        // All addresses
+        if (isset($customerData['addresses']) && is_array($customerData['addresses'])) {
+            $cleaned['addresses'] = [];
+            foreach ($customerData['addresses'] as $address) {
+                if (is_array($address)) {
+                    $cleanedAddress = [
+                        'first_name' => trim($address['first_name'] ?? ''),
+                        'last_name' => trim($address['last_name'] ?? ''),
+                        'company' => trim($address['company'] ?? ''),
+                        'address1' => trim($address['address1'] ?? ''),
+                        'address2' => trim($address['address2'] ?? ''),
+                        'city' => trim($address['city'] ?? ''),
+                        'province' => trim($address['province'] ?? ''),
+                        'country' => trim($address['country'] ?? ''),
+                        'zip' => trim($address['zip'] ?? ''),
+                        'phone' => trim($address['phone'] ?? ''),
+                    ];
+                    
+                    // Clean phone from address
+                    if (!empty($cleanedAddress['phone'])) {
+                        $cleanedAddress['phone'] = preg_replace('/[^0-9+\-()\s]/', '', $cleanedAddress['phone']);
+                        $cleanedAddress['phone'] = trim($cleanedAddress['phone']);
+                    }
+                    
+                    $cleaned['addresses'][] = $cleanedAddress;
+                }
+            }
+        }
+        
+        return $cleaned;
     }
 
     /**

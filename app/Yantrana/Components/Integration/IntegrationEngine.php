@@ -11,6 +11,7 @@ use App\Yantrana\Base\BaseEngine;
 use App\Yantrana\Components\WhatsAppService\WhatsAppServiceEngine;
 use App\Yantrana\Components\Integration\Interfaces\IntegrationEngineInterface;
 use App\Yantrana\Components\Integration\Shopify\Services\ShopifyService;
+use App\Yantrana\Components\Integration\WooCommerce\Services\WooCommerceService;
 use App\Yantrana\Components\Vendor\VendorSettingsEngine;
 use App\Yantrana\Components\User\Repositories\UserRepository;
 use App\Yantrana\Components\Configuration\ConfigurationEngine;
@@ -44,6 +45,11 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
     protected $shopifyService;
 
     /**
+     * @var WooCommerceService - WooCommerce Service
+     */
+    protected $wooCommerceService;
+
+    /**
      * Constructor
      */
     public function __construct(
@@ -51,13 +57,15 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
         VendorSettingsEngine $vendorSettingsEngine,
         UserRepository $userRepository,
         ConfigurationEngine $configurationEngine,
-        ShopifyService $shopifyService
+        ShopifyService $shopifyService,
+        WooCommerceService $wooCommerceService
     ) {
         $this->whatsAppServiceEngine = $whatsAppServiceEngine;
         $this->vendorSettingsEngine = $vendorSettingsEngine;
         $this->userRepository = $userRepository;
         $this->configurationEngine = $configurationEngine;
         $this->shopifyService = $shopifyService;
+        $this->wooCommerceService = $wooCommerceService;
     }
 
     /**
@@ -84,6 +92,25 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
                     'orders/cancelled',
                     'refunds/create'
                 ]
+            ],
+            'woocommerce' => [
+                'name' => 'WooCommerce',
+                'description' => 'WordPress e-commerce platform integration for order notifications',
+                'features' => [
+                    'order_confirmation',
+                    'payment_confirmation',
+                    'shipment_tracking',
+                    'delivery_confirmation',
+                    'cod_verification'
+                ],
+                'webhook_events' => [
+                    'order.created',
+                    'order.updated',
+                    'order.completed',
+                    'order.processing',
+                    'order.cancelled',
+                    'order.refunded'
+                ]
             ]
         ];
     }
@@ -97,6 +124,8 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
             switch ($integration) {
                 case 'shopify':
                     return $this->shopifyService->processWebhook($request, $vendorId);
+                case 'woocommerce':
+                    return $this->wooCommerceService->processWebhook($request, $vendorId);
                 default:
                     throw new \Exception("Unsupported integration: {$integration}");
             }
@@ -119,6 +148,8 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
             switch ($integration) {
                 case 'shopify':
                     return $this->shopifyService->sendOrderNotification($orderData, $notificationType, $vendorId);
+                case 'woocommerce':
+                    return $this->wooCommerceService->sendOrderNotification($orderData, $notificationType, $vendorId);
                 default:
                     throw new \Exception("Unsupported integration: {$integration}");
             }
@@ -142,6 +173,8 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
             switch ($integration) {
                 case 'shopify':
                     return $this->shopifyService->getIntegrationStatus($vendorId);
+                case 'woocommerce':
+                    return $this->wooCommerceService->getIntegrationStatus($vendorId);
                 default:
                     throw new \Exception("Unsupported integration: {$integration}");
             }
@@ -167,6 +200,8 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
             switch ($integration) {
                 case 'shopify':
                     return $this->shopifyService->connect($credentials, $vendorId);
+                case 'woocommerce':
+                    return $this->wooCommerceService->connect($credentials, $vendorId);
                 default:
                     throw new \Exception("Unsupported integration: {$integration}");
             }
@@ -189,6 +224,8 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
             switch ($integration) {
                 case 'shopify':
                     return $this->shopifyService->disconnect($vendorId);
+                case 'woocommerce':
+                    return $this->wooCommerceService->disconnect($vendorId);
                 default:
                     throw new \Exception("Unsupported integration: {$integration}");
             }

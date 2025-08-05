@@ -29,6 +29,7 @@ use App\Yantrana\Components\Flows\Controllers\WhatsAppFlowController;
 use App\Yantrana\Components\Sheets\Controllers\GoogleSheetScriptController;
 use App\Yantrana\Components\Integration\Shopify\Controllers\ShopifyIntegrationController;
 use App\Yantrana\Components\Integration\Shopify\Controllers\ShopifyWebhookController;
+use App\Yantrana\Components\Integration\WooCommerce\Controllers\WooCommerceIntegrationController;
 
 
 
@@ -1385,6 +1386,100 @@ Route::middleware([
                         ShopifyIntegrationController::class,
                         'testNotification',
                     ])->name('vendor.integration.shopify.test_notification');
+                });
+                
+                // WooCommerce Integration Routes
+                Route::prefix('/woocommerce')->group(function () {
+                    
+                    // Dashboard
+                    Route::get('/dashboard', [
+                        WooCommerceIntegrationController::class,
+                        'dashboard',
+                    ])->name('vendor.integration.woocommerce.dashboard');
+
+                    // Settings
+                    Route::get('/settings', [
+                        WooCommerceIntegrationController::class,
+                        'settings',
+                    ])->name('vendor.integration.woocommerce.settings');
+
+                    // Connect integration
+                    Route::post('/connect', [
+                        WooCommerceIntegrationController::class,
+                        'connect',
+                    ])->name('vendor.integration.woocommerce.connect');
+
+                    // Disconnect integration
+                    Route::post('/disconnect', [
+                        WooCommerceIntegrationController::class,
+                        'disconnect',
+                    ])->name('vendor.integration.woocommerce.disconnect');
+
+                    // Update notification settings
+                    Route::post('/update-notification-settings', [
+                        WooCommerceIntegrationController::class,
+                        'updateNotificationSettings',
+                    ])->name('vendor.integration.woocommerce.update_notification_settings');
+
+                    // Get integration status
+                    Route::get('/status', [
+                        WooCommerceIntegrationController::class,
+                        'getStatus',
+                    ])->name('vendor.integration.woocommerce.status');
+
+                    // Orders
+                    Route::get('/orders', [
+                        WooCommerceIntegrationController::class,
+                        'orders',
+                    ])->name('vendor.integration.woocommerce.orders');
+
+                    // Order details
+                    Route::get('/orders/{orderId}', [
+                        WooCommerceIntegrationController::class,
+                        'orderDetails',
+                    ])->name('vendor.integration.woocommerce.order_details');
+
+                    // Notifications
+                    Route::get('/notifications', [
+                        WooCommerceIntegrationController::class,
+                        'notifications',
+                    ])->name('vendor.integration.woocommerce.notifications');
+
+                    // Resend notification
+                    Route::post('/notifications/{notificationId}/resend', [
+                        WooCommerceIntegrationController::class,
+                        'resendNotification',
+                    ])->name('vendor.integration.woocommerce.resend_notification');
+
+                    // Get statistics
+                    Route::get('/statistics', [
+                        WooCommerceIntegrationController::class,
+                        'getStatistics',
+                    ])->name('vendor.integration.woocommerce.statistics');
+
+                    // Test webhook
+                    Route::post('/test-webhook', [
+                        WooCommerceIntegrationController::class,
+                        'testWebhook',
+                    ])->name('vendor.integration.woocommerce.test_webhook');
+
+                    // Test method for debugging
+                    Route::get('/test', [
+                        WooCommerceIntegrationController::class,
+                        'testMethod',
+                    ])->name('vendor.integration.woocommerce.test');
+                    
+                    // Test notifications page
+                    Route::get('/test-notifications', [
+                        WooCommerceIntegrationController::class,
+                        'testNotifications',
+                    ])->name('vendor.integration.woocommerce.test_notifications');
+                    
+                    // Test notification sending
+                    Route::post('/test-notification', [
+                        WooCommerceIntegrationController::class,
+                        'testNotification',
+                    ])->name('vendor.integration.woocommerce.test_notification');
                 });
             });
             // Integration Routes Group End

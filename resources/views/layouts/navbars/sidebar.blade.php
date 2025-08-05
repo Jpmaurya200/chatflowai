@@ -107,6 +107,10 @@
         color: #96bf47;
     }
     
+    .icon-woocommerce {
+        color: #7c3aed;
+    }
+    
     /* Submenu styling */
     .lw-expandable-nav {
         padding-left: 10px;
@@ -463,6 +467,12 @@
                                 <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.integration.shopify.dashboard') }}"
                                     href="{{ route('vendor.integration.shopify.dashboard') }}">
                                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-shopify icon-shopify"></i> {{ __tr('Shopify') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.integration.woocommerce.dashboard') }}"
+                                    href="{{ route('vendor.integration.woocommerce.dashboard') }}">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-wordpress icon-woocommerce"></i> {{ __tr('WooCommerce') }}
                                 </a>
                             </li>
                         </ul>

@@ -89,10 +89,24 @@ class ShopifyIntegrationController extends BaseController
                 'status' => 'APPROVED'
             ]);
 
+        // Process templates to include components data
+        $templates->each(function($template) {
+            $template->components_data = \Illuminate\Support\Arr::get($template->toArray(), '__data.template.components', []);
+        });
+
         // Get available Shopify variables
         $shopifyVariables = \App\Yantrana\Components\Integration\Shopify\Models\ShopifyIntegrationModel::getAvailableShopifyVariables();
 
-        return view('integration.shopify.settings', compact('integration', 'availableIntegrations', 'templates', 'shopifyVariables'));
+        // Get saved variable mappings for all notification types
+        $savedVariableMappings = [];
+        if ($integration) {
+            $notificationTypes = ['order_confirmation', 'payment_confirmation', 'shipment_tracking', 'delivery_confirmation', 'cod_verification', 'order_cancelled', 'refund_processed'];
+            foreach ($notificationTypes as $type) {
+                $savedVariableMappings[$type] = $integration->getVariableMappings($type);
+            }
+        }
+
+        return view('integration.shopify.settings', compact('integration', 'availableIntegrations', 'templates', 'shopifyVariables', 'savedVariableMappings'));
     }
 
     /**

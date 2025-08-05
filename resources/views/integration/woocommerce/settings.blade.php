@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Shopify Integration Settings')
+@section('title', 'WooCommerce Integration Settings')
 
 @section('content')
 <div class="container-fluid">
@@ -10,10 +10,10 @@
                 <div class="card-header">
                     <h3 class="card-title">
                         <i class="fas fa-cog"></i>
-                        Shopify Integration Settings
+                        WooCommerce Integration Settings
                     </h3>
                     <div class="card-tools">
-                        <a href="{{ route('vendor.integration.shopify.dashboard') }}" class="btn btn-secondary btn-sm">
+                        <a href="{{ route('vendor.integration.woocommerce.dashboard') }}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
                         </a>
                     </div>
@@ -23,9 +23,9 @@
                         <!-- Connection Status -->
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle"></i>
-                            <strong>Connected!</strong> Your Shopify store is connected and active.
+                            <strong>Connected!</strong> Your WooCommerce store is connected and active.
                             <br>
-                            <small>Shop Domain: {{ $integration->shop_domain }}</small>
+                            <small>Site URL: {{ $integration->site_url }}</small>
                         </div>
 
                         <!-- Disconnect Section -->
@@ -36,7 +36,7 @@
                             <div class="card-body">
                                 <p>Disconnecting will remove all webhooks and stop receiving order notifications.</p>
                                 <button class="btn btn-danger" id="disconnect-btn">
-                                    <i class="fas fa-unlink"></i> Disconnect Shopify
+                                    <i class="fas fa-unlink"></i> Disconnect WooCommerce
                                 </button>
                             </div>
                         </div>
@@ -53,7 +53,7 @@
                                             <h5>Order Notifications</h5>
                                             <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="order_confirmation" name="notification_types[]" value="order_confirmation" 
-                                                    {{ in_array('order_confirmation', $integration->getNotificationTypes()) ? 'checked' : '' }}>
+                                                    {{ in_array('order_confirmation', $integration->getNotificationTypes() ?? []) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="order_confirmation">
                                                     Order Confirmation
                                                 </label>
@@ -62,7 +62,7 @@
                                                         <option value="">Select Template</option>
                                                         @foreach($templates as $template)
                                                             <option value="{{ $template->_uid }}" 
-                                                                {{ $integration->getTemplateUid('order_confirmation') == $template->_uid ? 'selected' : '' }}
+                                                                {{ ($integration->getTemplateUid('order_confirmation') ?? '') == $template->_uid ? 'selected' : '' }}
                                                                 data-template-components="{{ json_encode($template->components_data ?? []) }}">
                                                                 {{ $template->template_name }} ({{ $template->language }})
                                                             </option>
@@ -85,7 +85,7 @@
                                             </div>
                                             <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="payment_confirmation" name="notification_types[]" value="payment_confirmation"
-                                                    {{ in_array('payment_confirmation', $integration->getNotificationTypes()) ? 'checked' : '' }}>
+                                                    {{ in_array('payment_confirmation', $integration->getNotificationTypes() ?? []) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="payment_confirmation">
                                                     Payment Confirmation
                                                 </label>
@@ -94,7 +94,7 @@
                                                         <option value="">Select Template</option>
                                                         @foreach($templates as $template)
                                                             <option value="{{ $template->_uid }}" 
-                                                                {{ $integration->getTemplateUid('payment_confirmation') == $template->_uid ? 'selected' : '' }}
+                                                                {{ ($integration->getTemplateUid('payment_confirmation') ?? '') == $template->_uid ? 'selected' : '' }}
                                                                 data-template-components="{{ json_encode($template->components_data ?? []) }}">
                                                                 {{ $template->template_name }} ({{ $template->language }})
                                                             </option>
@@ -117,7 +117,7 @@
                                             </div>
                                             <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="shipment_tracking" name="notification_types[]" value="shipment_tracking"
-                                                    {{ in_array('shipment_tracking', $integration->getNotificationTypes()) ? 'checked' : '' }}>
+                                                    {{ in_array('shipment_tracking', $integration->getNotificationTypes() ?? []) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="shipment_tracking">
                                                     Shipment Tracking
                                                 </label>
@@ -126,7 +126,7 @@
                                                         <option value="">Select Template</option>
                                                         @foreach($templates as $template)
                                                             <option value="{{ $template->_uid }}" 
-                                                                {{ $integration->getTemplateUid('shipment_tracking') == $template->_uid ? 'selected' : '' }}
+                                                                {{ ($integration->getTemplateUid('shipment_tracking') ?? '') == $template->_uid ? 'selected' : '' }}
                                                                 data-template-components="{{ json_encode($template->components_data ?? []) }}">
                                                                 {{ $template->template_name }} ({{ $template->language }})
                                                             </option>
@@ -147,9 +147,12 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h5>Additional Notifications</h5>
                                             <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="delivery_confirmation" name="notification_types[]" value="delivery_confirmation"
-                                                    {{ in_array('delivery_confirmation', $integration->getNotificationTypes()) ? 'checked' : '' }}>
+                                                    {{ in_array('delivery_confirmation', $integration->getNotificationTypes() ?? []) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="delivery_confirmation">
                                                     Delivery Confirmation
                                                 </label>
@@ -158,7 +161,7 @@
                                                         <option value="">Select Template</option>
                                                         @foreach($templates as $template)
                                                             <option value="{{ $template->_uid }}" 
-                                                                {{ $integration->getTemplateUid('delivery_confirmation') == $template->_uid ? 'selected' : '' }}
+                                                                {{ ($integration->getTemplateUid('delivery_confirmation') ?? '') == $template->_uid ? 'selected' : '' }}
                                                                 data-template-components="{{ json_encode($template->components_data ?? []) }}">
                                                                 {{ $template->template_name }} ({{ $template->language }})
                                                             </option>
@@ -179,21 +182,18 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <h5>Special Notifications</h5>
                                             <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" id="cod_verification" name="notification_types[]" value="cod_verification"
-                                                    {{ in_array('cod_verification', $integration->getNotificationTypes()) ? 'checked' : '' }}>
+                                                    {{ in_array('cod_verification', $integration->getNotificationTypes() ?? []) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="cod_verification">
-                                                    COD Verification (India)
+                                                    COD Verification
                                                 </label>
                                                 <div class="mt-2">
                                                     <select name="template_uid[cod_verification]" class="form-control form-control-sm template-select" data-notification-type="cod_verification">
                                                         <option value="">Select Template</option>
                                                         @foreach($templates as $template)
                                                             <option value="{{ $template->_uid }}" 
-                                                                {{ $integration->getTemplateUid('cod_verification') == $template->_uid ? 'selected' : '' }}
+                                                                {{ ($integration->getTemplateUid('cod_verification') ?? '') == $template->_uid ? 'selected' : '' }}
                                                                 data-template-components="{{ json_encode($template->components_data ?? []) }}">
                                                                 {{ $template->template_name }} ({{ $template->language }})
                                                             </option>
@@ -202,70 +202,6 @@
                                                 </div>
                                                 <!-- Variable Mapping Section -->
                                                 <div class="variable-mapping-section mt-3" id="variable-mapping-cod_verification" style="display: none;">
-                                                    <div class="card">
-                                                        <div class="card-header">
-                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
-                                                        </div>
-                                                        <div class="card-body">
-                                                            <div class="template-variables-container">
-                                                                <!-- Template variables will be populated here -->
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="form-check mb-3">
-                                                <input class="form-check-input" type="checkbox" id="order_cancelled" name="notification_types[]" value="order_cancelled"
-                                                    {{ in_array('order_cancelled', $integration->getNotificationTypes()) ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="order_cancelled">
-                                                    Order Cancelled
-                                                </label>
-                                                <div class="mt-2">
-                                                    <select name="template_uid[order_cancelled]" class="form-control form-control-sm template-select" data-notification-type="order_cancelled">
-                                                        <option value="">Select Template</option>
-                                                        @foreach($templates as $template)
-                                                            <option value="{{ $template->_uid }}" 
-                                                                {{ $integration->getTemplateUid('order_cancelled') == $template->_uid ? 'selected' : '' }}
-                                                                data-template-components="{{ json_encode($template->components_data ?? []) }}">
-                                                                {{ $template->template_name }} ({{ $template->language }})
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                                <!-- Variable Mapping Section -->
-                                                <div class="variable-mapping-section mt-3" id="variable-mapping-order_cancelled" style="display: none;">
-                                                    <div class="card">
-                                                        <div class="card-header">
-                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
-                                                        </div>
-                                                        <div class="card-body">
-                                                            <div class="template-variables-container">
-                                                                <!-- Template variables will be populated here -->
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="form-check mb-3">
-                                                <input class="form-check-input" type="checkbox" id="refund_processed" name="notification_types[]" value="refund_processed"
-                                                    {{ in_array('refund_processed', $integration->getNotificationTypes()) ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="refund_processed">
-                                                    Refund Processed
-                                                </label>
-                                                <div class="mt-2">
-                                                    <select name="template_uid[refund_processed]" class="form-control form-control-sm template-select" data-notification-type="refund_processed">
-                                                        <option value="">Select Template</option>
-                                                        @foreach($templates as $template)
-                                                            <option value="{{ $template->_uid }}" 
-                                                                {{ $integration->getTemplateUid('refund_processed') == $template->_uid ? 'selected' : '' }}
-                                                                data-template-components="{{ json_encode($template->components_data ?? []) }}">
-                                                                {{ $template->template_name }} ({{ $template->language }})
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                                <!-- Variable Mapping Section -->
-                                                <div class="variable-mapping-section mt-3" id="variable-mapping-refund_processed" style="display: none;">
                                                     <div class="card">
                                                         <div class="card-header">
                                                             <h6 class="card-title mb-0">Template Variable Mapping</h6>
@@ -302,55 +238,38 @@
                             </div>
                         </div>
 
-                        <!-- Debug Panel -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h4 class="card-title">Debug Information</h4>
-                                <button class="btn btn-sm btn-secondary" id="toggle-debug">
-                                    <i class="fas fa-bug"></i> Toggle Debug
-                                </button>
-                            </div>
-                            <div class="card-body" id="debug-panel" style="display: none;">
-                                <h6>Available Templates:</h6>
-                                <div id="debug-templates"></div>
-                                <hr>
-                                <h6>Template Components:</h6>
-                                <div id="debug-components"></div>
-                            </div>
-                        </div>
-
                     @else
                         <!-- Connection Form -->
                         <div class="card">
                             <div class="card-header">
-                                <h4 class="card-title">Connect Shopify Store</h4>
+                                <h4 class="card-title">Connect WooCommerce Store</h4>
                             </div>
                             <div class="card-body">
                                 <form id="connect-form">
                                     <div class="form-group">
-                                        <label for="shop_domain">Shop Domain</label>
-                                        <div class="input-group">
-                                            <input type="text" class="form-control" id="shop_domain" name="shop_domain" 
-                                                placeholder="your-store.myshopify.com" required>
-                                            <div class="input-group-append">
-                                                <span class="input-group-text">.myshopify.com</span>
-                                            </div>
-                                        </div>
-                                        <small class="form-text text-muted">Enter your Shopify store domain (without .myshopify.com)</small>
+                                        <label for="site_url">Site URL</label>
+                                        <input type="url" class="form-control" id="site_url" name="site_url" 
+                                            placeholder="https://your-store.com" required>
+                                        <small class="form-text text-muted">Enter your WooCommerce store URL (e.g., https://your-store.com)</small>
                                     </div>
                                     <div class="form-group">
-                                        <label for="access_token">Access Token</label>
-                                        <input type="password" class="form-control" id="access_token" name="access_token" 
-                                            placeholder="Enter your Shopify access token" required>
+                                        <label for="consumer_key">Consumer Key</label>
+                                        <input type="text" class="form-control" id="consumer_key" name="consumer_key" 
+                                            placeholder="Enter your WooCommerce consumer key" required>
                                         <small class="form-text text-muted">
-                                            You can generate an access token from your Shopify admin panel under Apps > Private apps
+                                            You can generate consumer keys from your WooCommerce admin panel under WooCommerce > Settings > Advanced > REST API
+                                        </small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="consumer_secret">Consumer Secret</label>
+                                        <input type="password" class="form-control" id="consumer_secret" name="consumer_secret" 
+                                            placeholder="Enter your WooCommerce consumer secret" required>
+                                        <small class="form-text text-muted">
+                                            The consumer secret associated with your consumer key
                                         </small>
                                     </div>
                                     <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-link"></i> Connect Shopify
-                                    </button>
-                                    <button type="button" class="btn btn-secondary ml-2" id="test-btn">
-                                        Test Button
+                                        <i class="fas fa-link"></i> Connect WooCommerce
                                     </button>
                                 </form>
                             </div>
@@ -362,23 +281,26 @@
                                 <h4 class="card-title">Setup Instructions</h4>
                             </div>
                             <div class="card-body">
-                                <h5>How to get your Shopify Access Token:</h5>
+                                <h5>How to get your WooCommerce API credentials:</h5>
                                 <ol>
-                                    <li>Log in to your Shopify admin panel</li>
-                                    <li>Go to Apps > Manage private apps</li>
-                                    <li>Click "Create new private app"</li>
-                                    <li>Give your app a name (e.g., "WhatsApp Notifications")</li>
+                                    <li>Log in to your WordPress admin panel</li>
+                                    <li>Go to WooCommerce > Settings > Advanced > REST API</li>
+                                    <li>Click "Add key"</li>
+                                    <li>Give your key a description (e.g., "WhatsApp Notifications")</li>
                                     <li>Set the following permissions:
                                         <ul>
-                                            <li><strong>Orders:</strong> Read and write</li>
-                                            <li><strong>Customers:</strong> Read</li>
-                                            <li><strong>Products:</strong> Read</li>
+                                            <li><strong>Read:</strong> Orders, Customers, Products</li>
+                                            <li><strong>Write:</strong> Orders (if needed for status updates)</li>
                                         </ul>
                                     </li>
-                                    <li>Save the app</li>
-                                    <li>Copy the "Admin API access token"</li>
-                                    <li>Paste it in the form above</li>
+                                    <li>Click "Generate API key"</li>
+                                    <li>Copy the "Consumer key" and "Consumer secret"</li>
+                                    <li>Paste them in the form above</li>
                                 </ol>
+                                
+                                <div class="alert alert-info mt-3">
+                                    <strong>Note:</strong> Make sure your WooCommerce store has the REST API enabled and is accessible via HTTPS.
+                                </div>
                             </div>
                         </div>
                     @endif
@@ -403,13 +325,13 @@ $(document).ready(function() {
         const formData = $(this).serialize();
         const submitBtn = $(this).find('button[type="submit"]');
         
-        console.log('Submitting Shopify connect form:', formData);
-        console.log('Route URL:', '{{ route("vendor.integration.shopify.connect") }}');
+        console.log('Submitting WooCommerce connect form:', formData);
+        console.log('Route URL:', '{{ route("vendor.integration.woocommerce.connect") }}');
         
         submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Connecting...');
         
         $.ajax({
-            url: '{{ route("vendor.integration.shopify.connect") }}',
+            url: '{{ route("vendor.integration.woocommerce.connect") }}',
             method: 'POST',
             data: formData,
             timeout: 30000, // 30 second timeout
@@ -417,24 +339,24 @@ $(document).ready(function() {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             },
             beforeSend: function() {
-                console.log('Sending AJAX request to:', '{{ route("vendor.integration.shopify.connect") }}');
+                console.log('Sending AJAX request to:', '{{ route("vendor.integration.woocommerce.connect") }}');
                 console.log('Form data:', formData);
                 console.log('CSRF token:', $('meta[name="csrf-token"]').attr('content'));
             },
             success: function(response) {
-                console.log('Shopify connect response:', response);
+                console.log('WooCommerce connect response:', response);
                 if (response.success) {
-                    toastr.success('Shopify connected successfully!');
+                    toastr.success('WooCommerce connected successfully!');
                     setTimeout(() => {
                         location.reload();
                     }, 1000);
                 } else {
-                    toastr.error(response.message || 'Failed to connect Shopify');
+                    toastr.error(response.message || 'Failed to connect WooCommerce');
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Shopify connect error:', {xhr, status, error});
-                let errorMessage = 'Failed to connect Shopify';
+                console.error('WooCommerce connect error:', {xhr, status, error});
+                let errorMessage = 'Failed to connect WooCommerce';
                 if (status === 'timeout') {
                     errorMessage = 'Request timed out. Please try again.';
                 } else if (xhr.responseJSON && xhr.responseJSON.message) {
@@ -443,38 +365,38 @@ $(document).ready(function() {
                 toastr.error(errorMessage);
             },
             complete: function() {
-                submitBtn.prop('disabled', false).html('<i class="fas fa-link"></i> Connect Shopify');
+                submitBtn.prop('disabled', false).html('<i class="fas fa-link"></i> Connect WooCommerce');
             }
         });
     });
 
     // Disconnect button
     $('#disconnect-btn').click(function() {
-        if (confirm('Are you sure you want to disconnect your Shopify integration? This will stop all order notifications.')) {
+        if (confirm('Are you sure you want to disconnect your WooCommerce integration? This will stop all order notifications.')) {
             const btn = $(this);
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Disconnecting...');
             
             $.ajax({
-                url: '{{ route("vendor.integration.shopify.disconnect") }}',
+                url: '{{ route("vendor.integration.woocommerce.disconnect") }}',
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
                 success: function(response) {
                     if (response.success) {
-                        toastr.success('Shopify disconnected successfully!');
+                        toastr.success('WooCommerce disconnected successfully!');
                         setTimeout(() => {
                             location.reload();
                         }, 1000);
                     } else {
-                        toastr.error(response.message || 'Failed to disconnect Shopify');
+                        toastr.error(response.message || 'Failed to disconnect WooCommerce');
                     }
                 },
                 error: function(xhr) {
-                    toastr.error('Failed to disconnect Shopify');
+                    toastr.error('Failed to disconnect WooCommerce');
                 },
                 complete: function() {
-                    btn.prop('disabled', false).html('<i class="fas fa-unlink"></i> Disconnect Shopify');
+                    btn.prop('disabled', false).html('<i class="fas fa-unlink"></i> Disconnect WooCommerce');
                 }
             });
         }
@@ -490,7 +412,7 @@ $(document).ready(function() {
         submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
         
         $.ajax({
-            url: '{{ route("vendor.integration.shopify.update_notification_settings") }}',
+            url: '{{ route("vendor.integration.woocommerce.update_notification_settings") }}',
             method: 'POST',
             data: formData,
             headers: {
@@ -498,13 +420,13 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    toastr.success('Notification settings updated successfully!');
+                    toastr.success('Settings saved successfully!');
                 } else {
-                    toastr.error(response.message || 'Failed to update settings');
+                    toastr.error(response.message || 'Failed to save settings');
                 }
             },
             error: function(xhr) {
-                toastr.error('Failed to update notification settings');
+                toastr.error('Failed to save settings');
             },
             complete: function() {
                 submitBtn.prop('disabled', false).html('<i class="fas fa-save"></i> Save Settings');
@@ -512,19 +434,13 @@ $(document).ready(function() {
         });
     });
 
-    // Test button
-    $('#test-btn').click(function() {
-        console.log('Test button clicked');
-        alert('Test button works!');
-    });
-
     // Test webhook button
     $('#test-webhook-btn').click(function() {
         const btn = $(this);
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Sending...');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Testing...');
         
         $.ajax({
-            url: '{{ route("vendor.integration.shopify.test_webhook") }}',
+            url: '{{ route("vendor.integration.woocommerce.test_webhook") }}',
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -545,185 +461,81 @@ $(document).ready(function() {
         });
     });
 
-    // Template variable mapping functionality
-    const shopifyVariables = @json($shopifyVariables);
-    const savedVariableMappings = @json($savedVariableMappings ?? []);
-    
-    console.log('Loaded saved variable mappings:', savedVariableMappings);
-    
-    // Handle template selection change
-    $('.template-select').on('change', function() {
+    // Template selection change handler
+    $('.template-select').change(function() {
         const notificationType = $(this).data('notification-type');
         const selectedOption = $(this).find('option:selected');
         const templateComponents = selectedOption.data('template-components');
-        const mappingSection = $(`#variable-mapping-${notificationType}`);
         
-        console.log('Template selection changed:', {
-            notificationType: notificationType,
-            templateComponents: templateComponents
-        });
-        
-        if (selectedOption.val() && templateComponents) {
-            // Show mapping section
-            mappingSection.show();
-            
-            // Generate variable mapping form
-            const variablesContainer = mappingSection.find('.template-variables-container');
-            variablesContainer.empty();
-            
-            // Extract variables from template components
-            const variables = extractTemplateVariables(templateComponents);
-            
-            console.log('Extracted variables:', variables);
-            
-            if (variables.length > 0) {
-                variables.forEach((variable, index) => {
-                    // Get saved mapping for this variable
-                    const savedMapping = savedVariableMappings[notificationType]?.[variable.name] || '';
-                    
-                    const variableHtml = `
-                        <div class="form-group mb-3">
-                            <label class="form-label">${variable.label}</label>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <input type="text" class="form-control form-control-sm" 
-                                           value="${variable.name}" readonly>
-                                    <small class="form-text text-muted">Template Variable</small>
-                                </div>
-                                <div class="col-md-6">
-                                    <select name="variable_mappings[${notificationType}][${variable.name}]" 
-                                            class="form-control form-control-sm shopify-variable-select">
-                                        <option value="">Select Shopify Variable</option>
-                                        ${generateShopifyVariableOptions(shopifyVariables)}
-                                    </select>
-                                    <small class="form-text text-muted">Map to Shopify Data</small>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    variablesContainer.append(variableHtml);
-                    
-                    // Set the saved value
-                    const selectElement = variablesContainer.find(`select[name="variable_mappings[${notificationType}][${variable.name}]"]`);
-                    selectElement.val(savedMapping);
-                });
-            } else {
-                variablesContainer.html('<p class="text-muted">No variables found in this template. This template may not contain any dynamic variables ({{1}}, {{2}}, etc.).</p>');
-            }
-        } else if (selectedOption.val()) {
-            // Template selected but no components data
-            mappingSection.show();
-            const variablesContainer = mappingSection.find('.template-variables-container');
-            variablesContainer.html('<p class="text-warning">Template selected but component data not available. Please refresh the page and try again.</p>');
+        if (templateComponents && templateComponents.length > 0) {
+            showVariableMapping(notificationType, templateComponents);
         } else {
-            // Hide mapping section
-            mappingSection.hide();
+            hideVariableMapping(notificationType);
         }
     });
-    
-    // Function to extract template variables
-    function extractTemplateVariables(components) {
-        const variables = [];
-        const pattern = /\{\{(\d+)\}\}/g;
+
+    // Show variable mapping section
+    function showVariableMapping(notificationType, templateComponents) {
+        const section = $(`#variable-mapping-${notificationType}`);
+        const container = section.find('.template-variables-container');
         
-        console.log('Processing components:', components);
+        // Clear existing content
+        container.empty();
         
-        if (!Array.isArray(components)) {
-            console.error('Components is not an array:', components);
-            return variables;
-        }
-        
-        components.forEach((component, index) => {
-            console.log(`Processing component ${index}:`, component);
-            
-            if (component.type === 'HEADER' && component.format === 'TEXT') {
-                console.log('Processing HEADER component:', component.text);
-                const matches = component.text.match(pattern);
-                if (matches) {
-                    matches.forEach(match => {
-                        const varNumber = match.replace(/\{\{(\d+)\}\}/, '$1');
-                        variables.push({
-                            name: `header_field_${varNumber}`,
-                            label: `Header Variable ${varNumber}`
-                        });
-                    });
-                }
-            } else if (component.type === 'BODY') {
-                console.log('Processing BODY component:', component.text);
-                const matches = component.text.match(pattern);
-                if (matches) {
-                    matches.forEach(match => {
-                        const varNumber = match.replace(/\{\{(\d+)\}\}/, '$1');
-                        variables.push({
-                            name: `field_${varNumber}`,
-                            label: `Body Variable ${varNumber}`
-                        });
-                    });
-                }
-            } else if (component.type === 'BUTTONS') {
-                console.log('Processing BUTTONS component:', component.buttons);
-                if (component.buttons && Array.isArray(component.buttons)) {
-                    component.buttons.forEach(button => {
-                        if (button.type === 'URL' && button.url && button.url.includes('{{1}}')) {
-                            variables.push({
-                                name: 'button_0',
-                                label: 'Button URL Variable'
-                            });
-                        }
-                    });
-                }
+        // Add variable mapping fields
+        templateComponents.forEach(component => {
+            if (component.type === 'body' && component.text) {
+                const variables = extractVariables(component.text);
+                variables.forEach(variable => {
+                    const field = createVariableField(variable, notificationType);
+                    container.append(field);
+                });
             }
         });
         
-        console.log('Extracted variables:', variables);
+        section.show();
+    }
+
+    // Hide variable mapping section
+    function hideVariableMapping(notificationType) {
+        $(`#variable-mapping-${notificationType}`).hide();
+    }
+
+    // Extract variables from template text
+    function extractVariables(text) {
+        const variables = [];
+        const regex = /\{\{(\d+)\}\}/g;
+        let match;
+        
+        while ((match = regex.exec(text)) !== null) {
+            variables.push(match[1]);
+        }
+        
         return variables;
     }
-    
-    // Function to generate Shopify variable options
-    function generateShopifyVariableOptions(variables) {
-        let options = '';
-        Object.entries(variables).forEach(([key, label]) => {
-            options += `<option value="${key}">${label}</option>`;
-        });
-        return options;
+
+    // Create variable field
+    function createVariableField(variable, notificationType) {
+        return '<div class="form-group">' +
+            '<label for="variable_' + notificationType + '_' + variable + '">Variable {{' + variable + '}}</label>' +
+            '<select name="variable_mapping[' + notificationType + '][' + variable + ']" class="form-control form-control-sm">' +
+                '<option value="">Select WooCommerce field</option>' +
+                '<option value="customer_name">Customer Name</option>' +
+                '<option value="order_number">Order Number</option>' +
+                '<option value="order_total">Order Total</option>' +
+                '<option value="order_status">Order Status</option>' +
+                '<option value="order_date">Order Date</option>' +
+                '<option value="payment_method">Payment Method</option>' +
+                '<option value="shipping_address">Shipping Address</option>' +
+                '<option value="billing_address">Billing Address</option>' +
+                '<option value="tracking_number">Tracking Number</option>' +
+                '<option value="tracking_company">Tracking Company</option>' +
+                '<option value="tracking_url">Tracking URL</option>' +
+                '<option value="delivery_date">Delivery Date</option>' +
+                '<option value="cod_amount">COD Amount</option>' +
+            '</select>' +
+        '</div>';
     }
-    
-    // Trigger change event for existing selections and restore saved mappings
-    $('.template-select').each(function() {
-        if ($(this).val()) {
-            $(this).trigger('change');
-        }
-    });
-
-    // Debug panel functionality
-    $('#toggle-debug').click(function() {
-        $('#debug-panel').toggle();
-        
-        if ($('#debug-panel').is(':visible')) {
-            // Populate debug information
-            const templates = @json($templates);
-            let debugHtml = '<ul>';
-            templates.forEach(template => {
-                debugHtml += `<li><strong>${template.template_name}</strong> (${template.language})`;
-                debugHtml += `<br><small>Components: ${JSON.stringify(template.components_data || [], null, 2)}</small></li>`;
-            });
-            debugHtml += '</ul>';
-            $('#debug-templates').html(debugHtml);
-            
-            // Show saved variable mappings
-            $('#debug-components').html(`<h6>Saved Variable Mappings:</h6><pre>${JSON.stringify(savedVariableMappings, null, 2)}</pre>`);
-        }
-    });
-
-    // Update debug components when template is selected
-    $('.template-select').on('change', function() {
-        const selectedOption = $(this).find('option:selected');
-        const templateComponents = selectedOption.data('template-components');
-        
-        if ($('#debug-panel').is(':visible')) {
-            $('#debug-components').html(`<pre>${JSON.stringify(templateComponents || [], null, 2)}</pre>`);
-        }
-    });
 });
 </script>
 @endpush
