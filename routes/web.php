@@ -1654,6 +1654,30 @@ Route::any('shopify-webhook/test/{vendorId?}', [
     'testWebhook',
 ])->name('shopify.webhook.test')->withoutMiddleware(['web', 'auth', 'session']);
 
+// WooCommerce webhook (without any middleware)
+Route::any('woocommerce-webhook/{vendorId?}', [
+    App\Yantrana\Components\Integration\WooCommerce\Controllers\WooCommerceWebhookController::class,
+    'handleWebhook',
+])->name('webhook.woocommerce')->withoutMiddleware(['web', 'auth', 'session']);
+
+// WooCommerce webhook with vendor ID (without any middleware)
+Route::any('woocommerce-webhook/vendor/{vendorId}', [
+    App\Yantrana\Components\Integration\WooCommerce\Controllers\WooCommerceWebhookController::class,
+    'handleWebhookWithVendor',
+])->name('webhook.woocommerce.vendor')->withoutMiddleware(['web', 'auth', 'session']);
+
+// WooCommerce webhook verification (without any middleware)
+Route::any('woocommerce-webhook/verify', [
+    App\Yantrana\Components\Integration\WooCommerce\Controllers\WooCommerceWebhookController::class,
+    'verifyWebhook',
+])->name('webhook.woocommerce.verify')->withoutMiddleware(['web', 'auth', 'session']);
+
+// WooCommerce webhook test endpoint (without any middleware)
+Route::any('woocommerce-webhook/test/{vendorId?}', [
+    App\Yantrana\Components\Integration\WooCommerce\Controllers\WooCommerceWebhookController::class,
+    'testWebhook',
+])->name('webhook.woocommerce.test')->withoutMiddleware(['web', 'auth', 'session']);
+
 // Payment webhooks (outside vendor middleware)
 Route::post('/whatsapp/payment/webhook/razorpay', [
     WhatsAppOrderController::class,

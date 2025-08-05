@@ -106,10 +106,9 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
                 'webhook_events' => [
                     'order.created',
                     'order.updated',
-                    'order.completed',
-                    'order.processing',
-                    'order.cancelled',
-                    'order.refunded'
+                    'order.deleted',
+                    'order.restored',
+                    'order.trashed'
                 ]
             ]
         ];

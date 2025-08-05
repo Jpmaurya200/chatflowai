@@ -13,11 +13,16 @@ use App\Yantrana\Components\Integration\WooCommerce\Models\WooCommerceIntegratio
 class WooCommerceIntegrationRepository extends BaseRepository
 {
     /**
+     * @var WooCommerceIntegrationModel - WooCommerce Integration Model
+     */
+    protected $model;
+
+    /**
      * Constructor
      */
-    public function __construct()
+    public function __construct(WooCommerceIntegrationModel $model)
     {
-        $this->model = new WooCommerceIntegrationModel();
+        $this->model = $model;
     }
 
     /**
@@ -112,6 +117,30 @@ class WooCommerceIntegrationRepository extends BaseRepository
         }
         
         return false;
+    }
+
+    /**
+     * Create new integration
+     */
+    public function create(array $data)
+    {
+        return $this->model->create($data);
+    }
+
+    /**
+     * Update integration
+     */
+    public function update($id, array $data)
+    {
+        return $this->model->where('_id', $id)->update($data);
+    }
+
+    /**
+     * Find integration by ID
+     */
+    public function find($id)
+    {
+        return $this->model->find($id);
     }
 
     /**

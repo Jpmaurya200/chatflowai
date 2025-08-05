@@ -250,6 +250,26 @@ class WooCommerceService
                 'payload_keys' => array_keys($payload)
             ]);
 
+            // If vendor_id is null, try to find integration by webhook URL or other means
+            if (!$vendorId) {
+                // Check if this is a webhook verification or test request
+                if ($request->has('challenge') || $request->header('X-WC-Webhook-Topic') === 'test') {
+                    return ['success' => true, 'message' => 'Webhook verification/test processed'];
+                }
+                
+                // For actual order webhooks, we need vendor_id
+                throw new Exception('Vendor ID is required for order webhook processing');
+            }
+
+            // Check if this is a webhook creation confirmation
+            if (isset($payload['webhook_id']) && count($payload) === 1) {
+                \Log::info('WooCommerce webhook creation confirmation received', [
+                    'webhook_id' => $payload['webhook_id'],
+                    'vendor_id' => $vendorId
+                ]);
+                return ['success' => true, 'message' => 'Webhook creation confirmation processed'];
+            }
+
             $integration = $this->wooCommerceIntegrationRepository->getByVendorId($vendorId);
 
             if (!$integration || !$integration->is_active) {
@@ -261,19 +281,18 @@ class WooCommerceService
                 throw new Exception('Invalid webhook signature');
             }
 
+            // Handle different webhook topics
             switch ($topic) {
                 case 'order.created':
                     return $this->processOrderCreated($payload, $integration);
                 case 'order.updated':
                     return $this->processOrderUpdated($payload, $integration);
-                case 'order.completed':
-                    return $this->processOrderCompleted($payload, $integration);
-                case 'order.processing':
-                    return $this->processOrderProcessing($payload, $integration);
-                case 'order.cancelled':
-                    return $this->processOrderCancelled($payload, $integration);
-                case 'order.refunded':
-                    return $this->processOrderRefunded($payload, $integration);
+                case 'order.deleted':
+                    return $this->processOrderDeleted($payload, $integration);
+                case 'order.restored':
+                    return $this->processOrderRestored($payload, $integration);
+                case 'order.trashed':
+                    return $this->processOrderTrashed($payload, $integration);
                 default:
                     \Log::warning('Unhandled WooCommerce webhook topic', ['topic' => $topic]);
                     return ['success' => true, 'message' => 'Webhook processed (no action required)'];
@@ -355,12 +374,12 @@ class WooCommerceService
     {
         \Log::info('Processing WooCommerce order created', ['order_id' => $payload['id']]);
 
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendor_id);
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
 
         if (!$order) {
             // Create new order
             $order = $this->wooCommerceOrderRepository->create([
-                'vendor_id' => $integration->vendor_id,
+                'vendors__id' => $integration->vendors__id,
                 'woocommerce_order_id' => $payload['id'],
                 'order_number' => $payload['number'],
                 'status' => $payload['status'],
@@ -386,7 +405,7 @@ class WooCommerceService
     {
         \Log::info('Processing WooCommerce order updated', ['order_id' => $payload['id']]);
 
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendor_id);
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
 
         if ($order) {
             $this->wooCommerceOrderRepository->update($order->_id, [
@@ -407,7 +426,7 @@ class WooCommerceService
     {
         \Log::info('Processing WooCommerce order completed', ['order_id' => $payload['id']]);
 
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendor_id);
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
 
         if ($order) {
             $this->wooCommerceOrderRepository->update($order->_id, [
@@ -430,7 +449,7 @@ class WooCommerceService
     {
         \Log::info('Processing WooCommerce order processing', ['order_id' => $payload['id']]);
 
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendor_id);
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
 
         if ($order) {
             $this->wooCommerceOrderRepository->update($order->_id, [
@@ -453,7 +472,7 @@ class WooCommerceService
     {
         \Log::info('Processing WooCommerce order cancelled', ['order_id' => $payload['id']]);
 
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendor_id);
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
 
         if ($order) {
             $this->wooCommerceOrderRepository->update($order->_id, [
@@ -467,13 +486,33 @@ class WooCommerceService
     }
 
     /**
-     * Process order refunded webhook
+     * Process order deleted webhook
      */
-    protected function processOrderRefunded(array $payload, WooCommerceIntegrationModel $integration)
+    protected function processOrderDeleted(array $payload, WooCommerceIntegrationModel $integration)
     {
-        \Log::info('Processing WooCommerce order refunded', ['order_id' => $payload['id']]);
+        \Log::info('Processing WooCommerce order deleted', ['order_id' => $payload['id']]);
 
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendor_id);
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
+
+        if ($order) {
+            $this->wooCommerceOrderRepository->update($order->_id, [
+                'status' => 'cancelled',
+                'order_data' => $payload,
+                'updated_at' => Carbon::parse($payload['date_modified'])
+            ]);
+        }
+
+        return ['success' => true, 'message' => 'Order deleted processed'];
+    }
+
+    /**
+     * Process order restored webhook
+     */
+    protected function processOrderRestored(array $payload, WooCommerceIntegrationModel $integration)
+    {
+        \Log::info('Processing WooCommerce order restored', ['order_id' => $payload['id']]);
+
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
 
         if ($order) {
             $this->wooCommerceOrderRepository->update($order->_id, [
@@ -481,9 +520,32 @@ class WooCommerceService
                 'order_data' => $payload,
                 'updated_at' => Carbon::parse($payload['date_modified'])
             ]);
+
+            // Send order restored notification
+            $this->sendNotification($order, 'order_restored', $integration);
         }
 
-        return ['success' => true, 'message' => 'Order refunded processed'];
+        return ['success' => true, 'message' => 'Order restored processed'];
+    }
+
+    /**
+     * Process order trashed webhook
+     */
+    protected function processOrderTrashed(array $payload, WooCommerceIntegrationModel $integration)
+    {
+        \Log::info('Processing WooCommerce order trashed', ['order_id' => $payload['id']]);
+
+        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
+
+        if ($order) {
+            $this->wooCommerceOrderRepository->update($order->_id, [
+                'status' => 'cancelled',
+                'order_data' => $payload,
+                'updated_at' => Carbon::parse($payload['date_modified'])
+            ]);
+        }
+
+        return ['success' => true, 'message' => 'Order trashed processed'];
     }
 
     /**
@@ -493,14 +555,14 @@ class WooCommerceService
     {
         try {
             // Get or create contact
-            $contact = $this->getOrCreateContact($order->customer_data, $integration->vendor_id);
+            $contact = $this->getOrCreateContact($order->customer_data, $integration->vendors__id);
 
             if (!$contact) {
                 throw new Exception('Failed to create or get contact');
             }
 
             // Get template
-            $template = $this->getTemplateForNotificationType($notificationType, $integration->vendor_id);
+            $template = $this->getTemplateForNotificationType($notificationType, $integration->vendors__id);
 
             if (!$template) {
                 throw new Exception("No template found for notification type: {$notificationType}");
@@ -514,7 +576,7 @@ class WooCommerceService
                 $contact->phone,
                 $template->template_name,
                 $variables,
-                $integration->vendor_id
+                $integration->vendors__id
             );
 
             // Create notification record
@@ -588,6 +650,13 @@ class WooCommerceService
             case 'cod_verification':
                 $variables['cod_amount'] = $orderData['order_total'];
                 $variables['cod_message'] = 'Please have the exact amount ready for delivery.';
+                break;
+            case 'order_restored':
+                $variables['confirmation_message'] = 'Your order has been restored and is being processed.';
+                break;
+            case 'order_deleted':
+            case 'order_trashed':
+                $variables['cancellation_message'] = 'Your order has been cancelled.';
                 break;
         }
 
@@ -693,7 +762,10 @@ class WooCommerceService
             'payment_confirmation' => 'woocommerce_payment_confirmation',
             'shipment_tracking' => 'woocommerce_shipment_tracking',
             'delivery_confirmation' => 'woocommerce_delivery_confirmation',
-            'cod_verification' => 'woocommerce_cod_verification'
+            'cod_verification' => 'woocommerce_cod_verification',
+            'order_restored' => 'woocommerce_order_confirmation',
+            'order_deleted' => 'woocommerce_order_cancelled',
+            'order_trashed' => 'woocommerce_order_cancelled'
         ];
 
         return $templateMap[$notificationType] ?? 'woocommerce_generic_notification';
@@ -781,17 +853,39 @@ class WooCommerceService
      */
     protected function setupWebhooks(WooCommerceIntegrationModel $integration)
     {
+        // Get available webhook topics from WooCommerce
+        $availableTopics = $this->getAvailableWebhookTopics($integration);
+        
         $webhookTopics = [
             'order.created',
             'order.updated',
-            'order.completed',
-            'order.processing',
-            'order.cancelled',
-            'order.refunded'
+            'order.deleted',
+            'order.restored',
+            'order.trashed'
         ];
 
         foreach ($webhookTopics as $topic) {
-            $this->createWebhook($integration, $topic);
+            // Only create webhook if topic is available
+            if (in_array($topic, $availableTopics)) {
+                try {
+                    \Log::info('Attempting to create webhook for topic', [
+                        'topic' => $topic,
+                        'vendor_id' => $integration->vendors__id
+                    ]);
+                    $this->createWebhook($integration, $topic);
+                } catch (Exception $e) {
+                    \Log::error('Failed to create WooCommerce webhook for topic', [
+                        'topic' => $topic,
+                        'vendor_id' => $integration->vendors__id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            } else {
+                \Log::info('Skipping webhook creation for unavailable topic', [
+                    'topic' => $topic,
+                    'vendor_id' => $integration->vendors__id
+                ]);
+            }
         }
     }
 
@@ -801,33 +895,73 @@ class WooCommerceService
     protected function createWebhook(WooCommerceIntegrationModel $integration, string $topic)
     {
         try {
-            $webhookUrl = route('webhook.woocommerce', ['vendor_id' => $integration->vendor_id]);
+            // Validate topic
+            if (empty($topic)) {
+                throw new Exception('Webhook topic cannot be empty');
+            }
             
-            $response = Http::withHeaders([
-                'Authorization' => 'Basic ' . base64_encode($integration->consumer_key . ':' . $integration->consumer_secret)
-            ])->post($integration->site_url . '/wp-json/wc/v3/webhooks', [
+            $webhookUrl = route('webhook.woocommerce.vendor', ['vendorId' => $integration->vendors__id]);
+            
+            // Validate webhook URL
+            if (empty($webhookUrl)) {
+                throw new Exception('Failed to generate webhook URL');
+            }
+            
+            \Log::info('Creating WooCommerce webhook', [
+                'topic' => $topic,
+                'vendor_id' => $integration->vendors__id,
+                'webhook_url' => $webhookUrl,
+                'site_url' => $integration->site_url,
+                'route_name' => 'webhook.woocommerce.vendor'
+            ]);
+            
+            $webhookData = [
                 'name' => 'OMX Flow - ' . ucfirst(str_replace('.', ' ', $topic)),
                 'topic' => $topic,
                 'delivery_url' => $webhookUrl,
                 'status' => 'active'
+            ];
+            
+            // Validate webhook data
+            if (empty($webhookData['topic'])) {
+                throw new Exception('Webhook topic cannot be empty');
+            }
+            
+            \Log::info('WooCommerce webhook data', [
+                'webhook_data' => $webhookData
+            ]);
+            
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . base64_encode($integration->consumer_key . ':' . $integration->consumer_secret)
+            ])->post($integration->site_url . '/wp-json/wc/v3/webhooks', $webhookData);
+            
+            \Log::info('WooCommerce webhook response', [
+                'status_code' => $response->status(),
+                'response_body' => $response->body(),
+                'topic' => $topic
             ]);
 
             if ($response->successful()) {
                 \Log::info('WooCommerce webhook created', [
                     'topic' => $topic,
-                    'vendor_id' => $integration->vendor_id
+                    'vendor_id' => $integration->vendors__id
                 ]);
             } else {
                 \Log::error('Failed to create WooCommerce webhook', [
                     'topic' => $topic,
-                    'vendor_id' => $integration->vendor_id,
-                    'response' => $response->body()
+                    'vendor_id' => $integration->vendors__id,
+                    'response' => $response->body(),
+                    'status_code' => $response->status(),
+                    'headers' => $response->headers()
                 ]);
+                
+                // Don't throw exception, just log the error and continue
+                // Some webhook topics might not be available in all WooCommerce installations
             }
         } catch (Exception $e) {
             \Log::error('WooCommerce webhook creation failed', [
                 'topic' => $topic,
-                'vendor_id' => $integration->vendor_id,
+                'vendor_id' => $integration->vendors__id,
                 'error' => $e->getMessage()
             ]);
         }
@@ -854,7 +988,7 @@ class WooCommerceService
             }
         } catch (Exception $e) {
             \Log::error('WooCommerce webhook removal failed', [
-                'vendor_id' => $integration->vendor_id,
+                'vendor_id' => $integration->vendors__id,
                 'error' => $e->getMessage()
             ]);
         }
@@ -873,15 +1007,50 @@ class WooCommerceService
             if ($response->successful()) {
                 \Log::info('WooCommerce webhook deleted', [
                     'webhook_id' => $webhookId,
-                    'vendor_id' => $integration->vendor_id
+                    'vendor_id' => $integration->vendors__id
                 ]);
             }
         } catch (Exception $e) {
             \Log::error('WooCommerce webhook deletion failed', [
                 'webhook_id' => $webhookId,
-                'vendor_id' => $integration->vendor_id,
+                'vendor_id' => $integration->vendors__id,
                 'error' => $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Get available webhook topics from WooCommerce
+     */
+    protected function getAvailableWebhookTopics(WooCommerceIntegrationModel $integration): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . base64_encode($integration->consumer_key . ':' . $integration->consumer_secret)
+            ])->get($integration->site_url . '/wp-json/wc/v3/webhooks/topics');
+
+            if ($response->successful()) {
+                $topics = $response->json();
+                \Log::info('Available WooCommerce webhook topics', [
+                    'topics' => $topics,
+                    'vendor_id' => $integration->vendors__id
+                ]);
+                return $topics;
+            } else {
+                \Log::warning('Failed to get available webhook topics', [
+                    'vendor_id' => $integration->vendors__id,
+                    'response' => $response->body()
+                ]);
+                // Return default topics if API call fails
+                return ['order.created', 'order.updated'];
+            }
+        } catch (Exception $e) {
+            \Log::error('Error getting available webhook topics', [
+                'vendor_id' => $integration->vendors__id,
+                'error' => $e->getMessage()
+            ]);
+            // Return default topics if API call fails
+            return ['order.created', 'order.updated'];
         }
     }
 

@@ -99,4 +99,175 @@ class WooCommerceIntegrationModel extends BaseModel
         
         return $this->connected_at->diffInDays(Carbon::now());
     }
+
+    /**
+     * Get notification types
+     */
+    public function getNotificationTypes(): array
+    {
+        $settings = $this->settings ?? [];
+        return $settings['notification_types'] ?? [];
+    }
+
+    /**
+     * Set notification types
+     */
+    public function setNotificationTypes(array $types): void
+    {
+        $settings = $this->settings ?? [];
+        $settings['notification_types'] = $types;
+        $this->settings = $settings;
+    }
+
+    /**
+     * Get webhook settings
+     */
+    public function getWebhookSettings(): array
+    {
+        $settings = $this->settings ?? [];
+        return $settings['webhook_settings'] ?? [];
+    }
+
+    /**
+     * Set webhook settings
+     */
+    public function setWebhookSettings(array $settings): void
+    {
+        $currentSettings = $this->settings ?? [];
+        $currentSettings['webhook_settings'] = $settings;
+        $this->settings = $currentSettings;
+    }
+
+    /**
+     * Get notification settings
+     */
+    public function getNotificationSettings(): array
+    {
+        $settings = $this->settings ?? [];
+        return $settings['notification_settings'] ?? [];
+    }
+
+    /**
+     * Set notification settings
+     */
+    public function setNotificationSettings(array $settings): void
+    {
+        $currentSettings = $this->settings ?? [];
+        $currentSettings['notification_settings'] = $settings;
+        $this->settings = $currentSettings;
+    }
+
+    /**
+     * Get site data
+     */
+    public function getSiteData(): array
+    {
+        $settings = $this->settings ?? [];
+        return $settings['site_data'] ?? [];
+    }
+
+    /**
+     * Set site data
+     */
+    public function setSiteData(array $data): void
+    {
+        $currentSettings = $this->settings ?? [];
+        $currentSettings['site_data'] = $data;
+        $this->settings = $currentSettings;
+    }
+
+    /**
+     * Get credentials
+     */
+    public function getCredentials(): array
+    {
+        return [
+            'consumer_key' => $this->consumer_key,
+            'consumer_secret' => $this->consumer_secret,
+        ];
+    }
+
+    /**
+     * Set credentials
+     */
+    public function setCredentials(array $credentials): void
+    {
+        $this->consumer_key = $credentials['consumer_key'] ?? null;
+        $this->consumer_secret = $credentials['consumer_secret'] ?? null;
+    }
+
+    /**
+     * Get template mappings
+     */
+    public function getTemplateMappings(): array
+    {
+        $settings = $this->settings ?? [];
+        return $settings['template_mappings'] ?? [];
+    }
+
+    /**
+     * Set template mappings
+     */
+    public function setTemplateMappings(array $mappings): void
+    {
+        $currentSettings = $this->settings ?? [];
+        $currentSettings['template_mappings'] = $mappings;
+        $this->settings = $currentSettings;
+    }
+
+    /**
+     * Get template UID for notification type
+     */
+    public function getTemplateUid(string $notificationType): ?string
+    {
+        $mappings = $this->getTemplateMappings();
+        return $mappings[$notificationType] ?? null;
+    }
+
+    /**
+     * Get variable mappings for notification type
+     */
+    public function getVariableMappings(string $notificationType): array
+    {
+        $settings = $this->settings ?? [];
+        $variableMappings = $settings['variable_mappings'] ?? [];
+        return $variableMappings[$notificationType] ?? [];
+    }
+
+    /**
+     * Set variable mappings for notification type
+     */
+    public function setVariableMappings(string $notificationType, array $variables): void
+    {
+        $currentSettings = $this->settings ?? [];
+        $variableMappings = $currentSettings['variable_mappings'] ?? [];
+        $variableMappings[$notificationType] = $variables;
+        $currentSettings['variable_mappings'] = $variableMappings;
+        $this->settings = $currentSettings;
+    }
+
+    /**
+     * Get available WooCommerce variables
+     */
+    public static function getAvailableWooCommerceVariables(): array
+    {
+        return [
+            'order_id' => 'Order ID',
+            'order_number' => 'Order Number',
+            'order_status' => 'Order Status',
+            'order_total' => 'Order Total',
+            'order_currency' => 'Order Currency',
+            'customer_name' => 'Customer Name',
+            'customer_email' => 'Customer Email',
+            'customer_phone' => 'Customer Phone',
+            'billing_address' => 'Billing Address',
+            'shipping_address' => 'Shipping Address',
+            'payment_method' => 'Payment Method',
+            'shipping_method' => 'Shipping Method',
+            'order_date' => 'Order Date',
+            'order_items' => 'Order Items',
+            'site_name' => 'Site Name',
+            'site_url' => 'Site URL',
+        ];
+    }
 } 

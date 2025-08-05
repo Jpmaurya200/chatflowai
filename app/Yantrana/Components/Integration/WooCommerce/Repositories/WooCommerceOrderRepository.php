@@ -13,11 +13,16 @@ use App\Yantrana\Components\Integration\WooCommerce\Models\WooCommerceOrderModel
 class WooCommerceOrderRepository extends BaseRepository
 {
     /**
+     * @var WooCommerceOrderModel - WooCommerce Order Model
+     */
+    protected $model;
+
+    /**
      * Constructor
      */
-    public function __construct()
+    public function __construct(WooCommerceOrderModel $model)
     {
-        $this->model = new WooCommerceOrderModel();
+        $this->model = $model;
     }
 
     /**
@@ -194,6 +199,30 @@ class WooCommerceOrderRepository extends BaseRepository
                           ->get()
                           ->pluck('count', 'status')
                           ->toArray();
+    }
+
+    /**
+     * Create new order
+     */
+    public function create(array $data)
+    {
+        return $this->model->create($data);
+    }
+
+    /**
+     * Update order
+     */
+    public function update($id, array $data)
+    {
+        return $this->model->where('_id', $id)->update($data);
+    }
+
+    /**
+     * Find order by ID
+     */
+    public function find($id)
+    {
+        return $this->model->find($id);
     }
 
     /**

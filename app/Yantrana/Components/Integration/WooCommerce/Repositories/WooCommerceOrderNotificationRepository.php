@@ -13,11 +13,16 @@ use App\Yantrana\Components\Integration\WooCommerce\Models\WooCommerceOrderNotif
 class WooCommerceOrderNotificationRepository extends BaseRepository
 {
     /**
+     * @var WooCommerceOrderNotificationModel - WooCommerce Order Notification Model
+     */
+    protected $model;
+
+    /**
      * Constructor
      */
-    public function __construct()
+    public function __construct(WooCommerceOrderNotificationModel $model)
     {
-        $this->model = new WooCommerceOrderNotificationModel();
+        $this->model = $model;
     }
 
     /**
@@ -257,6 +262,30 @@ class WooCommerceOrderNotificationRepository extends BaseRepository
                           ->get()
                           ->pluck('count', 'notification_type')
                           ->toArray();
+    }
+
+    /**
+     * Create new notification
+     */
+    public function create(array $data)
+    {
+        return $this->model->create($data);
+    }
+
+    /**
+     * Update notification
+     */
+    public function update($id, array $data)
+    {
+        return $this->model->where('_id', $id)->update($data);
+    }
+
+    /**
+     * Find notification by ID
+     */
+    public function find($id)
+    {
+        return $this->model->find($id);
     }
 
     /**
