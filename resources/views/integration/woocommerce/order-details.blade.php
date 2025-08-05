@@ -4,20 +4,20 @@
 
 @push('head')
 <style>
-/* Modern Shopify Dashboard Styles - Overriding built-in styles */
-.shopify-dashboard {
+/* Modern WooCommerce Dashboard Styles - Overriding built-in styles */
+.woocommerce-dashboard {
     background: #f8fafc;
     min-height: 100vh;
     padding: 2rem 0;
 }
 
-.shopify-dashboard .container-fluid {
+.woocommerce-dashboard .container-fluid {
     max-width: 1400px;
     margin: 0 auto;
 }
 
 /* Modern Card Styling */
-.shopify-dashboard .card {
+.woocommerce-dashboard .card {
     background: #ffffff;
     border: none;
     border-radius: 16px;
@@ -27,13 +27,13 @@
     border: 1px solid #e5e7eb;
 }
 
-.shopify-dashboard .card:hover {
+.woocommerce-dashboard .card:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-.shopify-dashboard .card-header {
-    background: #10b981;
+.woocommerce-dashboard .card-header {
+    background: #7c3aed;
     color: white;
     border-radius: 16px 16px 0 0 !important;
     padding: 1.5rem 2rem;
@@ -43,7 +43,7 @@
     align-items: center;
 }
 
-.shopify-dashboard .card-title {
+.woocommerce-dashboard .card-title {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 600;
@@ -52,17 +52,17 @@
     gap: 0.75rem;
 }
 
-.shopify-dashboard .card-title i {
+.woocommerce-dashboard .card-title i {
     font-size: 1.25rem;
     opacity: 0.9;
 }
 
-.shopify-dashboard .card-body {
+.woocommerce-dashboard .card-body {
     padding: 2rem;
 }
 
 /* Modern Button Styling */
-.shopify-dashboard .btn {
+.woocommerce-dashboard .btn {
     border-radius: 8px;
     font-weight: 600;
     padding: 0.75rem 1.5rem;
@@ -74,39 +74,39 @@
     gap: 0.5rem;
 }
 
-.shopify-dashboard .btn-primary {
-    background: #10b981;
+.woocommerce-dashboard .btn-primary {
+    background: #7c3aed;
     color: white;
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.2);
 }
 
-.shopify-dashboard .btn-primary:hover {
-    background: #059669;
+.woocommerce-dashboard .btn-primary:hover {
+    background: #6d28d9;
     transform: translateY(-1px);
-    box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 6px 8px -1px rgba(124, 58, 237, 0.3);
     color: white;
 }
 
-.shopify-dashboard .btn-secondary {
+.woocommerce-dashboard .btn-secondary {
     background: #6b7280;
     color: white;
     box-shadow: 0 4px 6px -1px rgba(107, 114, 128, 0.2);
 }
 
-.shopify-dashboard .btn-secondary:hover {
+.woocommerce-dashboard .btn-secondary:hover {
     background: #4b5563;
     transform: translateY(-1px);
     box-shadow: 0 6px 8px -1px rgba(107, 114, 128, 0.3);
     color: white;
 }
 
-.shopify-dashboard .btn-info {
+.woocommerce-dashboard .btn-info {
     background: #06b6d4;
     color: white;
     box-shadow: 0 4px 6px -1px rgba(6, 182, 212, 0.2);
 }
 
-.shopify-dashboard .btn-info:hover {
+.woocommerce-dashboard .btn-info:hover {
     background: #0891b2;
     transform: translateY(-1px);
     box-shadow: 0 6px 8px -1px rgba(6, 182, 212, 0.3);
@@ -114,7 +114,7 @@
 }
 
 /* Modern Table Styling */
-.shopify-dashboard .table {
+.woocommerce-dashboard .table {
     background: white;
     border-radius: 12px;
     overflow: hidden;
@@ -122,8 +122,8 @@
     border: 1px solid #e5e7eb;
 }
 
-.shopify-dashboard .table thead th {
-    background: #10b981;
+.woocommerce-dashboard .table thead th {
+    background: #7c3aed;
     color: white;
     border: none;
     padding: 1.25rem 1rem;
@@ -133,7 +133,7 @@
     letter-spacing: 0.5px;
 }
 
-.shopify-dashboard .table tbody td {
+.woocommerce-dashboard .table tbody td {
     padding: 1.25rem 1rem;
     border: none;
     border-bottom: 1px solid #f3f4f6;
@@ -142,18 +142,18 @@
     font-weight: 500;
 }
 
-.shopify-dashboard .table tbody tr:hover {
+.woocommerce-dashboard .table tbody tr:hover {
     background: #f9fafb;
     transition: all 0.2s ease;
 }
 
-.shopify-dashboard .table-borderless td {
+.woocommerce-dashboard .table-borderless td {
     border: none;
     padding: 0.75rem 0;
 }
 
 /* Modern Badge Styling */
-.shopify-dashboard .badge {
+.woocommerce-dashboard .badge {
     border-radius: 12px;
     padding: 0.5rem 1rem;
     font-weight: 600;
@@ -162,42 +162,42 @@
     letter-spacing: 0.5px;
 }
 
-.shopify-dashboard .badge-success {
-    background: #10b981;
+.woocommerce-dashboard .badge-success {
+    background: #7c3aed;
     color: white;
 }
 
-.shopify-dashboard .badge-secondary {
+.woocommerce-dashboard .badge-secondary {
     background: #6b7280;
     color: white;
 }
 
-.shopify-dashboard .badge-danger {
+.woocommerce-dashboard .badge-danger {
     background: #ef4444;
     color: white;
 }
 
-.shopify-dashboard .badge-warning {
+.woocommerce-dashboard .badge-warning {
     background: #f59e0b;
     color: white;
 }
 
-.shopify-dashboard .badge-info {
+.woocommerce-dashboard .badge-info {
     background: #06b6d4;
     color: white;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .shopify-dashboard {
+    .woocommerce-dashboard {
         padding: 1rem 0;
     }
     
-    .shopify-dashboard .card-body {
+    .woocommerce-dashboard .card-body {
         padding: 1.5rem;
     }
     
-    .shopify-dashboard .card-header {
+    .woocommerce-dashboard .card-header {
         flex-direction: column;
         gap: 1rem;
         text-align: center;
@@ -205,12 +205,12 @@
 }
 
 /* Loading Animation */
-.shopify-dashboard .loading {
+.woocommerce-dashboard .loading {
     opacity: 0.7;
     pointer-events: none;
 }
 
-.shopify-dashboard .spinner {
+.woocommerce-dashboard .spinner {
     animation: spin 1s linear infinite;
 }
 
@@ -220,28 +220,28 @@
 }
 
 /* Custom Scrollbar */
-.shopify-dashboard ::-webkit-scrollbar {
+.woocommerce-dashboard ::-webkit-scrollbar {
     width: 8px;
 }
 
-.shopify-dashboard ::-webkit-scrollbar-track {
+.woocommerce-dashboard ::-webkit-scrollbar-track {
     background: #f1f5f9;
     border-radius: 10px;
 }
 
-.shopify-dashboard ::-webkit-scrollbar-thumb {
-    background: #10b981;
+.woocommerce-dashboard ::-webkit-scrollbar-thumb {
+    background: #7c3aed;
     border-radius: 10px;
 }
 
-.shopify-dashboard ::-webkit-scrollbar-thumb:hover {
-    background: #059669;
+.woocommerce-dashboard ::-webkit-scrollbar-thumb:hover {
+    background: #6d28d9;
 }
 </style>
 @endpush
 
 @section('content')
-<div class="shopify-dashboard">
+<div class="woocommerce-dashboard">
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
@@ -252,7 +252,7 @@
                         Order Details - {{ $order->order_number }}
                     </h3>
                     <div class="card-tools">
-                        <a href="{{ route('vendor.integration.shopify.orders') }}" class="btn btn-secondary">
+                        <a href="{{ route('vendor.integration.woocommerce.orders') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Orders
                         </a>
                     </div>
@@ -273,13 +273,13 @@
                                                 <td>{{ $order->order_number }}</td>
                                             </tr>
                                             <tr>
-                                                <td><strong>Shopify Order ID:</strong></td>
-                                                <td>{{ $order->shopify_order_id }}</td>
+                                                <td><strong>WooCommerce Order ID:</strong></td>
+                                                <td>{{ $order->woocommerce_order_id }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Status:</strong></td>
                                                 <td>
-                                                    <span class="badge badge-{{ $order->status === 'open' ? 'success' : ($order->status === 'closed' ? 'secondary' : 'danger') }}">
+                                                    <span class="badge badge-{{ $order->status === 'completed' ? 'success' : ($order->status === 'processing' ? 'warning' : ($order->status === 'cancelled' ? 'danger' : 'secondary')) }}">
                                                         {{ ucfirst($order->status) }}
                                                     </span>
                                                 </td>
@@ -287,8 +287,8 @@
                                             <tr>
                                                 <td><strong>Payment Status:</strong></td>
                                                 <td>
-                                                    <span class="badge badge-{{ $order->financial_status === 'paid' ? 'success' : ($order->financial_status === 'pending' ? 'warning' : 'info') }}">
-                                                        {{ ucfirst(str_replace('_', ' ', $order->financial_status)) }}
+                                                    <span class="badge badge-{{ $order->payment_status === 'paid' ? 'success' : ($order->payment_status === 'pending' ? 'warning' : 'danger') }}">
+                                                        {{ ucfirst(str_replace('_', ' ', $order->payment_status)) }}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -323,15 +323,15 @@
                                         <table class="table table-borderless">
                                             <tr>
                                                 <td><strong>Name:</strong></td>
-                                                <td>{{ $order->name }}</td>
+                                                <td>{{ $order->billing_first_name }} {{ $order->billing_last_name }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Email:</strong></td>
-                                                <td>{{ $order->email ?: 'N/A' }}</td>
+                                                <td>{{ $order->billing_email ?: 'N/A' }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Phone:</strong></td>
-                                                <td>{{ $order->phone ?: 'N/A' }}</td>
+                                                <td>{{ $order->billing_phone ?: 'N/A' }}</td>
                                             </tr>
                                             @if($order->contact)
                                             <tr>
@@ -372,10 +372,10 @@
                                                     @forelse($order->line_items ?? [] as $item)
                                                     <tr>
                                                         <td>
-                                                            <strong>{{ $item['title'] ?? 'N/A' }}</strong>
-                                                            @if(isset($item['variant_title']))
+                                                            <strong>{{ $item['name'] ?? 'N/A' }}</strong>
+                                                            @if(isset($item['variation_id']))
                                                                 <br>
-                                                                <small class="text-muted">{{ $item['variant_title'] }}</small>
+                                                                <small class="text-muted">Variation ID: {{ $item['variation_id'] }}</small>
                                                             @endif
                                                         </td>
                                                         <td>{{ $item['sku'] ?? 'N/A' }}</td>
@@ -414,7 +414,7 @@
                                         <table class="table table-borderless">
                                             <tr>
                                                 <td><strong>Subtotal:</strong></td>
-                                                <td>{{ $order->formatted_subtotal_price ?? 'N/A' }}</td>
+                                                <td>{{ $order->formatted_subtotal ?? 'N/A' }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Tax:</strong></td>
@@ -422,15 +422,15 @@
                                             </tr>
                                             <tr>
                                                 <td><strong>Shipping:</strong></td>
-                                                <td>{{ $order->formatted_total_shipping_price ?? 'N/A' }}</td>
+                                                <td>{{ $order->formatted_shipping_total ?? 'N/A' }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Discount:</strong></td>
-                                                <td>{{ $order->formatted_total_discounts ?? 'N/A' }}</td>
+                                                <td>{{ $order->formatted_total_discount ?? 'N/A' }}</td>
                                             </tr>
                                             <tr class="border-top">
                                                 <td><strong>Total:</strong></td>
-                                                <td><strong>{{ $order->formatted_total_price ?? 'N/A' }}</strong></td>
+                                                <td><strong>{{ $order->formatted_total ?? 'N/A' }}</strong></td>
                                             </tr>
                                         </table>
                                     </div>
@@ -448,22 +448,22 @@
                                         <table class="table table-borderless">
                                             <tr>
                                                 <td><strong>Name:</strong></td>
-                                                <td>{{ $order->shipping_address['name'] ?? 'N/A' }}</td>
+                                                <td>{{ $order->shipping_first_name }} {{ $order->shipping_last_name }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Address:</strong></td>
                                                 <td>
-                                                    {{ $order->shipping_address['address1'] ?? '' }}<br>
-                                                    @if($order->shipping_address['address2'])
-                                                        {{ $order->shipping_address['address2'] }}<br>
+                                                    {{ $order->shipping_address_1 ?? '' }}<br>
+                                                    @if($order->shipping_address_2)
+                                                        {{ $order->shipping_address_2 }}<br>
                                                     @endif
-                                                    {{ $order->shipping_address['city'] ?? '' }}, {{ $order->shipping_address['province'] ?? '' }} {{ $order->shipping_address['zip'] ?? '' }}<br>
-                                                    {{ $order->shipping_address['country'] ?? '' }}
+                                                    {{ $order->shipping_city ?? '' }}, {{ $order->shipping_state ?? '' }} {{ $order->shipping_postcode ?? '' }}<br>
+                                                    {{ $order->shipping_country ?? '' }}
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Phone:</strong></td>
-                                                <td>{{ $order->shipping_address['phone'] ?? 'N/A' }}</td>
+                                                <td>{{ $order->shipping_phone ?? 'N/A' }}</td>
                                             </tr>
                                         </table>
                                         @else
@@ -541,7 +541,7 @@
                             <i class="fas fa-exclamation-triangle fa-3x text-muted mb-3"></i>
                             <h5>Order Not Found</h5>
                             <p class="text-muted">The requested order could not be found.</p>
-                            <a href="{{ route('vendor.integration.shopify.orders') }}" class="btn btn-primary">
+                            <a href="{{ route('vendor.integration.woocommerce.orders') }}" class="btn btn-primary">
                                 <i class="fas fa-arrow-left"></i> Back to Orders
                             </a>
                         </div>
@@ -565,7 +565,7 @@ $(document).ready(function() {
         button.html('<i class="fas fa-spinner fa-spin"></i> Sending...');
         
         $.ajax({
-            url: `/vendor-console/integration/shopify/notifications/${notificationId}/resend`,
+            url: `/vendor-console/integration/woocommerce/notifications/${notificationId}/resend`,
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -576,7 +576,7 @@ $(document).ready(function() {
                         icon: 'success',
                         title: 'Success!',
                         text: 'Notification resent successfully',
-                        confirmButtonColor: '#10b981',
+                        confirmButtonColor: '#7c3aed',
                         background: '#f8fafc',
                         customClass: {
                             popup: 'rounded-lg shadow-lg',
@@ -620,7 +620,7 @@ $(document).ready(function() {
     });
 
     // Add smooth animations to cards
-    $('.shopify-dashboard .card').each(function(index) {
+    $('.woocommerce-dashboard .card').each(function(index) {
         $(this).css({
             'animation-delay': (index * 0.1) + 's',
             'animation': 'fadeInUp 0.6s ease forwards'
@@ -628,7 +628,7 @@ $(document).ready(function() {
     });
 
     // Add hover effects to table rows
-    $('.shopify-dashboard .table tbody tr').hover(
+    $('.woocommerce-dashboard .table tbody tr').hover(
         function() {
             $(this).addClass('table-hover');
         },

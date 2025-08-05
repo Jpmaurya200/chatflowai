@@ -2,18 +2,276 @@
 
 @section('title', 'WooCommerce Integration Settings')
 
+@push('head')
+<style>
+/* Modern WooCommerce Dashboard Styles - Overriding built-in styles */
+.woocommerce-dashboard {
+    background: #f8fafc;
+    min-height: 100vh;
+    padding: 2rem 0;
+}
+
+.woocommerce-dashboard .container-fluid {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Modern Card Styling */
+.woocommerce-dashboard .card {
+    background: #ffffff;
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+    margin-bottom: 2rem;
+    border: 1px solid #e5e7eb;
+}
+
+.woocommerce-dashboard .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.woocommerce-dashboard .card-header {
+    background: #7c3aed;
+    color: white;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 1.5rem 2rem;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.woocommerce-dashboard .card-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.woocommerce-dashboard .card-title i {
+    font-size: 1.25rem;
+    opacity: 0.9;
+}
+
+.woocommerce-dashboard .card-body {
+    padding: 2rem;
+}
+
+/* Modern Alert Styling */
+.woocommerce-dashboard .alert {
+    border: none;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    font-weight: 500;
+}
+
+.woocommerce-dashboard .alert-success {
+    background: #7c3aed;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.2);
+}
+
+.woocommerce-dashboard .alert-warning {
+    background: #f59e0b;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.2);
+}
+
+.woocommerce-dashboard .alert-danger {
+    background: #ef4444;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+}
+
+/* Modern Button Styling */
+.woocommerce-dashboard .btn {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.3s ease;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.woocommerce-dashboard .btn-primary {
+    background: #7c3aed;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.2);
+}
+
+.woocommerce-dashboard .btn-primary:hover {
+    background: #6d28d9;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px -1px rgba(124, 58, 237, 0.3);
+    color: white;
+}
+
+.woocommerce-dashboard .btn-secondary {
+    background: #6b7280;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(107, 114, 128, 0.2);
+}
+
+.woocommerce-dashboard .btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px -1px rgba(107, 114, 128, 0.3);
+    color: white;
+}
+
+.woocommerce-dashboard .btn-danger {
+    background: #ef4444;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+}
+
+.woocommerce-dashboard .btn-danger:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px -1px rgba(239, 68, 68, 0.3);
+    color: white;
+}
+
+.woocommerce-dashboard .btn-warning {
+    background: #f59e0b;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.2);
+}
+
+.woocommerce-dashboard .btn-warning:hover {
+    background: #d97706;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px -1px rgba(245, 158, 11, 0.3);
+    color: white;
+}
+
+/* Modern Form Styling */
+.woocommerce-dashboard .form-control {
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.woocommerce-dashboard .form-control:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.woocommerce-dashboard .form-check-input:checked {
+    background-color: #7c3aed;
+    border-color: #7c3aed;
+}
+
+.woocommerce-dashboard .form-check-input:focus {
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+/* Modern Badge Styling */
+.woocommerce-dashboard .badge {
+    border-radius: 12px;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.woocommerce-dashboard .badge-success {
+    background: #7c3aed;
+    color: white;
+}
+
+.woocommerce-dashboard .badge-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.woocommerce-dashboard .badge-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.woocommerce-dashboard .badge-info {
+    background: #06b6d4;
+    color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .woocommerce-dashboard {
+        padding: 1rem 0;
+    }
+    
+    .woocommerce-dashboard .card-body {
+        padding: 1.5rem;
+    }
+    
+    .woocommerce-dashboard .card-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+
+/* Loading Animation */
+.woocommerce-dashboard .loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.woocommerce-dashboard .spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Custom Scrollbar */
+.woocommerce-dashboard ::-webkit-scrollbar {
+    width: 8px;
+}
+
+.woocommerce-dashboard ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.woocommerce-dashboard ::-webkit-scrollbar-thumb {
+    background: #7c3aed;
+    border-radius: 10px;
+}
+
+.woocommerce-dashboard ::-webkit-scrollbar-thumb:hover {
+    background: #6d28d9;
+}
+</style>
+@endpush
+
 @section('content')
-<div class="container-fluid">
+<div class="woocommerce-dashboard">
+<div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h3 class="card-title text-white">
                         <i class="fas fa-cog"></i>
                         WooCommerce Integration Settings
                     </h3>
                     <div class="card-tools">
-                        <a href="{{ route('vendor.integration.woocommerce.dashboard') }}" class="btn btn-secondary btn-sm">
+                        <a href="{{ route('vendor.integration.woocommerce.dashboard') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
                         </a>
                     </div>
@@ -31,7 +289,7 @@
                         <!-- Disconnect Section -->
                         <div class="card">
                             <div class="card-header">
-                                <h4 class="card-title">Disconnect Integration</h4>
+                                <h4 class="card-title text-white">Disconnect Integration</h4>
                             </div>
                             <div class="card-body">
                                 <p>Disconnecting will remove all webhooks and stop receiving order notifications.</p>
@@ -44,7 +302,7 @@
                         <!-- Notification Settings -->
                         <div class="card">
                             <div class="card-header">
-                                <h4 class="card-title">Notification Settings</h4>
+                                <h4 class="card-title text-white">Notification Settings</h4>
                             </div>
                             <div class="card-body">
                                 <form id="notification-settings-form">
@@ -73,7 +331,7 @@
                                                 <div class="variable-mapping-section mt-3" id="variable-mapping-order_confirmation" style="display: none;">
                                                     <div class="card">
                                                         <div class="card-header">
-                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                            <h6 class="card-title mb-0 text-white">Template Variable Mapping</h6>
                                                         </div>
                                                         <div class="card-body">
                                                             <div class="template-variables-container">
@@ -105,7 +363,7 @@
                                                 <div class="variable-mapping-section mt-3" id="variable-mapping-payment_confirmation" style="display: none;">
                                                     <div class="card">
                                                         <div class="card-header">
-                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                            <h6 class="card-title mb-0 text-white">Template Variable Mapping</h6>
                                                         </div>
                                                         <div class="card-body">
                                                             <div class="template-variables-container">
@@ -137,7 +395,7 @@
                                                 <div class="variable-mapping-section mt-3" id="variable-mapping-shipment_tracking" style="display: none;">
                                                     <div class="card">
                                                         <div class="card-header">
-                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                            <h6 class="card-title mb-0 text-white">Template Variable Mapping</h6>
                                                         </div>
                                                         <div class="card-body">
                                                             <div class="template-variables-container">
@@ -172,7 +430,7 @@
                                                 <div class="variable-mapping-section mt-3" id="variable-mapping-delivery_confirmation" style="display: none;">
                                                     <div class="card">
                                                         <div class="card-header">
-                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                            <h6 class="card-title mb-0 text-white">Template Variable Mapping</h6>
                                                         </div>
                                                         <div class="card-body">
                                                             <div class="template-variables-container">
@@ -204,7 +462,7 @@
                                                 <div class="variable-mapping-section mt-3" id="variable-mapping-cod_verification" style="display: none;">
                                                     <div class="card">
                                                         <div class="card-header">
-                                                            <h6 class="card-title mb-0">Template Variable Mapping</h6>
+                                                            <h6 class="card-title mb-0 text-white">Template Variable Mapping</h6>
                                                         </div>
                                                         <div class="card-body">
                                                             <div class="template-variables-container">

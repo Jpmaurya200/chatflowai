@@ -1,23 +1,23 @@
 @extends('layouts.app')
 
-@section('title', 'Shopify Orders')
+@section('title', 'WooCommerce Orders')
 
 @push('head')
 <style>
-/* Modern Shopify Dashboard Styles - Overriding built-in styles */
-.shopify-dashboard {
+/* Modern WooCommerce Dashboard Styles - Overriding built-in styles */
+.woocommerce-dashboard {
     background: #f8fafc;
     min-height: 100vh;
     padding: 2rem 0;
 }
 
-.shopify-dashboard .container-fluid {
+.woocommerce-dashboard .container-fluid {
     max-width: 1400px;
     margin: 0 auto;
 }
 
 /* Modern Card Styling */
-.shopify-dashboard .card {
+.woocommerce-dashboard .card {
     background: #ffffff;
     border: none;
     border-radius: 16px;
@@ -27,13 +27,13 @@
     border: 1px solid #e5e7eb;
 }
 
-.shopify-dashboard .card:hover {
+.woocommerce-dashboard .card:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-.shopify-dashboard .card-header {
-    background: #10b981;
+.woocommerce-dashboard .card-header {
+    background: #7c3aed;
     color: white;
     border-radius: 16px 16px 0 0 !important;
     padding: 1.5rem 2rem;
@@ -43,7 +43,7 @@
     align-items: center;
 }
 
-.shopify-dashboard .card-title {
+.woocommerce-dashboard .card-title {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 600;
@@ -52,17 +52,17 @@
     gap: 0.75rem;
 }
 
-.shopify-dashboard .card-title i {
+.woocommerce-dashboard .card-title i {
     font-size: 1.25rem;
     opacity: 0.9;
 }
 
-.shopify-dashboard .card-body {
+.woocommerce-dashboard .card-body {
     padding: 2rem;
 }
 
 /* Modern Button Styling */
-.shopify-dashboard .btn {
+.woocommerce-dashboard .btn {
     border-radius: 8px;
     font-weight: 600;
     padding: 0.75rem 1.5rem;
@@ -74,39 +74,39 @@
     gap: 0.5rem;
 }
 
-.shopify-dashboard .btn-primary {
-    background: #10b981;
+.woocommerce-dashboard .btn-primary {
+    background: #7c3aed;
     color: white;
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.2);
 }
 
-.shopify-dashboard .btn-primary:hover {
-    background: #059669;
+.woocommerce-dashboard .btn-primary:hover {
+    background: #6d28d9;
     transform: translateY(-1px);
-    box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 6px 8px -1px rgba(124, 58, 237, 0.3);
     color: white;
 }
 
-.shopify-dashboard .btn-secondary {
+.woocommerce-dashboard .btn-secondary {
     background: #6b7280;
     color: white;
     box-shadow: 0 4px 6px -1px rgba(107, 114, 128, 0.2);
 }
 
-.shopify-dashboard .btn-secondary:hover {
+.woocommerce-dashboard .btn-secondary:hover {
     background: #4b5563;
     transform: translateY(-1px);
     box-shadow: 0 6px 8px -1px rgba(107, 114, 128, 0.3);
     color: white;
 }
 
-.shopify-dashboard .btn-info {
+.woocommerce-dashboard .btn-info {
     background: #06b6d4;
     color: white;
     box-shadow: 0 4px 6px -1px rgba(6, 182, 212, 0.2);
 }
 
-.shopify-dashboard .btn-info:hover {
+.woocommerce-dashboard .btn-info:hover {
     background: #0891b2;
     transform: translateY(-1px);
     box-shadow: 0 6px 8px -1px rgba(6, 182, 212, 0.3);
@@ -114,7 +114,7 @@
 }
 
 /* Modern Form Styling */
-.shopify-dashboard .form-control {
+.woocommerce-dashboard .form-control {
     border-radius: 8px;
     border: 1px solid #d1d5db;
     padding: 0.75rem 1rem;
@@ -122,13 +122,13 @@
     transition: all 0.3s ease;
 }
 
-.shopify-dashboard .form-control:focus {
-    border-color: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+.woocommerce-dashboard .form-control:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 
 /* Modern Table Styling */
-.shopify-dashboard .table {
+.woocommerce-dashboard .table {
     background: white;
     border-radius: 12px;
     overflow: hidden;
@@ -136,8 +136,8 @@
     border: 1px solid #e5e7eb;
 }
 
-.shopify-dashboard .table thead th {
-    background: #10b981;
+.woocommerce-dashboard .table thead th {
+    background: #7c3aed;
     color: white;
     border: none;
     padding: 1.25rem 1rem;
@@ -147,7 +147,7 @@
     letter-spacing: 0.5px;
 }
 
-.shopify-dashboard .table tbody td {
+.woocommerce-dashboard .table tbody td {
     padding: 1.25rem 1rem;
     border: none;
     border-bottom: 1px solid #f3f4f6;
@@ -156,13 +156,13 @@
     font-weight: 500;
 }
 
-.shopify-dashboard .table tbody tr:hover {
+.woocommerce-dashboard .table tbody tr:hover {
     background: #f9fafb;
     transition: all 0.2s ease;
 }
 
 /* Modern Badge Styling */
-.shopify-dashboard .badge {
+.woocommerce-dashboard .badge {
     border-radius: 12px;
     padding: 0.5rem 1rem;
     font-weight: 600;
@@ -171,42 +171,42 @@
     letter-spacing: 0.5px;
 }
 
-.shopify-dashboard .badge-success {
-    background: #10b981;
+.woocommerce-dashboard .badge-success {
+    background: #7c3aed;
     color: white;
 }
 
-.shopify-dashboard .badge-secondary {
+.woocommerce-dashboard .badge-secondary {
     background: #6b7280;
     color: white;
 }
 
-.shopify-dashboard .badge-danger {
+.woocommerce-dashboard .badge-danger {
     background: #ef4444;
     color: white;
 }
 
-.shopify-dashboard .badge-warning {
+.woocommerce-dashboard .badge-warning {
     background: #f59e0b;
     color: white;
 }
 
-.shopify-dashboard .badge-info {
+.woocommerce-dashboard .badge-info {
     background: #06b6d4;
     color: white;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .shopify-dashboard {
+    .woocommerce-dashboard {
         padding: 1rem 0;
     }
     
-    .shopify-dashboard .card-body {
+    .woocommerce-dashboard .card-body {
         padding: 1.5rem;
     }
     
-    .shopify-dashboard .card-header {
+    .woocommerce-dashboard .card-header {
         flex-direction: column;
         gap: 1rem;
         text-align: center;
@@ -214,12 +214,12 @@
 }
 
 /* Loading Animation */
-.shopify-dashboard .loading {
+.woocommerce-dashboard .loading {
     opacity: 0.7;
     pointer-events: none;
 }
 
-.shopify-dashboard .spinner {
+.woocommerce-dashboard .spinner {
     animation: spin 1s linear infinite;
 }
 
@@ -229,28 +229,28 @@
 }
 
 /* Custom Scrollbar */
-.shopify-dashboard ::-webkit-scrollbar {
+.woocommerce-dashboard ::-webkit-scrollbar {
     width: 8px;
 }
 
-.shopify-dashboard ::-webkit-scrollbar-track {
+.woocommerce-dashboard ::-webkit-scrollbar-track {
     background: #f1f5f9;
     border-radius: 10px;
 }
 
-.shopify-dashboard ::-webkit-scrollbar-thumb {
-    background: #10b981;
+.woocommerce-dashboard ::-webkit-scrollbar-thumb {
+    background: #7c3aed;
     border-radius: 10px;
 }
 
-.shopify-dashboard ::-webkit-scrollbar-thumb:hover {
-    background: #059669;
+.woocommerce-dashboard ::-webkit-scrollbar-thumb:hover {
+    background: #6d28d9;
 }
 </style>
 @endpush
 
 @section('content')
-<div class="shopify-dashboard">
+<div class="woocommerce-dashboard">
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
@@ -258,10 +258,10 @@
                 <div class="card-header">
                     <h3 class="card-title text-white">
                         <i class="fas fa-shopping-cart"></i>
-                        Shopify Orders
+                        WooCommerce Orders
                     </h3>
                     <div class="card-tools">
-                        <a href="{{ route('vendor.integration.shopify.dashboard') }}" class="btn btn-secondary">
+                        <a href="{{ route('vendor.integration.woocommerce.dashboard') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
                         </a>
                     </div>
@@ -272,17 +272,19 @@
                         <div class="col-md-3">
                             <select class="form-control" id="status-filter">
                                 <option value="">All Statuses</option>
-                                <option value="open">Open</option>
-                                <option value="closed">Closed</option>
+                                <option value="pending">Pending</option>
+                                <option value="processing">Processing</option>
+                                <option value="completed">Completed</option>
                                 <option value="cancelled">Cancelled</option>
+                                <option value="refunded">Refunded</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <select class="form-control" id="financial-status-filter">
+                            <select class="form-control" id="payment-status-filter">
                                 <option value="">All Payment Statuses</option>
                                 <option value="pending">Pending</option>
                                 <option value="paid">Paid</option>
-                                <option value="partially_paid">Partially Paid</option>
+                                <option value="failed">Failed</option>
                                 <option value="refunded">Refunded</option>
                             </select>
                         </div>
@@ -320,34 +322,34 @@
                                     <td>
                                         <strong>{{ $order->order_number }}</strong>
                                         <br>
-                                        <small class="text-muted">{{ $order->shopify_order_id }}</small>
+                                        <small class="text-muted">{{ $order->woocommerce_order_id }}</small>
                                     </td>
                                     <td>
                                         <div>
-                                            <strong>{{ $order->name }}</strong>
-                                            @if($order->email)
+                                            <strong>{{ $order->billing_first_name }} {{ $order->billing_last_name }}</strong>
+                                            @if($order->billing_email)
                                                 <br>
-                                                <small class="text-muted">{{ $order->email }}</small>
+                                                <small class="text-muted">{{ $order->billing_email }}</small>
                                             @endif
-                                            @if($order->phone)
+                                            @if($order->billing_phone)
                                                 <br>
-                                                <small class="text-muted">{{ $order->phone }}</small>
+                                                <small class="text-muted">{{ $order->billing_phone }}</small>
                                             @endif
                                         </div>
                                     </td>
                                     <td>
-                                        <strong>{{ $order->formatted_total_price }}</strong>
+                                        <strong>{{ $order->formatted_total }}</strong>
                                         <br>
                                         <small class="text-muted">{{ $order->currency }}</small>
                                     </td>
                                     <td>
-                                        <span class="badge badge-{{ $order->status === 'open' ? 'success' : ($order->status === 'closed' ? 'secondary' : 'danger') }}">
+                                        <span class="badge badge-{{ $order->status === 'completed' ? 'success' : ($order->status === 'processing' ? 'warning' : ($order->status === 'cancelled' ? 'danger' : 'secondary')) }}">
                                             {{ ucfirst($order->status) }}
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge badge-{{ $order->financial_status === 'paid' ? 'success' : ($order->financial_status === 'pending' ? 'warning' : 'info') }}">
-                                            {{ ucfirst(str_replace('_', ' ', $order->financial_status)) }}
+                                        <span class="badge badge-{{ $order->payment_status === 'paid' ? 'success' : ($order->payment_status === 'pending' ? 'warning' : 'danger') }}">
+                                            {{ ucfirst(str_replace('_', ' ', $order->payment_status)) }}
                                         </span>
                                     </td>
                                     <td>
@@ -357,7 +359,7 @@
                                     </td>
                                     <td>{{ $order->created_at->format('M d, Y H:i') }}</td>
                                     <td>
-                                        <a href="{{ route('vendor.integration.shopify.order_details', $order->shopify_order_id) }}" class="btn btn-info">
+                                        <a href="{{ route('vendor.integration.woocommerce.order_details', $order->woocommerce_order_id) }}" class="btn btn-info">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                     </td>
@@ -391,7 +393,7 @@
 <script>
 $(document).ready(function() {
     // Filter functionality
-    $('#status-filter, #financial-status-filter, #fulfillment-status-filter').change(function() {
+    $('#status-filter, #payment-status-filter, #fulfillment-status-filter').change(function() {
         filterOrders();
     });
 
@@ -401,7 +403,7 @@ $(document).ready(function() {
 
     function filterOrders() {
         const status = $('#status-filter').val();
-        const financialStatus = $('#financial-status-filter').val();
+        const paymentStatus = $('#payment-status-filter').val();
         const fulfillmentStatus = $('#fulfillment-status-filter').val();
         const search = $('#search-filter').val().toLowerCase();
 
@@ -414,8 +416,8 @@ $(document).ready(function() {
                 show = false;
             }
 
-            // Financial status filter
-            if (financialStatus && row.find('td:nth-child(5) .badge').text().toLowerCase().replace(/\s+/g, '_') !== financialStatus.toLowerCase()) {
+            // Payment status filter
+            if (paymentStatus && row.find('td:nth-child(5) .badge').text().toLowerCase().replace(/\s+/g, '_') !== paymentStatus.toLowerCase()) {
                 show = false;
             }
 
@@ -437,7 +439,7 @@ $(document).ready(function() {
     }
 
     // Add smooth animations to cards
-    $('.shopify-dashboard .card').each(function(index) {
+    $('.woocommerce-dashboard .card').each(function(index) {
         $(this).css({
             'animation-delay': (index * 0.1) + 's',
             'animation': 'fadeInUp 0.6s ease forwards'
@@ -445,7 +447,7 @@ $(document).ready(function() {
     });
 
     // Add hover effects to table rows
-    $('.shopify-dashboard .table tbody tr').hover(
+    $('.woocommerce-dashboard .table tbody tr').hover(
         function() {
             $(this).addClass('table-hover');
         },
