@@ -416,72 +416,7 @@ class WooCommerceIntegrationController extends BaseController
         }
     }
 
-    /**
-     * Test webhook
-     */
-    public function testWebhook(Request $request)
-    {
-        try {
-            $vendorId = getVendorId();
-            $integration = $this->wooCommerceIntegrationRepository->getByVendorId($vendorId);
 
-            if (!$integration || !$integration->is_active) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'WooCommerce integration not found or inactive'
-                ], 400);
-            }
-
-            // Create a test webhook payload
-            $testPayload = [
-                'id' => 999999,
-                'number' => 'TEST-001',
-                'status' => 'processing',
-                'total' => '99.99',
-                'currency' => 'USD',
-                'date_created' => now()->toISOString(),
-                'date_modified' => now()->toISOString(),
-                'billing' => [
-                    'first_name' => 'Test',
-                    'last_name' => 'Customer',
-                    'email' => 'test@example.com',
-                    'phone' => '+1234567890'
-                ],
-                'shipping' => [
-                    'first_name' => 'Test',
-                    'last_name' => 'Customer',
-                    'address_1' => '123 Test St',
-                    'city' => 'Test City',
-                    'state' => 'TS',
-                    'postcode' => '12345',
-                    'country' => 'US'
-                ],
-                'payment_method_title' => 'Credit Card',
-                'line_items' => [
-                    [
-                        'name' => 'Test Product',
-                        'quantity' => 1,
-                        'total' => '99.99'
-                    ]
-                ]
-            ];
-
-            // Process the test webhook
-            $result = $this->integrationEngine->processIntegrationWebhook('woocommerce', (object) $testPayload, $vendorId);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Test webhook processed successfully',
-                'data' => $result
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error testing webhook: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 
     /**
      * Test method for debugging

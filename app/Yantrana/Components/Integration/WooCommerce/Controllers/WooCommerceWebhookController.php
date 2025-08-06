@@ -20,6 +20,14 @@ class WooCommerceWebhookController extends BaseController
     protected $integrationEngine;
 
     /**
+     * Allowed webhook topics
+     */
+    private const ALLOWED_TOPICS = [
+        'order.created',
+        'order.updated'
+    ];
+
+    /**
      * Constructor
      */
     public function __construct(IntegrationEngine $integrationEngine)
@@ -33,33 +41,21 @@ class WooCommerceWebhookController extends BaseController
     public function handleWebhook(Request $request, $vendorId = null)
     {
         try {
+            $webhookTopic = $request->header('X-WC-Webhook-Topic');
+            
             Log::info('WooCommerce webhook received', [
                 'vendor_id' => $vendorId,
                 'method' => $request->method(),
                 'url' => $request->fullUrl(),
-                'headers' => $request->headers->all(),
+                'topic' => $webhookTopic,
                 'payload' => $request->all(),
-                'user_agent' => $request->header('User-Agent'),
-                'x_wc_webhook_topic' => $request->header('X-WC-Webhook-Topic'),
-                'x_wc_webhook_signature' => $request->header('X-WC-Webhook-Signature'),
-                'x_wc_webhook_id' => $request->header('X-WC-Webhook-Id'),
             ]);
 
-            // If vendor_id is null, try to extract it from the webhook URL or payload
+            // If vendor_id is null, return error
             if (!$vendorId) {
-                // Check if this is a webhook verification or test request
-                if ($request->has('challenge') || $request->header('X-WC-Webhook-Topic') === 'test') {
-                    Log::info('WooCommerce webhook verification/test request', [
-                        'challenge' => $request->get('challenge'),
-                        'topic' => $request->header('X-WC-Webhook-Topic')
-                    ]);
-                    return response()->json(['success' => true], 200);
-                }
-                
-                // For actual order webhooks, we need vendor_id
                 Log::error('WooCommerce webhook received without vendor_id', [
                     'url' => $request->fullUrl(),
-                    'payload' => $request->all()
+                    'topic' => $webhookTopic
                 ]);
                 return response()->json(['error' => 'Vendor ID is required'], 400);
             }
@@ -74,13 +70,17 @@ class WooCommerceWebhookController extends BaseController
                 return response($challenge, 200, ['Content-Type' => 'text/plain']);
             }
 
-            // Check if this is a test webhook
-            if ($request->header('X-WC-Webhook-Topic') === 'test') {
-                Log::info('WooCommerce test webhook received', [
+            // Validate webhook topic
+            if (!in_array($webhookTopic, self::ALLOWED_TOPICS)) {
+                Log::warning('WooCommerce webhook received with unsupported topic', [
                     'vendor_id' => $vendorId,
-                    'payload' => $request->all()
+                    'topic' => $webhookTopic,
+                    'allowed_topics' => self::ALLOWED_TOPICS
                 ]);
-                return response()->json(['success' => true], 200);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unsupported webhook topic'
+                ], 400);
             }
 
             // Process webhook
@@ -89,14 +89,14 @@ class WooCommerceWebhookController extends BaseController
             if ($result['success']) {
                 Log::info('WooCommerce webhook processed successfully', [
                     'vendor_id' => $vendorId,
-                    'topic' => $request->header('X-WC-Webhook-Topic'),
+                    'topic' => $webhookTopic,
                     'result' => $result
                 ]);
                 return response()->json(['success' => true], 200);
             } else {
                 Log::error('WooCommerce webhook processing failed', [
                     'vendor_id' => $vendorId,
-                    'topic' => $request->header('X-WC-Webhook-Topic'),
+                    'topic' => $webhookTopic,
                     'error' => $result['message'] ?? 'Unknown error',
                     'result' => $result
                 ]);
@@ -143,25 +143,5 @@ class WooCommerceWebhookController extends BaseController
         }
 
         return response()->json(['success' => true]);
-    }
-
-    /**
-     * Test webhook endpoint
-     */
-    public function testWebhook(Request $request, $vendorId = null)
-    {
-        Log::info('WooCommerce webhook test endpoint called', [
-            'vendor_id' => $vendorId,
-            'method' => $request->method(),
-            'headers' => $request->headers->all(),
-            'payload' => $request->all()
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Webhook test endpoint is accessible',
-            'vendor_id' => $vendorId,
-            'timestamp' => now()->toISOString()
-        ]);
     }
 } 

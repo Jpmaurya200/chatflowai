@@ -281,18 +281,24 @@ class WooCommerceService
                 throw new Exception('Invalid webhook signature');
             }
 
+            // Only handle allowed webhook topics
+            $allowedTopics = ['order.created', 'order.updated'];
+            
+            if (!in_array($topic, $allowedTopics)) {
+                \Log::warning('WooCommerce webhook received with unsupported topic', [
+                    'topic' => $topic,
+                    'vendor_id' => $vendorId,
+                    'allowed_topics' => $allowedTopics
+                ]);
+                return ['success' => false, 'message' => 'Unsupported webhook topic'];
+            }
+
             // Handle different webhook topics
             switch ($topic) {
                 case 'order.created':
                     return $this->processOrderCreated($payload, $integration);
                 case 'order.updated':
                     return $this->processOrderUpdated($payload, $integration);
-                case 'order.deleted':
-                    return $this->processOrderDeleted($payload, $integration);
-                case 'order.restored':
-                    return $this->processOrderRestored($payload, $integration);
-                case 'order.trashed':
-                    return $this->processOrderTrashed($payload, $integration);
                 default:
                     \Log::warning('Unhandled WooCommerce webhook topic', ['topic' => $topic]);
                     return ['success' => true, 'message' => 'Webhook processed (no action required)'];
@@ -419,134 +425,7 @@ class WooCommerceService
         return ['success' => true, 'message' => 'Order updated processed'];
     }
 
-    /**
-     * Process order completed webhook
-     */
-    protected function processOrderCompleted(array $payload, WooCommerceIntegrationModel $integration)
-    {
-        \Log::info('Processing WooCommerce order completed', ['order_id' => $payload['id']]);
 
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
-
-        if ($order) {
-            $this->wooCommerceOrderRepository->update($order->_id, [
-                'status' => $payload['status'],
-                'order_data' => $payload,
-                'updated_at' => Carbon::parse($payload['date_modified'])
-            ]);
-
-            // Send delivery confirmation notification
-            $this->sendNotification($order, 'delivery_confirmation', $integration);
-        }
-
-        return ['success' => true, 'message' => 'Order completed processed'];
-    }
-
-    /**
-     * Process order processing webhook
-     */
-    protected function processOrderProcessing(array $payload, WooCommerceIntegrationModel $integration)
-    {
-        \Log::info('Processing WooCommerce order processing', ['order_id' => $payload['id']]);
-
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
-
-        if ($order) {
-            $this->wooCommerceOrderRepository->update($order->_id, [
-                'status' => $payload['status'],
-                'order_data' => $payload,
-                'updated_at' => Carbon::parse($payload['date_modified'])
-            ]);
-
-            // Send payment confirmation notification
-            $this->sendNotification($order, 'payment_confirmation', $integration);
-        }
-
-        return ['success' => true, 'message' => 'Order processing processed'];
-    }
-
-    /**
-     * Process order cancelled webhook
-     */
-    protected function processOrderCancelled(array $payload, WooCommerceIntegrationModel $integration)
-    {
-        \Log::info('Processing WooCommerce order cancelled', ['order_id' => $payload['id']]);
-
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
-
-        if ($order) {
-            $this->wooCommerceOrderRepository->update($order->_id, [
-                'status' => $payload['status'],
-                'order_data' => $payload,
-                'updated_at' => Carbon::parse($payload['date_modified'])
-            ]);
-        }
-
-        return ['success' => true, 'message' => 'Order cancelled processed'];
-    }
-
-    /**
-     * Process order deleted webhook
-     */
-    protected function processOrderDeleted(array $payload, WooCommerceIntegrationModel $integration)
-    {
-        \Log::info('Processing WooCommerce order deleted', ['order_id' => $payload['id']]);
-
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
-
-        if ($order) {
-            $this->wooCommerceOrderRepository->update($order->_id, [
-                'status' => 'cancelled',
-                'order_data' => $payload,
-                'updated_at' => Carbon::parse($payload['date_modified'])
-            ]);
-        }
-
-        return ['success' => true, 'message' => 'Order deleted processed'];
-    }
-
-    /**
-     * Process order restored webhook
-     */
-    protected function processOrderRestored(array $payload, WooCommerceIntegrationModel $integration)
-    {
-        \Log::info('Processing WooCommerce order restored', ['order_id' => $payload['id']]);
-
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
-
-        if ($order) {
-            $this->wooCommerceOrderRepository->update($order->_id, [
-                'status' => $payload['status'],
-                'order_data' => $payload,
-                'updated_at' => Carbon::parse($payload['date_modified'])
-            ]);
-
-            // Send order restored notification
-            $this->sendNotification($order, 'order_restored', $integration);
-        }
-
-        return ['success' => true, 'message' => 'Order restored processed'];
-    }
-
-    /**
-     * Process order trashed webhook
-     */
-    protected function processOrderTrashed(array $payload, WooCommerceIntegrationModel $integration)
-    {
-        \Log::info('Processing WooCommerce order trashed', ['order_id' => $payload['id']]);
-
-        $order = $this->wooCommerceOrderRepository->getByWooCommerceId($payload['id'], $integration->vendors__id);
-
-        if ($order) {
-            $this->wooCommerceOrderRepository->update($order->_id, [
-                'status' => 'cancelled',
-                'order_data' => $payload,
-                'updated_at' => Carbon::parse($payload['date_modified'])
-            ]);
-        }
-
-        return ['success' => true, 'message' => 'Order trashed processed'];
-    }
 
     /**
      * Send notification
@@ -858,10 +737,7 @@ class WooCommerceService
         
         $webhookTopics = [
             'order.created',
-            'order.updated',
-            'order.deleted',
-            'order.restored',
-            'order.trashed'
+            'order.updated'
         ];
 
         foreach ($webhookTopics as $topic) {

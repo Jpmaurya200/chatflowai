@@ -489,10 +489,7 @@
                                 <h4 class="card-title">Test Integration</h4>
                             </div>
                             <div class="card-body">
-                                <p>Send a test notification to verify your integration is working correctly.</p>
-                                <button class="btn btn-info" id="test-webhook-btn">
-                                    <i class="fas fa-paper-plane"></i> Send Test Notification
-                                </button>
+                                <p>Your WooCommerce integration is connected and ready to receive order notifications.</p>
                             </div>
                         </div>
 
@@ -692,32 +689,7 @@ $(document).ready(function() {
         });
     });
 
-    // Test webhook button
-    $('#test-webhook-btn').click(function() {
-        const btn = $(this);
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Testing...');
-        
-        $.ajax({
-            url: '{{ route("vendor.integration.woocommerce.test_webhook") }}',
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(response) {
-                if (response.success) {
-                    toastr.success('Test notification sent successfully!');
-                } else {
-                    toastr.error(response.message || 'Failed to send test notification');
-                }
-            },
-            error: function(xhr) {
-                toastr.error('Failed to send test notification');
-            },
-            complete: function() {
-                btn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Send Test Notification');
-            }
-        });
-    });
+
 
     // Template selection change handler
     $('.template-select').change(function() {

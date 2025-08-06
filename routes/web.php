@@ -1463,11 +1463,7 @@ Route::middleware([
                         'getStatistics',
                     ])->name('vendor.integration.woocommerce.statistics');
 
-                    // Test webhook
-                    Route::post('/test-webhook', [
-                        WooCommerceIntegrationController::class,
-                        'testWebhook',
-                    ])->name('vendor.integration.woocommerce.test_webhook');
+
 
                     // Test method for debugging
                     Route::get('/test', [
@@ -1684,11 +1680,7 @@ Route::any('woocommerce-webhook/verify', [
     'verifyWebhook',
 ])->name('webhook.woocommerce.verify')->withoutMiddleware(['web', 'auth', 'session']);
 
-// WooCommerce webhook test endpoint (without any middleware)
-Route::any('woocommerce-webhook/test/{vendorId?}', [
-    App\Yantrana\Components\Integration\WooCommerce\Controllers\WooCommerceWebhookController::class,
-    'testWebhook',
-])->name('webhook.woocommerce.test')->withoutMiddleware(['web', 'auth', 'session']);
+
 
 // Payment webhooks (outside vendor middleware)
 Route::post('/whatsapp/payment/webhook/razorpay', [
