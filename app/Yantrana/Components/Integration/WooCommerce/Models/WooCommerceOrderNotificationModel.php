@@ -34,6 +34,8 @@ class WooCommerceOrderNotificationModel extends BaseModel
         'status',
         'response',
         'sent_at',
+        'delivered_at',
+        'read_at',
         'error_message',
         'retry_count',
         'created_at',
@@ -51,9 +53,25 @@ class WooCommerceOrderNotificationModel extends BaseModel
         'response' => 'array',
         'status' => 'string',
         'sent_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'read_at' => 'datetime',
         'retry_count' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
+    ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = [
+        'notification_type_label',
+        'status_label',
+        'time_since_sent',
+        'formatted_sent_date',
+        'error_message',
+        'response_summary'
     ];
 
     /**
@@ -148,12 +166,34 @@ class WooCommerceOrderNotificationModel extends BaseModel
         return $this->attributes['error_message'] ?? 'Unknown error';
     }
 
+
+
+    /**
+     * Get response summary
+     */
+    public function getResponseSummaryAttribute(): string
+    {
+        if (!$this->response) {
+            return 'No response data';
+        }
+
+        if (isset($this->response['error'])) {
+            return 'Error: ' . ($this->response['error']['message'] ?? 'Unknown error');
+        }
+
+        if (isset($this->response['messages']) && !empty($this->response['messages'])) {
+            return 'Success: Message ID ' . ($this->response['messages'][0]['id'] ?? 'N/A');
+        }
+
+        return 'No response data';
+    }
+
     /**
      * Relationship with order
      */
     public function order()
     {
-        return $this->belongsTo(WooCommerceOrderModel::class, 'order_id');
+        return $this->belongsTo(WooCommerceOrderModel::class, 'woocommerce_orders__id');
     }
 
     /**
@@ -161,7 +201,7 @@ class WooCommerceOrderNotificationModel extends BaseModel
      */
     public function contact()
     {
-        return $this->belongsTo(\App\Yantrana\Components\Contact\Models\ContactModel::class, 'contact_id');
+        return $this->belongsTo(\App\Yantrana\Components\Contact\Models\ContactModel::class, 'contacts__id');
     }
 
     /**
@@ -169,6 +209,6 @@ class WooCommerceOrderNotificationModel extends BaseModel
      */
     public function template()
     {
-        return $this->belongsTo(\App\Yantrana\Components\WhatsAppService\Models\WhatsAppTemplateModel::class, 'template_id');
+        return $this->belongsTo(\App\Yantrana\Components\WhatsAppService\Models\WhatsAppTemplateModel::class, 'whatsapp_templates__id');
     }
 } 

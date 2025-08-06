@@ -56,11 +56,43 @@ class WooCommerceOrderModel extends BaseModel
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = [
+        'customer_name',
+        'customer_email',
+        'customer_phone',
+        'payment_method',
+        'formatted_total_price',
+        'status_label',
+        'payment_status',
+        'fulfillment_status',
+        'subtotal',
+        'formatted_subtotal',
+        'tax_total',
+        'formatted_tax_total',
+        'shipping_total',
+        'formatted_shipping_total',
+        'discount_total',
+        'formatted_discount_total',
+        'billing_address',
+        'shipping_address',
+        'items_count',
+        'order_items',
+        'total_items_quantity'
+    ];
+
+    /**
      * Get formatted total price
      */
     public function getFormattedTotalPriceAttribute(): string
     {
-        return $this->currency . ' ' . number_format($this->total, 2);
+        if ($this->total > 0) {
+            return $this->currency . ' ' . number_format($this->total, 2);
+        }
+        return 'N/A';
     }
 
     /**
@@ -121,22 +153,127 @@ class WooCommerceOrderModel extends BaseModel
     }
 
     /**
-     * Get shipping address
+     * Get payment status
      */
-    public function getShippingAddressAttribute(): string
+    public function getPaymentStatusAttribute(): string
+    {
+        if ($this->isPaid()) {
+            return 'paid';
+        }
+        
+        if ($this->isCancelled()) {
+            return 'cancelled';
+        }
+        
+        return 'pending';
+    }
+
+    /**
+     * Get fulfillment status
+     */
+    public function getFulfillmentStatusAttribute(): string
+    {
+        if ($this->isFulfilled()) {
+            return 'fulfilled';
+        }
+        
+        if ($this->status === 'processing' || $this->status === 'on-hold') {
+            return 'processing';
+        }
+        
+        return 'unfulfilled';
+    }
+
+    /**
+     * Get the integration that owns the order
+     */
+    public function integration()
+    {
+        return $this->belongsTo(WooCommerceIntegrationModel::class, 'woocommerce_integrations__id');
+    }
+
+    /**
+     * Get order subtotal
+     */
+    public function getSubtotalAttribute(): float
     {
         $orderData = $this->order_data;
-        $shipping = $orderData['shipping'] ?? [];
-        
-        $parts = [];
-        if (!empty($shipping['address_1'])) $parts[] = $shipping['address_1'];
-        if (!empty($shipping['address_2'])) $parts[] = $shipping['address_2'];
-        if (!empty($shipping['city'])) $parts[] = $shipping['city'];
-        if (!empty($shipping['state'])) $parts[] = $shipping['state'];
-        if (!empty($shipping['postcode'])) $parts[] = $shipping['postcode'];
-        if (!empty($shipping['country'])) $parts[] = $shipping['country'];
-        
-        return implode(', ', $parts) ?: 'N/A';
+        // If subtotal is not available, calculate from line items
+        if (!isset($orderData['subtotal'])) {
+            $subtotal = 0;
+            foreach ($orderData['line_items'] ?? [] as $item) {
+                $subtotal += floatval($item['total'] ?? 0);
+            }
+            return $subtotal;
+        }
+        return floatval($orderData['subtotal'] ?? $this->total);
+    }
+
+    /**
+     * Get formatted subtotal
+     */
+    public function getFormattedSubtotalAttribute(): string
+    {
+        return $this->currency . ' ' . number_format($this->subtotal, 2);
+    }
+
+    /**
+     * Get tax total
+     */
+    public function getTaxTotalAttribute(): float
+    {
+        $orderData = $this->order_data;
+        return floatval($orderData['total_tax'] ?? 0);
+    }
+
+    /**
+     * Get formatted tax total
+     */
+    public function getFormattedTaxTotalAttribute(): string
+    {
+        $taxTotal = $this->tax_total;
+        if ($taxTotal > 0) {
+            return $this->currency . ' ' . number_format($taxTotal, 2);
+        }
+        return 'N/A';
+    }
+
+    /**
+     * Get shipping total
+     */
+    public function getShippingTotalAttribute(): float
+    {
+        $orderData = $this->order_data;
+        return floatval($orderData['shipping_total'] ?? 0);
+    }
+
+    /**
+     * Get formatted shipping total
+     */
+    public function getFormattedShippingTotalAttribute(): string
+    {
+        return $this->currency . ' ' . number_format($this->shipping_total, 2);
+    }
+
+    /**
+     * Get discount total
+     */
+    public function getDiscountTotalAttribute(): float
+    {
+        $orderData = $this->order_data;
+        return floatval($orderData['discount_total'] ?? 0);
+    }
+
+    /**
+     * Get formatted discount total
+     */
+    public function getFormattedDiscountTotalAttribute(): string
+    {
+        $discountTotal = $this->discount_total;
+        if ($discountTotal > 0) {
+            return $this->currency . ' ' . number_format($discountTotal, 2);
+        }
+        return 'N/A';
     }
 
     /**
@@ -156,6 +293,33 @@ class WooCommerceOrderModel extends BaseModel
         if (!empty($billing['country'])) $parts[] = $billing['country'];
         
         return implode(', ', $parts) ?: 'N/A';
+    }
+
+    /**
+     * Get shipping address
+     */
+    public function getShippingAddressAttribute(): string
+    {
+        $orderData = $this->order_data;
+        $shipping = $orderData['shipping'] ?? [];
+        
+        $parts = [];
+        if (!empty($shipping['address_1'])) $parts[] = $shipping['address_1'];
+        if (!empty($shipping['address_2'])) $parts[] = $shipping['address_2'];
+        if (!empty($shipping['city'])) $parts[] = $shipping['city'];
+        if (!empty($shipping['state'])) $parts[] = $shipping['state'];
+        if (!empty($shipping['postcode'])) $parts[] = $shipping['postcode'];
+        if (!empty($shipping['country'])) $parts[] = $shipping['country'];
+        
+        return implode(', ', $parts) ?: 'N/A';
+    }
+
+    /**
+     * Get notifications for this order
+     */
+    public function notifications()
+    {
+        return $this->hasMany(\App\Yantrana\Components\Integration\WooCommerce\Models\WooCommerceOrderNotificationModel::class, 'woocommerce_orders__id');
     }
 
     /**
@@ -201,10 +365,17 @@ class WooCommerceOrderModel extends BaseModel
     }
 
     /**
-     * Get the integration that owns the order
+     * Get total items quantity
      */
-    public function integration()
+    public function getTotalItemsQuantityAttribute(): int
     {
-        return $this->belongsTo(WooCommerceIntegrationModel::class, 'woocommerce_integrations__id');
+        $items = $this->order_items;
+        $totalQuantity = 0;
+        
+        foreach ($items as $item) {
+            $totalQuantity += $item['quantity'] ?? 0;
+        }
+        
+        return $totalQuantity;
     }
 } 

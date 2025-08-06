@@ -259,6 +259,46 @@
                 </div>
                 <div class="card-body">
                     @if($order)
+                        <!-- Order Summary Cards -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <i class="fas fa-boxes fa-2x text-primary mb-2"></i>
+                                        <h5 class="card-title">{{ $order->items_count }}</h5>
+                                        <p class="card-text text-muted">Items</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <i class="fas fa-sort-numeric-up fa-2x text-success mb-2"></i>
+                                        <h5 class="card-title">{{ $order->total_items_quantity }}</h5>
+                                        <p class="card-text text-muted">Total Quantity</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <i class="fas fa-money-bill-wave fa-2x text-warning mb-2"></i>
+                                        <h5 class="card-title">{{ $order->formatted_total_price }}</h5>
+                                        <p class="card-text text-muted">Total Amount</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <i class="fas fa-bell fa-2x text-info mb-2"></i>
+                                        <h5 class="card-title">{{ $notifications->count() }}</h5>
+                                        <p class="card-text text-muted">Notifications</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row">
                             <!-- Order Information -->
                             <div class="col-md-6">
@@ -287,18 +327,18 @@
                                             <tr>
                                                 <td><strong>Payment Status:</strong></td>
                                                 <td>
-                                                    <span class="badge badge-{{ $order->payment_status === 'paid' ? 'success' : ($order->payment_status === 'pending' ? 'warning' : 'danger') }}">
-                                                        {{ ucfirst(str_replace('_', ' ', $order->payment_status)) }}
+                                                    <span class="badge badge-{{ $order->isPaid() ? 'success' : 'warning' }}">
+                                                        {{ $order->isPaid() ? 'Paid' : 'Pending' }}
                                                     </span>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td><strong>Fulfillment Status:</strong></td>
-                                                <td>
-                                                    <span class="badge badge-{{ $order->fulfillment_status === 'fulfilled' ? 'success' : ($order->fulfillment_status === 'unfulfilled' ? 'warning' : 'info') }}">
-                                                        {{ ucfirst(str_replace('_', ' ', $order->fulfillment_status)) }}
-                                                    </span>
-                                                </td>
+                                                <td><strong>Total:</strong></td>
+                                                <td><strong>{{ $order->formatted_total_price }}</strong></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Currency:</strong></td>
+                                                <td>{{ strtoupper($order->currency) }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Created:</strong></td>
@@ -320,29 +360,24 @@
                                         <h5 class="card-title text-white">Customer Information</h5>
                                     </div>
                                     <div class="card-body">
+                                        
                                         <table class="table table-borderless">
                                             <tr>
                                                 <td><strong>Name:</strong></td>
-                                                <td>{{ $order->billing_first_name }} {{ $order->billing_last_name }}</td>
+                                                <td>{{ $order->customer_name }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Email:</strong></td>
-                                                <td>{{ $order->billing_email ?: 'N/A' }}</td>
+                                                <td>{{ $order->customer_email }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Phone:</strong></td>
-                                                <td>{{ $order->billing_phone ?: 'N/A' }}</td>
+                                                <td>{{ $order->customer_phone }}</td>
                                             </tr>
-                                            @if($order->contact)
                                             <tr>
-                                                <td><strong>Contact:</strong></td>
-                                                <td>
-                                                    <a href="{{ route('vendor.contacts.edit', $order->contact->_id) }}" class="btn btn-info btn-sm">
-                                                        <i class="fas fa-user"></i> View Contact
-                                                    </a>
-                                                </td>
+                                                <td><strong>Payment Method:</strong></td>
+                                                <td>{{ $order->payment_method }}</td>
                                             </tr>
-                                            @endif
                                         </table>
                                     </div>
                                 </div>
@@ -357,6 +392,7 @@
                                         <h5 class="card-title text-white">Order Items</h5>
                                     </div>
                                     <div class="card-body">
+                                        
                                         <div class="table-responsive">
                                             <table class="table table-hover text-nowrap">
                                                 <thead>
@@ -369,7 +405,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse($order->line_items ?? [] as $item)
+                                                    @forelse($order->order_items as $item)
                                                     <tr>
                                                         <td>
                                                             <strong>{{ $item['name'] ?? 'N/A' }}</strong>
@@ -380,10 +416,10 @@
                                                         </td>
                                                         <td>{{ $item['sku'] ?? 'N/A' }}</td>
                                                         <td>{{ $item['quantity'] ?? 0 }}</td>
-                                                        <td>{{ $item['price'] ? '$' . number_format($item['price'], 2) : 'N/A' }}</td>
+                                                        <td>{{ isset($item['price']) ? $order->currency . ' ' . number_format($item['price'], 2) : 'N/A' }}</td>
                                                         <td>
                                                             <strong>
-                                                                {{ isset($item['price'], $item['quantity']) ? '$' . number_format($item['price'] * $item['quantity'], 2) : 'N/A' }}
+                                                                {{ isset($item['price'], $item['quantity']) ? $order->currency . ' ' . number_format($item['price'] * $item['quantity'], 2) : 'N/A' }}
                                                             </strong>
                                                         </td>
                                                     </tr>
@@ -414,23 +450,23 @@
                                         <table class="table table-borderless">
                                             <tr>
                                                 <td><strong>Subtotal:</strong></td>
-                                                <td>{{ $order->formatted_subtotal ?? 'N/A' }}</td>
+                                                <td>{{ $order->formatted_subtotal }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Tax:</strong></td>
-                                                <td>{{ $order->formatted_total_tax ?? 'N/A' }}</td>
+                                                <td>{{ $order->formatted_tax_total }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Shipping:</strong></td>
-                                                <td>{{ $order->formatted_shipping_total ?? 'N/A' }}</td>
+                                                <td>{{ $order->formatted_shipping_total }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Discount:</strong></td>
-                                                <td>{{ $order->formatted_total_discount ?? 'N/A' }}</td>
+                                                <td>{{ $order->formatted_discount_total }}</td>
                                             </tr>
                                             <tr class="border-top">
                                                 <td><strong>Total:</strong></td>
-                                                <td><strong>{{ $order->formatted_total ?? 'N/A' }}</strong></td>
+                                                <td><strong>{{ $order->formatted_total_price }}</strong></td>
                                             </tr>
                                         </table>
                                     </div>
@@ -444,32 +480,77 @@
                                         <h5 class="card-title text-white">Shipping Information</h5>
                                     </div>
                                     <div class="card-body">
-                                        @if($order->shipping_address)
+                                        @if(isset($order->order_data['shipping']) && !empty($order->order_data['shipping']))
                                         <table class="table table-borderless">
                                             <tr>
                                                 <td><strong>Name:</strong></td>
-                                                <td>{{ $order->shipping_first_name }} {{ $order->shipping_last_name }}</td>
+                                                <td>{{ $order->order_data['shipping']['first_name'] ?? '' }} {{ $order->order_data['shipping']['last_name'] ?? '' }}</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Address:</strong></td>
                                                 <td>
-                                                    {{ $order->shipping_address_1 ?? '' }}<br>
-                                                    @if($order->shipping_address_2)
-                                                        {{ $order->shipping_address_2 }}<br>
+                                                    {{ $order->order_data['shipping']['address_1'] ?? '' }}<br>
+                                                    @if(!empty($order->order_data['shipping']['address_2']))
+                                                        {{ $order->order_data['shipping']['address_2'] }}<br>
                                                     @endif
-                                                    {{ $order->shipping_city ?? '' }}, {{ $order->shipping_state ?? '' }} {{ $order->shipping_postcode ?? '' }}<br>
-                                                    {{ $order->shipping_country ?? '' }}
+                                                    {{ $order->order_data['shipping']['city'] ?? '' }}, {{ $order->order_data['shipping']['state'] ?? '' }} {{ $order->order_data['shipping']['postcode'] ?? '' }}<br>
+                                                    {{ $order->order_data['shipping']['country'] ?? '' }}
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Phone:</strong></td>
-                                                <td>{{ $order->shipping_phone ?? 'N/A' }}</td>
+                                                <td>{{ $order->order_data['shipping']['phone'] ?? 'N/A' }}</td>
                                             </tr>
                                         </table>
                                         @else
                                         <div class="text-center text-muted">
                                             <i class="fas fa-shipping-fast fa-2x mb-2"></i>
                                             <div>No shipping information available</div>
+                                        </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Billing Information -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title text-white">Billing Information</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        @if(isset($order->order_data['billing']) && !empty($order->order_data['billing']))
+                                        <table class="table table-borderless">
+                                            <tr>
+                                                <td><strong>Name:</strong></td>
+                                                <td>{{ $order->order_data['billing']['first_name'] ?? '' }} {{ $order->order_data['billing']['last_name'] ?? '' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Address:</strong></td>
+                                                <td>
+                                                    {{ $order->order_data['billing']['address_1'] ?? '' }}<br>
+                                                    @if(!empty($order->order_data['billing']['address_2']))
+                                                        {{ $order->order_data['billing']['address_2'] }}<br>
+                                                    @endif
+                                                    {{ $order->order_data['billing']['city'] ?? '' }}, {{ $order->order_data['billing']['state'] ?? '' }} {{ $order->order_data['billing']['postcode'] ?? '' }}<br>
+                                                    {{ $order->order_data['billing']['country'] ?? '' }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Phone:</strong></td>
+                                                <td>{{ $order->order_data['billing']['phone'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Email:</strong></td>
+                                                <td>{{ $order->order_data['billing']['email'] ?? 'N/A' }}</td>
+                                            </tr>
+                                        </table>
+                                        @else
+                                        <div class="text-center text-muted">
+                                            <i class="fas fa-credit-card fa-2x mb-2"></i>
+                                            <div>No billing information available</div>
                                         </div>
                                         @endif
                                     </div>
@@ -498,7 +579,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse($order->notifications ?? [] as $notification)
+                                                    @forelse($notifications as $notification)
                                                     <tr>
                                                         <td>
                                                             <span class="badge badge-info">
@@ -514,7 +595,7 @@
                                                         <td>{{ $notification->delivered_at ? $notification->delivered_at->format('M d, Y H:i') : 'N/A' }}</td>
                                                         <td>{{ $notification->read_at ? $notification->read_at->format('M d, Y H:i') : 'N/A' }}</td>
                                                         <td>
-                                                            @if($notification->isFailed())
+                                                            @if($notification->status === 'failed')
                                                                 <button class="btn btn-warning btn-sm resend-notification" data-notification-id="{{ $notification->_id }}">
                                                                     <i class="fas fa-redo"></i> Resend
                                                                 </button>

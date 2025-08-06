@@ -326,35 +326,35 @@
                                     </td>
                                     <td>
                                         <div>
-                                            <strong>{{ $order->billing_first_name }} {{ $order->billing_last_name }}</strong>
-                                            @if($order->billing_email)
+                                            <strong>{{ $order->customer_name }}</strong>
+                                            @if($order->customer_email && $order->customer_email !== 'N/A')
                                                 <br>
-                                                <small class="text-muted">{{ $order->billing_email }}</small>
+                                                <small class="text-muted">{{ $order->customer_email }}</small>
                                             @endif
-                                            @if($order->billing_phone)
+                                            @if($order->customer_phone && $order->customer_phone !== 'N/A')
                                                 <br>
-                                                <small class="text-muted">{{ $order->billing_phone }}</small>
+                                                <small class="text-muted">{{ $order->customer_phone }}</small>
                                             @endif
                                         </div>
                                     </td>
                                     <td>
-                                        <strong>{{ $order->formatted_total }}</strong>
+                                        <strong>{{ $order->formatted_total_price }}</strong>
                                         <br>
                                         <small class="text-muted">{{ $order->currency }}</small>
                                     </td>
                                     <td>
                                         <span class="badge badge-{{ $order->status === 'completed' ? 'success' : ($order->status === 'processing' ? 'warning' : ($order->status === 'cancelled' ? 'danger' : 'secondary')) }}">
-                                            {{ ucfirst($order->status) }}
+                                            {{ $order->status_label }}
                                         </span>
                                     </td>
                                     <td>
                                         <span class="badge badge-{{ $order->payment_status === 'paid' ? 'success' : ($order->payment_status === 'pending' ? 'warning' : 'danger') }}">
-                                            {{ ucfirst(str_replace('_', ' ', $order->payment_status)) }}
+                                            {{ ucfirst($order->payment_status) }}
                                         </span>
                                     </td>
                                     <td>
                                         <span class="badge badge-{{ $order->fulfillment_status === 'fulfilled' ? 'success' : ($order->fulfillment_status === 'unfulfilled' ? 'warning' : 'info') }}">
-                                            {{ ucfirst(str_replace('_', ' ', $order->fulfillment_status)) }}
+                                            {{ ucfirst($order->fulfillment_status) }}
                                         </span>
                                     </td>
                                     <td>{{ $order->created_at->format('M d, Y H:i') }}</td>

@@ -306,8 +306,8 @@
                                     <th>Type</th>
                                     <th>Status</th>
                                     <th>Sent At</th>
-                                    <th>Delivered At</th>
-                                    <th>Read At</th>
+                                    <th>Status</th>
+                                    <th>Response</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -317,24 +317,24 @@
                                     <td>
                                         <strong>{{ $notification->order->order_number ?? 'N/A' }}</strong>
                                         <br>
-                                        <small class="text-muted">{{ $notification->order->woocommerce_order_id ?? 'N/A' }}</small>
+                                        <small class="text-muted">WC ID: {{ $notification->order->woocommerce_order_id ?? 'N/A' }}</small>
                                     </td>
                                     <td>
                                         <div>
-                                            <strong>{{ $notification->order->billing_first_name ?? 'N/A' }} {{ $notification->order->billing_last_name ?? '' }}</strong>
-                                            @if($notification->order->billing_email)
+                                            <strong>{{ $notification->order->customer_name ?? 'N/A' }}</strong>
+                                            @if($notification->order->customer_email && $notification->order->customer_email !== 'N/A')
                                                 <br>
-                                                <small class="text-muted">{{ $notification->order->billing_email }}</small>
+                                                <small class="text-muted">{{ $notification->order->customer_email }}</small>
                                             @endif
-                                            @if($notification->order->billing_phone)
+                                            @if($notification->order->customer_phone && $notification->order->customer_phone !== 'N/A')
                                                 <br>
-                                                <small class="text-muted">{{ $notification->order->billing_phone }}</small>
+                                                <small class="text-muted">{{ $notification->order->customer_phone }}</small>
                                             @endif
                                         </div>
                                     </td>
                                     <td>
                                         <span class="badge badge-info">
-                                            {{ ucfirst(str_replace('_', ' ', $notification->notification_type)) }}
+                                            {{ $notification->notification_type_label }}
                                         </span>
                                     </td>
                                     <td>
@@ -343,12 +343,25 @@
                                             ($notification->status === 'pending' ? 'warning' : 
                                             ($notification->status === 'failed' ? 'danger' : 'info')) 
                                         }}">
-                                            {{ ucfirst($notification->status) }}
+                                            {{ $notification->status_label }}
                                         </span>
                                     </td>
-                                    <td>{{ $notification->sent_at ? $notification->sent_at->format('M d, Y H:i') : 'N/A' }}</td>
-                                    <td>{{ $notification->delivered_at ? $notification->delivered_at->format('M d, Y H:i') : 'N/A' }}</td>
-                                    <td>{{ $notification->read_at ? $notification->read_at->format('M d, Y H:i') : 'N/A' }}</td>
+                                    <td>{{ $notification->formatted_sent_date }}</td>
+                                    <td>
+                                        @if($notification->response && isset($notification->response['error']))
+                                            <span class="text-danger">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                {{ $notification->response['error']['message'] ?? 'Error' }}
+                                            </span>
+                                        @elseif($notification->response && isset($notification->response['messages']))
+                                            <span class="text-success">
+                                                <i class="fas fa-check-circle"></i>
+                                                Message ID: {{ $notification->response['messages'][0]['id'] ?? 'N/A' }}
+                                            </span>
+                                        @else
+                                            <span class="text-muted">No response data</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         @if($notification->isFailed())
                                             <button class="btn btn-warning resend-notification" data-notification-id="{{ $notification->_id }}">
@@ -359,7 +372,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="8" class="text-center py-4">
+                                    <td colspan="7" class="text-center py-4">
                                         <i class="fas fa-bell-slash fa-2x text-muted mb-2"></i>
                                         <div class="text-muted">No notifications found</div>
                                     </td>
