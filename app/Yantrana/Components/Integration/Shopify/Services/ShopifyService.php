@@ -283,7 +283,11 @@ class ShopifyService
                 'order_id' => $orderData['id'] ?? 'unknown',
                 'order_data_keys' => array_keys($orderData),
                 'customer_data_exists' => isset($orderData['customer']),
-                'customer_id' => $orderData['customer']['id'] ?? 'no_customer_id'
+                'customer_id' => $orderData['customer']['id'] ?? 'no_customer_id',
+                'has_billing_address' => isset($orderData['billing_address']),
+                'has_shipping_address' => isset($orderData['shipping_address']),
+                'order_email' => $orderData['email'] ?? 'N/A',
+                'order_phone' => $orderData['phone'] ?? 'N/A'
             ]);
 
             $integration = $this->shopifyIntegrationRepository->getActiveByVendorId($vendorId);
@@ -295,7 +299,7 @@ class ShopifyService
             $contact = $this->getOrCreateContact($orderData, $vendorId);
 
             // Create or update order
-            $order = $this->shopifyOrderRepository->createOrUpdate([
+            $orderDataForStorage = [
                 'shopify_integrations__id' => $integration->_id,
                 'vendors__id' => $vendorId,
                 'contacts__id' => $contact->_id,
@@ -327,7 +331,16 @@ class ShopifyService
                     'fulfillments' => $orderData['fulfillments'] ?? [],
                     'refunds' => $orderData['refunds'] ?? [],
                 ]
+            ];
+
+            \Log::info('Storing order data', [
+                'order_id' => $orderData['id'],
+                'line_items_count' => count($orderData['line_items'] ?? []),
+                'line_items_data' => $orderData['line_items'] ?? [],
+                '__data_line_items_count' => count($orderDataForStorage['__data']['line_items']),
             ]);
+
+            $order = $this->shopifyOrderRepository->createOrUpdate($orderDataForStorage);
 
             // Send notification
             return $this->sendNotification($order, $notificationType, $integration);
@@ -594,20 +607,89 @@ class ShopifyService
      */
     protected function prepareTemplateVariables(ShopifyOrderModel $order, string $notificationType, ShopifyIntegrationModel $integration): array
     {
-        $variables = [];
-        $variableMappings = $integration->getVariableMappings($notificationType);
-        
-        // Get order data as array for easy access
-        $orderData = $this->getOrderDataForVariables($order);
-        
-        // Map template variables to Shopify data
-        foreach ($variableMappings as $templateVariable => $shopifyVariable) {
-            if (!empty($shopifyVariable) && isset($orderData[$shopifyVariable])) {
-                $variables[$templateVariable] = $orderData[$shopifyVariable];
+        try {
+            $variables = [];
+            $variableMappings = $integration->getVariableMappings($notificationType);
+            
+            // Get order data as array for easy access
+            $orderData = $this->getOrderDataForVariables($order);
+            
+            \Log::info('Preparing template variables', [
+                'order_id' => $order->_id,
+                'notification_type' => $notificationType,
+                'variable_mappings' => $variableMappings,
+                'order_data_keys' => array_keys($orderData)
+            ]);
+            
+            // Map template variables to Shopify data
+            foreach ($variableMappings as $templateVariable => $shopifyVariable) {
+                if (!empty($shopifyVariable)) {
+                    if (isset($orderData[$shopifyVariable])) {
+                        $variables[$templateVariable] = $orderData[$shopifyVariable];
+                    } else {
+                        // Provide fallback values for missing data
+                        $fallbackValue = $this->getFallbackValue($shopifyVariable, $order);
+                        $variables[$templateVariable] = $fallbackValue;
+                        
+                        \Log::warning('Missing template variable, using fallback', [
+                            'template_variable' => $templateVariable,
+                            'shopify_variable' => $shopifyVariable,
+                            'fallback_value' => $fallbackValue
+                        ]);
+                    }
+                }
             }
+            
+            \Log::info('Template variables prepared successfully', [
+                'order_id' => $order->_id,
+                'variables_count' => count($variables),
+                'variables' => array_keys($variables)
+            ]);
+            
+            return $variables;
+            
+        } catch (\Exception $e) {
+            \Log::error('Error preparing template variables', [
+                'order_id' => $order->_id,
+                'notification_type' => $notificationType,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Return basic variables as fallback
+            return [
+                'order_number' => $order->order_number ?? 'Unknown',
+                'customer_name' => $order->getCustomerName(),
+                'total_price' => $order->formatted_total_price ?? '0.00'
+            ];
         }
-        
-        return $variables;
+    }
+
+    /**
+     * Get fallback value for missing template variables
+     */
+    protected function getFallbackValue(string $shopifyVariable, ShopifyOrderModel $order): string
+    {
+        switch ($shopifyVariable) {
+            case 'customer_first_name':
+                return $order->getCustomerFirstName() ?: 'Customer';
+            case 'customer_last_name':
+                return $order->getCustomerLastName() ?: '';
+            case 'customer_name':
+                return $order->getCustomerName() ?: 'Customer';
+            case 'customer_email':
+                return $order->getCustomerEmail() ?: 'N/A';
+            case 'customer_phone':
+                return $order->getCustomerPhone() ?: 'N/A';
+            case 'order_number':
+                return $order->order_number ?: 'Unknown';
+            case 'total_price':
+                return $order->formatted_total_price ?: '0.00';
+            case 'currency':
+                return $order->currency ?: 'USD';
+            default:
+                return 'N/A';
+        }
     }
 
     /**
@@ -615,67 +697,84 @@ class ShopifyService
      */
     protected function getOrderDataForVariables(ShopifyOrderModel $order): array
     {
-        $data = [
-            // Order Information
-            'order_number' => $order->order_number,
-            'order_name' => $order->name,
-            'order_id' => $order->shopify_order_id,
-            'total_price' => $order->formatted_total_price,
-            'subtotal_price' => number_format($order->subtotal_price, 2),
-            'total_tax' => number_format($order->total_tax, 2),
-            'total_discounts' => number_format($order->total_discounts, 2),
-            'currency' => $order->currency,
-            'financial_status' => $order->financial_status_label,
-            'fulfillment_status' => $order->fulfillment_status_label,
-            'order_date' => $order->created_at_shopify ? $order->created_at_shopify->format('M d, Y') : '',
-            'processed_at' => $order->processed_at ? $order->processed_at->format('M d, Y') : '',
+        try {
+            $data = [
+                // Order Information
+                'order_number' => $order->order_number ?? 'Unknown',
+                'order_name' => $order->name ?? 'Unknown',
+                'order_id' => $order->shopify_order_id ?? 'Unknown',
+                'total_price' => $order->formatted_total_price ?? '0.00',
+                'subtotal_price' => number_format($order->subtotal_price ?? 0, 2),
+                'total_tax' => number_format($order->total_tax ?? 0, 2),
+                'total_discounts' => number_format($order->total_discounts ?? 0, 2),
+                'currency' => $order->currency ?? 'USD',
+                'financial_status' => $order->financial_status_label ?? 'Unknown',
+                'fulfillment_status' => $order->fulfillment_status_label ?? 'Unknown',
+                'order_date' => $order->created_at_shopify ? $order->created_at_shopify->format('M d, Y') : '',
+                'processed_at' => $order->processed_at ? $order->processed_at->format('M d, Y') : '',
+                
+                // Customer Information
+                'customer_name' => $order->getCustomerName() ?: 'Customer',
+                'customer_email' => $order->email ?? 'N/A',
+                'customer_phone' => $order->phone ?? 'N/A',
+                'customer_first_name' => $order->getCustomerFirstName() ?: 'Customer',
+                'customer_last_name' => $order->getCustomerLastName() ?: '',
+                
+                // Address Information
+                'shipping_address_name' => $order->getShippingAddress()['name'] ?? '',
+                'shipping_address_company' => $order->getShippingAddress()['company'] ?? '',
+                'shipping_address_address1' => $order->getShippingAddress()['address1'] ?? '',
+                'shipping_address_address2' => $order->getShippingAddress()['address2'] ?? '',
+                'shipping_address_city' => $order->getShippingAddress()['city'] ?? '',
+                'shipping_address_province' => $order->getShippingAddress()['province'] ?? '',
+                'shipping_address_country' => $order->getShippingAddress()['country'] ?? '',
+                'shipping_address_zip' => $order->getShippingAddress()['zip'] ?? '',
+                'shipping_address_phone' => $order->getShippingAddress()['phone'] ?? '',
+                
+                'billing_address_name' => $order->getBillingAddress()['name'] ?? '',
+                'billing_address_company' => $order->getBillingAddress()['company'] ?? '',
+                'billing_address_address1' => $order->getBillingAddress()['address1'] ?? '',
+                'billing_address_address2' => $order->getBillingAddress()['address2'] ?? '',
+                'billing_address_city' => $order->getBillingAddress()['city'] ?? '',
+                'billing_address_province' => $order->getBillingAddress()['province'] ?? '',
+                'billing_address_country' => $order->getBillingAddress()['country'] ?? '',
+                'billing_address_zip' => $order->getBillingAddress()['zip'] ?? '',
+                'billing_address_phone' => $order->getBillingAddress()['phone'] ?? '',
+                
+                // Line Items
+                'line_items_summary' => $order->getFormattedLineItems(),
+                'total_items' => $order->total_items ?? 0,
+                'total_weight' => $order->total_weight ?? 0,
+                
+                // Fulfillment
+                'tracking_number' => $this->getTrackingNumber($order),
+                'tracking_company' => $this->getTrackingCompany($order),
+                'tracking_url' => $this->getTrackingUrl($order),
+                'fulfillment_date' => $this->getFulfillmentDate($order),
+                
+                // Additional
+                'note' => $order->note ?? '',
+                'tags' => $order->tags ?? '',
+                'shop_domain' => $order->integration->shop_domain ?? '',
+            ];
             
-            // Customer Information
-            'customer_name' => $order->getCustomerName(),
-            'customer_email' => $order->email,
-            'customer_phone' => $order->phone,
-            'customer_first_name' => $order->getCustomerFirstName(),
-            'customer_last_name' => $order->getCustomerLastName(),
+            return $data;
             
-            // Address Information
-            'shipping_address_name' => $order->getShippingAddress()['name'] ?? '',
-            'shipping_address_company' => $order->getShippingAddress()['company'] ?? '',
-            'shipping_address_address1' => $order->getShippingAddress()['address1'] ?? '',
-            'shipping_address_address2' => $order->getShippingAddress()['address2'] ?? '',
-            'shipping_address_city' => $order->getShippingAddress()['city'] ?? '',
-            'shipping_address_province' => $order->getShippingAddress()['province'] ?? '',
-            'shipping_address_country' => $order->getShippingAddress()['country'] ?? '',
-            'shipping_address_zip' => $order->getShippingAddress()['zip'] ?? '',
-            'shipping_address_phone' => $order->getShippingAddress()['phone'] ?? '',
+        } catch (\Exception $e) {
+            \Log::error('Error getting order data for variables', [
+                'order_id' => $order->_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             
-            'billing_address_name' => $order->getBillingAddress()['name'] ?? '',
-            'billing_address_company' => $order->getBillingAddress()['company'] ?? '',
-            'billing_address_address1' => $order->getBillingAddress()['address1'] ?? '',
-            'billing_address_address2' => $order->getBillingAddress()['address2'] ?? '',
-            'billing_address_city' => $order->getBillingAddress()['city'] ?? '',
-            'billing_address_province' => $order->getBillingAddress()['province'] ?? '',
-            'billing_address_country' => $order->getBillingAddress()['country'] ?? '',
-            'billing_address_zip' => $order->getBillingAddress()['zip'] ?? '',
-            'billing_address_phone' => $order->getBillingAddress()['phone'] ?? '',
-            
-            // Line Items
-            'line_items_summary' => $order->getFormattedLineItems(),
-            'total_items' => $order->total_items,
-            'total_weight' => $order->total_weight,
-            
-            // Fulfillment
-            'tracking_number' => $this->getTrackingNumber($order),
-            'tracking_company' => $this->getTrackingCompany($order),
-            'tracking_url' => $this->getTrackingUrl($order),
-            'fulfillment_date' => $this->getFulfillmentDate($order),
-            
-            // Additional
-            'note' => $order->note ?? '',
-            'tags' => $order->tags ?? '',
-            'shop_domain' => $order->integration->shop_domain ?? '',
-        ];
-        
-        return $data;
+            // Return basic data as fallback
+            return [
+                'order_number' => $order->order_number ?? 'Unknown',
+                'customer_name' => $order->getCustomerName() ?: 'Customer',
+                'total_price' => $order->formatted_total_price ?? '0.00',
+                'currency' => $order->currency ?? 'USD'
+            ];
+        }
     }
 
     /**
@@ -835,7 +934,9 @@ class ShopifyService
         
         // Extract email from various possible locations
         $email = $orderData['email'] ?? 
-                 $orderData['customer']['email'] ?? '';
+                 $orderData['customer']['email'] ?? 
+                 $orderData['billing_address']['email'] ?? 
+                 $orderData['shipping_address']['email'] ?? '';
         
         // Extract name from various possible locations
         $firstName = $orderData['customer']['first_name'] ?? 
@@ -856,6 +957,23 @@ class ShopifyService
         // For orders without customer data, try to use order name as fallback
         if (!$name && isset($orderData['name'])) {
             $name = $orderData['name'];
+        }
+
+        // Additional fallback for email from customer data
+        if (!$email && isset($orderData['customer']['email'])) {
+            $email = $orderData['customer']['email'];
+        }
+
+        // Additional fallback for phone from customer data
+        if (!$phone && isset($orderData['customer']['phone'])) {
+            $phone = $orderData['customer']['phone'];
+        }
+
+        // Try to get name from customer data if not found
+        if (!$name && isset($orderData['customer']['first_name'])) {
+            $firstName = $orderData['customer']['first_name'];
+            $lastName = $orderData['customer']['last_name'] ?? '';
+            $name = trim($firstName . ' ' . $lastName);
         }
 
         // If we don't have contact info but have a customer ID, try to fetch from Shopify API
@@ -980,19 +1098,24 @@ class ShopifyService
             'email' => $email,
             'name' => $name,
             'has_phone' => !empty($phone),
-            'has_email' => !empty($email)
+            'has_email' => !empty($email),
+            'has_name' => !empty($name),
+            'order_id' => $orderData['id'] ?? 'unknown',
+            'order_number' => $orderData['order_number'] ?? $orderData['name'] ?? 'unknown',
+            'customer_id' => $orderData['customer']['id'] ?? 'no_customer_id'
         ]);
 
-        // If we still don't have contact info after all attempts, log and skip
+        // If we still don't have contact info after all attempts, log and create a placeholder contact
         if (!$phone && !$email) {
-            \Log::warning('No contact information found after all attempts', [
+            \Log::warning('No contact information found after all attempts, creating placeholder contact', [
                 'order_id' => $orderData['id'] ?? 'unknown',
                 'order_number' => $orderData['order_number'] ?? $orderData['name'] ?? 'unknown',
                 'customer_id' => $orderData['customer']['id'] ?? 'no_customer_id',
                 'customer_data' => $orderData['customer'] ?? 'no_customer_data'
             ]);
             
-            throw new Exception('No phone or email found in order data after attempting to fetch from Shopify API');
+            // Create a minimal contact for orders without customer data
+            return $this->createMinimalContact($orderData, $vendorId);
         }
 
         // Try to find existing contact
@@ -1027,14 +1150,66 @@ class ShopifyService
             ];
 
             \Log::info('Creating new contact', $contactData);
-            $contact = $this->contactRepository->storeContact($contactData, $vendorId);
-            
-            if (!$contact) {
-                throw new Exception('Failed to create contact');
+            try {
+                $contact = $this->contactRepository->storeContact($contactData, $vendorId);
+                
+                if (!$contact) {
+                    \Log::error('Failed to create contact', $contactData);
+                    throw new Exception('Failed to create contact');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Exception while creating contact', [
+                    'error' => $e->getMessage(),
+                    'contact_data' => $contactData
+                ]);
+                throw $e;
             }
         }
 
         return $contact;
+    }
+
+    /**
+     * Create a minimal contact record for orders without customer data
+     */
+    protected function createMinimalContact(array $orderData, int $vendorId)
+    {
+        $orderNumber = $orderData['order_number'] ?? $orderData['name'] ?? 'Unknown';
+        $orderId = $orderData['id'] ?? 'unknown';
+        
+        $contactData = [
+            'vendors__id' => $vendorId,
+            'first_name' => "Order #{$orderNumber}",
+            'email' => "order-{$orderId}@placeholder.com",
+            'phone_number' => '0000000000',
+            'wa_id' => '0000000000',
+            'status' => 'active',
+            '__data' => [
+                'shopify_order_id' => $orderId,
+                'order_number' => $orderNumber,
+                'is_placeholder' => true,
+                'missing_customer_data' => true
+            ]
+        ];
+
+        \Log::info('Creating minimal contact for order without customer data', $contactData);
+        
+        try {
+            $contact = $this->contactRepository->storeContact($contactData, $vendorId);
+            
+            if (!$contact) {
+                \Log::error('Failed to create minimal contact', $contactData);
+                throw new Exception('Failed to create minimal contact');
+            }
+            
+            return $contact;
+        } catch (\Exception $e) {
+            \Log::error('Exception while creating minimal contact', [
+                'error' => $e->getMessage(),
+                'contact_data' => $contactData
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -1067,6 +1242,7 @@ class ShopifyService
                     'status' => $response->status(),
                     'response' => $response->body()
                 ]);
+                // Don't return null here, continue with existing data
                 return null;
             }
 
@@ -1078,6 +1254,7 @@ class ShopifyService
                 
                 \Log::info('Successfully fetched and cleaned customer data from Shopify API', [
                     'customer_id' => $customerId,
+                    'customer_state' => $customerData['state'] ?? 'unknown',
                     'has_phone' => !empty($cleanedData['phone']),
                     'has_email' => !empty($cleanedData['email']),
                     'has_name' => !empty($cleanedData['first_name']),
@@ -1088,6 +1265,14 @@ class ShopifyService
                     'default_address' => isset($cleanedData['default_address']) ? 'EXISTS' : 'NOT_FOUND',
                     'addresses_count' => isset($cleanedData['addresses']) ? count($cleanedData['addresses']) : 0
                 ]);
+                
+                // If customer is disabled, they might not have email/phone
+                if (($customerData['state'] ?? '') === 'disabled') {
+                    \Log::info('Customer is disabled, email and phone may not be available', [
+                        'customer_id' => $customerId,
+                        'state' => $customerData['state']
+                    ]);
+                }
                 
                 return $cleanedData;
             } else {

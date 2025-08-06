@@ -337,7 +337,7 @@
                                             <tr>
                                                 <td><strong>Contact:</strong></td>
                                                 <td>
-                                                    <a href="{{ route('vendor.contacts.edit', $order->contact->_id) }}" class="btn btn-info btn-sm">
+                                                    <a href="{{ route('vendor.contact.read.update.data', $order->contact->_uid) }}" class="btn btn-info btn-sm" data-toggle="modal" data-target="#lwEditContact">
                                                         <i class="fas fa-user"></i> View Contact
                                                     </a>
                                                 </td>
@@ -355,6 +355,37 @@
                                 <div class="card">
                                     <div class="card-header">
                                         <h5 class="card-title text-white">Order Items</h5>
+                                        @if(config('app.debug'))
+                                        <small class="text-white-50">
+                                            Debug: Line items count: {{ count($order->getLineItems()) }}
+                                            <br>
+                                            Debug: Fallback line items count: {{ count($order->forceDecodeData()['line_items'] ?? []) }}
+                                            <br>
+                                            Debug: Direct line items count: {{ count($order->__data['line_items'] ?? []) }}
+                                            <br>
+                                            Debug: Shopify order data line items count: {{ count($order->__data['shopify_order_data']['line_items'] ?? []) }}
+                                            <br>
+                                            Debug: __data keys: {{ implode(', ', array_keys($order->__data ?? [])) }}
+                                            <br>
+                                            Debug: Raw __data: {{ json_encode($order->getRawData()) }}
+                                            <br>
+                                            Debug: Raw JSON from DB: {{ $order->getRawJsonData() }}
+                                            <br>
+                                            Debug: Raw DB value: {{ $order->getRawDatabaseData() }}
+                                            <br>
+                                            Debug: Raw DB value length: {{ strlen($order->getRawDatabaseData()) }}
+                                            <br>
+                                            Debug: Force decoded keys: {{ implode(', ', array_keys($order->forceDecodeData())) }}
+                                            <br>
+                                            Debug: Force decoded line items: {{ json_encode($order->forceDecodeData()['line_items'] ?? []) }}
+                                            <br>
+                                            Debug: Line items data: {{ json_encode($order->getLineItems()) }}
+                                            <br>
+                                            Debug: __data type: {{ gettype($order->__data) }}
+                                            <br>
+                                            Debug: __data is array: {{ is_array($order->__data) ? 'true' : 'false' }}
+                                        </small>
+                                        @endif
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive">
@@ -369,21 +400,21 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse($order->line_items ?? [] as $item)
+                                                    @forelse(($order->getLineItems() ?: $order->forceDecodeData()['line_items'] ?? []) as $item)
                                                     <tr>
                                                         <td>
-                                                            <strong>{{ $item['title'] ?? 'N/A' }}</strong>
-                                                            @if(isset($item['variant_title']))
+                                                            <strong>{{ $item['title'] ?? $item['name'] ?? 'N/A' }}</strong>
+                                                            @if(isset($item['variant_title']) && $item['variant_title'])
                                                                 <br>
                                                                 <small class="text-muted">{{ $item['variant_title'] }}</small>
                                                             @endif
                                                         </td>
                                                         <td>{{ $item['sku'] ?? 'N/A' }}</td>
                                                         <td>{{ $item['quantity'] ?? 0 }}</td>
-                                                        <td>{{ $item['price'] ? '$' . number_format($item['price'], 2) : 'N/A' }}</td>
+                                                        <td>{{ $item['price'] ? $order->currency . ' ' . number_format($item['price'], 2) : 'N/A' }}</td>
                                                         <td>
                                                             <strong>
-                                                                {{ isset($item['price'], $item['quantity']) ? '$' . number_format($item['price'] * $item['quantity'], 2) : 'N/A' }}
+                                                                {{ isset($item['price'], $item['quantity']) ? $order->currency . ' ' . number_format($item['price'] * $item['quantity'], 2) : 'N/A' }}
                                                             </strong>
                                                         </td>
                                                     </tr>
@@ -655,4 +686,8 @@ style.textContent = `
 document.head.appendChild(style);
 </script>
 @endpush
+
+{{-- Include Contact Edit Modal --}}
+@include('contact.contact-edit-modal-partial')
+
 @endsection 

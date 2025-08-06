@@ -1386,6 +1386,12 @@ Route::middleware([
                         ShopifyIntegrationController::class,
                         'testNotification',
                     ])->name('vendor.integration.shopify.test_notification');
+                    
+                    // Test order data
+                    Route::get('/test-order-data/{orderId}', [
+                        ShopifyIntegrationController::class,
+                        'testOrderData',
+                    ])->name('vendor.integration.shopify.test_order_data');
                 });
                 
                 // WooCommerce Integration Routes
@@ -1653,6 +1659,12 @@ Route::any('shopify-webhook/test/{vendorId?}', [
     ShopifyWebhookController::class,
     'testWebhook',
 ])->name('shopify.webhook.test')->withoutMiddleware(['web', 'auth', 'session']);
+
+// Shopify webhook debug endpoint (without any middleware)
+Route::any('shopify-webhook/debug/{vendorId?}', [
+    ShopifyWebhookController::class,
+    'debugCustomerData',
+])->name('shopify.webhook.debug')->withoutMiddleware(['web', 'auth', 'session']);
 
 // WooCommerce webhook (without any middleware)
 Route::any('woocommerce-webhook/{vendorId?}', [

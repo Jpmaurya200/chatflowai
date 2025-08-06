@@ -284,6 +284,23 @@ class ShopifyIntegrationController extends BaseController
             abort(404, 'Order not found');
         }
 
+        // Force refresh the order to get latest data
+        $order->refreshData();
+
+        // Debug: Log the order data
+        \Log::info('Order details view data', [
+            'order_id' => $order->shopify_order_id,
+            'line_items_count' => count($order->getLineItems()),
+            'fallback_line_items_count' => count($order->forceDecodeData()['line_items'] ?? []),
+            '__data_keys' => array_keys($order->__data ?? []),
+            '__data_type' => gettype($order->__data),
+            'raw_json' => $order->getRawJsonData(),
+            'raw_db_value' => $order->getRawDatabaseData(),
+            'raw_db_value_length' => strlen($order->getRawDatabaseData()),
+            'force_decoded_keys' => array_keys($order->forceDecodeData()),
+            'force_decoded_line_items' => $order->forceDecodeData()['line_items'] ?? [],
+        ]);
+
         $notifications = $this->shopifyOrderNotificationRepository->getByOrderId($order->_id);
 
         return view('integration.shopify.order-details', compact('order', 'notifications'));
@@ -503,5 +520,36 @@ class ShopifyIntegrationController extends BaseController
     public function testNotifications(Request $request)
     {
         return view('integration.shopify.test-notifications');
+    }
+
+    /**
+     * Test order data
+     */
+    public function testOrderData(Request $request, $orderId)
+    {
+        $vendorId = getVendorId();
+        $order = $this->shopifyOrderRepository->getByShopifyOrderId($orderId, $vendorId);
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'order_id' => $order->shopify_order_id,
+            'line_items_count' => count($order->getLineItems()),
+            'fallback_line_items_count' => count($order->forceDecodeData()['line_items'] ?? []),
+            '__data_keys' => array_keys($order->__data ?? []),
+            '__data_type' => gettype($order->__data),
+            'raw_json' => $order->getRawJsonData(),
+            'raw_db_value' => $order->getRawDatabaseData(),
+            'raw_db_value_length' => strlen($order->getRawDatabaseData()),
+            'force_decoded_keys' => array_keys($order->forceDecodeData()),
+            'force_decoded_line_items' => $order->forceDecodeData()['line_items'] ?? [],
+            'line_items' => $order->getLineItems(),
+        ]);
     }
 } 

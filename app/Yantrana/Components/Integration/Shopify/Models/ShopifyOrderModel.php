@@ -39,6 +39,11 @@ class ShopifyOrderModel extends BaseModel
     ];
 
     /**
+     * Skip JSON column protocol for debugging
+     */
+    protected $skipJsonColumnProtocol = false;
+
+    /**
      * @var array - The attributes that should be casted to native types.
      */
     protected $casts = [
@@ -57,6 +62,11 @@ class ShopifyOrderModel extends BaseModel
         'closed_at_shopify' => 'datetime',
         'processed_at_shopify' => 'datetime',
     ];
+
+
+
+
+
 
     /**
      * @var array - The attributes that are mass assignable.
@@ -98,6 +108,10 @@ class ShopifyOrderModel extends BaseModel
         'financial_status_label',
         'fulfillment_status_label',
         'formatted_total_price',
+        'formatted_subtotal_price',
+        'formatted_total_tax',
+        'formatted_total_discounts',
+        'formatted_total_shipping_price',
         'order_summary',
     ];
 
@@ -190,6 +204,54 @@ class ShopifyOrderModel extends BaseModel
     }
 
     /**
+     * Get formatted subtotal price
+     */
+    protected function getFormattedSubtotalPriceAttribute(): string
+    {
+        return $this->currency . ' ' . number_format($this->subtotal_price, 2);
+    }
+
+    /**
+     * Get formatted total tax
+     */
+    protected function getFormattedTotalTaxAttribute(): string
+    {
+        return $this->currency . ' ' . number_format($this->total_tax, 2);
+    }
+
+    /**
+     * Get formatted total discounts
+     */
+    protected function getFormattedTotalDiscountsAttribute(): string
+    {
+        return $this->currency . ' ' . number_format($this->total_discounts, 2);
+    }
+
+    /**
+     * Get formatted total shipping price
+     */
+    protected function getFormattedTotalShippingPriceAttribute(): string
+    {
+        // Try to get shipping price from __data
+        $shippingPrice = 0;
+        
+        // Check if we have shipping lines in the order data
+        $orderData = $this->__data['shopify_order_data'] ?? [];
+        if (isset($orderData['shipping_lines']) && is_array($orderData['shipping_lines'])) {
+            foreach ($orderData['shipping_lines'] as $shippingLine) {
+                $shippingPrice += ($shippingLine['price'] ?? 0);
+            }
+        }
+        
+        // If no shipping lines found, try to calculate from total - subtotal
+        if ($shippingPrice == 0 && $this->total_price > 0 && $this->subtotal_price > 0) {
+            $shippingPrice = $this->total_price - $this->subtotal_price - $this->total_tax + $this->total_discounts;
+        }
+        
+        return $this->currency . ' ' . number_format($shippingPrice, 2);
+    }
+
+    /**
      * Get order summary
      */
     protected function getOrderSummaryAttribute(): string
@@ -257,7 +319,7 @@ class ShopifyOrderModel extends BaseModel
      */
     public function getFormattedLineItems(): string
     {
-        $lineItems = $this->__data['line_items'] ?? [];
+        $lineItems = $this->getLineItems();
         
         if (empty($lineItems)) {
             return 'No items';
@@ -270,6 +332,104 @@ class ShopifyOrderModel extends BaseModel
             
             return "• {$name} (Qty: {$quantity}) - {$this->currency} {$price}";
         })->join("\n");
+    }
+
+    /**
+     * Get line items array
+     */
+    public function getLineItems(): array
+    {
+        // Try to get from line_items first
+        $lineItems = $this->__data['line_items'] ?? [];
+        
+        // If not found, try to get from shopify_order_data
+        if (empty($lineItems)) {
+            $lineItems = $this->__data['shopify_order_data']['line_items'] ?? [];
+        }
+        
+        // If still not found, try to decode from raw JSON
+        if (empty($lineItems)) {
+            $rawJson = $this->getRawJsonData();
+            $decodedData = json_decode($rawJson, true);
+            if ($decodedData && is_array($decodedData)) {
+                $lineItems = $decodedData['line_items'] ?? $decodedData['shopify_order_data']['line_items'] ?? [];
+            }
+        }
+        
+        // If still not found, try to decode from raw database value
+        if (empty($lineItems)) {
+            $rawDbValue = $this->getRawDatabaseData();
+            $decodedData = json_decode($rawDbValue, true);
+            if ($decodedData && is_array($decodedData)) {
+                $lineItems = $decodedData['line_items'] ?? $decodedData['shopify_order_data']['line_items'] ?? [];
+            }
+        }
+        
+        // If still not found, try force decode
+        if (empty($lineItems)) {
+            $forceDecodedData = $this->forceDecodeData();
+            $lineItems = $forceDecodedData['line_items'] ?? $forceDecodedData['shopify_order_data']['line_items'] ?? [];
+        }
+        
+        // Debug logging
+        \Log::info('Getting line items from model', [
+            'order_id' => $this->shopify_order_id,
+            'direct_line_items_count' => count($this->__data['line_items'] ?? []),
+            'shopify_order_data_line_items_count' => count($this->__data['shopify_order_data']['line_items'] ?? []),
+            'final_line_items_count' => count($lineItems),
+            '__data_keys' => array_keys($this->__data ?? []),
+            'raw_json_length' => strlen($this->getRawJsonData()),
+            'raw_db_value_length' => strlen($this->getRawDatabaseData()),
+            'force_decoded_keys' => array_keys($this->forceDecodeData()),
+        ]);
+        
+        return $lineItems;
+    }
+
+    /**
+     * Get raw __data for debugging
+     */
+    public function getRawData(): array
+    {
+        return $this->__data ?? [];
+    }
+
+    /**
+     * Get raw JSON data from database
+     */
+    public function getRawJsonData(): string
+    {
+        return $this->getRawOriginal('__data') ?? '{}';
+    }
+
+    /**
+     * Get raw database value for __data field
+     */
+    public function getRawDatabaseData(): string
+    {
+        $result = \DB::table('shopify_orders')
+            ->where('_id', $this->_id)
+            ->value('__data');
+        
+        return $result ?? '{}';
+    }
+
+    /**
+     * Force decode JSON data from the raw database value for __data
+     */
+    public function forceDecodeData(): array
+    {
+        $rawValue = $this->getRawDatabaseData();
+        $decoded = json_decode($rawValue, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Force refresh the model to get latest data
+     */
+    public function refreshData(): void
+    {
+        $this->refresh();
     }
 
     /**
@@ -310,7 +470,25 @@ class ShopifyOrderModel extends BaseModel
     public function getCustomerName(): string
     {
         $customerData = $this->__data['customer_data'] ?? [];
-        return $customerData['first_name'] . ' ' . $customerData['last_name'] ?? $this->name ?? '';
+        
+        // Try to get from customer data first
+        if (!empty($customerData['first_name']) || !empty($customerData['last_name'])) {
+            $firstName = $customerData['first_name'] ?? '';
+            $lastName = $customerData['last_name'] ?? '';
+            return trim($firstName . ' ' . $lastName);
+        }
+        
+        // Fallback to order name
+        if (!empty($this->name)) {
+            return $this->name;
+        }
+        
+        // Fallback to contact name if available
+        if ($this->contact && !empty($this->contact->first_name)) {
+            return $this->contact->first_name;
+        }
+        
+        return 'Unknown Customer';
     }
 
     /**
@@ -319,7 +497,26 @@ class ShopifyOrderModel extends BaseModel
     public function getCustomerFirstName(): string
     {
         $customerData = $this->__data['customer_data'] ?? [];
-        return $customerData['first_name'] ?? '';
+        
+        // Try to get from customer data first
+        if (!empty($customerData['first_name'])) {
+            return $customerData['first_name'];
+        }
+        
+        // If we have a full name in contact, try to extract first name
+        if ($this->contact && !empty($this->contact->first_name)) {
+            $fullName = $this->contact->first_name;
+            $nameParts = explode(' ', $fullName, 2);
+            return $nameParts[0] ?? $fullName;
+        }
+        
+        // Fallback to order name
+        if (!empty($this->name)) {
+            $nameParts = explode(' ', $this->name, 2);
+            return $nameParts[0] ?? $this->name;
+        }
+        
+        return '';
     }
 
     /**
@@ -328,6 +525,25 @@ class ShopifyOrderModel extends BaseModel
     public function getCustomerLastName(): string
     {
         $customerData = $this->__data['customer_data'] ?? [];
-        return $customerData['last_name'] ?? '';
+        
+        // Try to get from customer data first
+        if (!empty($customerData['last_name'])) {
+            return $customerData['last_name'];
+        }
+        
+        // If we have a full name in contact, try to extract last name
+        if ($this->contact && !empty($this->contact->first_name)) {
+            $fullName = $this->contact->first_name;
+            $nameParts = explode(' ', $fullName, 2);
+            return $nameParts[1] ?? '';
+        }
+        
+        // Fallback to order name
+        if (!empty($this->name)) {
+            $nameParts = explode(' ', $this->name, 2);
+            return $nameParts[1] ?? '';
+        }
+        
+        return '';
     }
 } 
