@@ -38,9 +38,11 @@
         <x-lw.input-field type="selectize" data-lw-plugin="lwSelectize" id="lwEditSelectGroupsField" data-form-group-class="" data-selected="<%- __tData.existingGroupIds %>" :label="__tr('Groups')" name="contact_groups[]" multiple >
         <x-slot name="selectOptions">
             <option value="">{{ __tr('Select Groups') }}</option>
-            @foreach($vendorContactGroups as $vendorContactGroup)
-            <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
-            @endforeach
+            @if(isset($vendorContactGroups) && $vendorContactGroups)
+                @foreach($vendorContactGroups as $vendorContactGroup)
+                <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
+                @endforeach
+            @endif
         </x-slot>
     </x-lw.input-field>
     <label for="lwEditOptOutMarketingMessages" class="flex items-center my-3">
@@ -53,9 +55,11 @@
     @endif
     <fieldset>
         <legend>{{  __tr('Other Information') }}</legend>
-        @foreach ($vendorContactCustomFields as $vendorContactCustomField)
-        <x-lw.input-field type="{{ $vendorContactCustomField->input_type }}" id="lwCustomField{{ $vendorContactCustomField->_id }}" data-form-group-class="" value="<%- _.get(_.find(__tData.custom_field_values, {'contact_custom_fields__id' : {{ $vendorContactCustomField->_id }} }), 'field_value') %>" :label="$vendorContactCustomField->input_name" name="custom_input_fields[{{ $vendorContactCustomField->_uid }}]" />
-        @endforeach
+        @if(isset($vendorContactCustomFields) && $vendorContactCustomFields)
+            @foreach ($vendorContactCustomFields as $vendorContactCustomField)
+            <x-lw.input-field type="{{ $vendorContactCustomField->input_type }}" id="lwCustomField{{ $vendorContactCustomField->_id }}" data-form-group-class="" value="<%- _.get(_.find(__tData.custom_field_values, {'contact_custom_fields__id' : {{ $vendorContactCustomField->_id }} }), 'field_value') %>" :label="$vendorContactCustomField->input_name" name="custom_input_fields[{{ $vendorContactCustomField->_uid }}]" />
+            @endforeach
+        @endif
     </fieldset>
     </script>
         <!-- form footer -->

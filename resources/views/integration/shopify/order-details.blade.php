@@ -355,37 +355,7 @@
                                 <div class="card">
                                     <div class="card-header">
                                         <h5 class="card-title text-white">Order Items</h5>
-                                        @if(config('app.debug'))
-                                        <small class="text-white-50">
-                                            Debug: Line items count: {{ count($order->getLineItems()) }}
-                                            <br>
-                                            Debug: Fallback line items count: {{ count($order->forceDecodeData()['line_items'] ?? []) }}
-                                            <br>
-                                            Debug: Direct line items count: {{ count($order->__data['line_items'] ?? []) }}
-                                            <br>
-                                            Debug: Shopify order data line items count: {{ count($order->__data['shopify_order_data']['line_items'] ?? []) }}
-                                            <br>
-                                            Debug: __data keys: {{ implode(', ', array_keys($order->__data ?? [])) }}
-                                            <br>
-                                            Debug: Raw __data: {{ json_encode($order->getRawData()) }}
-                                            <br>
-                                            Debug: Raw JSON from DB: {{ $order->getRawJsonData() }}
-                                            <br>
-                                            Debug: Raw DB value: {{ $order->getRawDatabaseData() }}
-                                            <br>
-                                            Debug: Raw DB value length: {{ strlen($order->getRawDatabaseData()) }}
-                                            <br>
-                                            Debug: Force decoded keys: {{ implode(', ', array_keys($order->forceDecodeData())) }}
-                                            <br>
-                                            Debug: Force decoded line items: {{ json_encode($order->forceDecodeData()['line_items'] ?? []) }}
-                                            <br>
-                                            Debug: Line items data: {{ json_encode($order->getLineItems()) }}
-                                            <br>
-                                            Debug: __data type: {{ gettype($order->__data) }}
-                                            <br>
-                                            Debug: __data is array: {{ is_array($order->__data) ? 'true' : 'false' }}
-                                        </small>
-                                        @endif
+                                        
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive">
