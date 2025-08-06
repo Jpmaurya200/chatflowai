@@ -91,7 +91,23 @@ class WooCommerceIntegrationController extends BaseController
 
         // Process templates to include components data
         $templates->each(function($template) {
-            $template->components_data = \Illuminate\Support\Arr::get($template->toArray(), '__data.template.components', []);
+            $templateData = $template->toArray();
+            $components = \Illuminate\Support\Arr::get($templateData, '__data.template.components', []);
+            
+            // If no components found, try to extract from template text
+            if (empty($components)) {
+                $templateText = \Illuminate\Support\Arr::get($templateData, '__data.template.text', '');
+                if ($templateText) {
+                    $components = [
+                        [
+                            'type' => 'body',
+                            'text' => $templateText
+                        ]
+                    ];
+                }
+            }
+            
+            $template->components_data = $components;
         });
 
         // Get available WooCommerce variables
@@ -120,12 +136,32 @@ class WooCommerceIntegrationController extends BaseController
             'cod_verification' => 'COD Verification'
         ];
 
+        // Get existing variable mappings from integration
+        $existingVariableMappings = [];
+        if ($integration) {
+            foreach ($notificationTypes as $type => $label) {
+                $existingVariableMappings[$type] = $integration->getVariableMappings($type);
+            }
+        }
+
+        // Debug: Log template data for troubleshooting
+        \Log::info('Template data for WooCommerce settings', [
+            'templates_count' => $templates->count(),
+            'sample_template' => $templates->first() ? [
+                'template_name' => $templates->first()->template_name,
+                'components_data' => $templates->first()->components_data,
+                'has_components' => !empty($templates->first()->components_data),
+                'template_data_keys' => $templates->first()->__data ? array_keys($templates->first()->__data) : []
+            ] : null
+        ]);
+
         return view('integration.woocommerce.settings', compact(
             'integration',
             'availableIntegrations',
             'templates',
             'wooCommerceVariables',
-            'notificationTypes'
+            'notificationTypes',
+            'existingVariableMappings'
         ));
     }
 
@@ -206,10 +242,6 @@ class WooCommerceIntegrationController extends BaseController
     public function updateNotificationSettings(Request $request)
     {
         try {
-            $request->validate([
-                'notification_settings' => 'required|array'
-            ]);
-
             $vendorId = getVendorId();
             $integration = $this->wooCommerceIntegrationRepository->getByVendorId($vendorId);
 
@@ -220,9 +252,70 @@ class WooCommerceIntegrationController extends BaseController
                 ], 404);
             }
 
-            // Update integration settings
-            $this->wooCommerceIntegrationRepository->updateSettings($integration->_id, [
-                'notification_settings' => $request->notification_settings
+            // Get notification types from request
+            $notificationTypes = $request->get('notification_types', []);
+            
+            // Get template mappings from request
+            $templateMappings = [];
+            $variableMappings = [];
+            
+            \Log::info('Updating WooCommerce notification settings', [
+                'vendor_id' => $vendorId,
+                'notification_types' => $notificationTypes,
+                'all_request_data' => $request->all()
+            ]);
+            
+            foreach ($notificationTypes as $notificationType) {
+                // Get template UID from nested array structure
+                $templateUid = $request->input("template_uid.{$notificationType}");
+                
+                \Log::info('Processing notification type', [
+                    'notification_type' => $notificationType,
+                    'template_uid' => $templateUid,
+                    'template_uid_empty' => empty($templateUid),
+                    'template_uid_null' => is_null($templateUid),
+                    'all_template_uids' => $request->input('template_uid')
+                ]);
+                
+                if (!empty($templateUid)) {
+                    $templateMappings[$notificationType] = $templateUid;
+                    
+                    // Get variable mappings for this notification type
+                    $variableMappingData = $request->input("variable_mapping.{$notificationType}", []);
+                    
+                    \Log::info('Processing variable mappings', [
+                        'notification_type' => $notificationType,
+                        'template_uid' => $templateUid,
+                        'variable_mapping_data' => $variableMappingData,
+                        'variable_mapping_empty' => empty($variableMappingData),
+                        'all_variable_mappings' => $request->input('variable_mapping')
+                    ]);
+                    
+                    if (!empty($variableMappingData)) {
+                        $variableMappings[$notificationType] = $variableMappingData;
+                    }
+                }
+            }
+
+            \Log::info('Final mappings to save', [
+                'template_mappings' => $templateMappings,
+                'variable_mappings' => $variableMappings
+            ]);
+
+            // Update integration with new settings
+            $integration->setNotificationTypes($notificationTypes);
+            $integration->setTemplateMappings($templateMappings);
+            
+            // Update variable mappings for each notification type
+            foreach ($variableMappings as $notificationType => $mappings) {
+                $integration->setVariableMappings($notificationType, $mappings);
+            }
+            
+            $integration->save();
+
+            \Log::info('Settings saved successfully', [
+                'integration_id' => $integration->_id,
+                'settings' => $integration->settings
             ]);
 
             return response()->json([
@@ -231,6 +324,12 @@ class WooCommerceIntegrationController extends BaseController
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Error updating WooCommerce notification settings', [
+                'vendor_id' => getVendorId(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error updating notification settings: ' . $e->getMessage()

@@ -8,6 +8,7 @@
 namespace App\Yantrana\Components\Integration\WooCommerce\Models;
 
 use App\Yantrana\Base\BaseModel;
+use App\Yantrana\Components\Integration\WooCommerce\Models\WooCommerceIntegrationModel;
 use Carbon\Carbon;
 
 class WooCommerceOrderModel extends BaseModel
@@ -26,6 +27,7 @@ class WooCommerceOrderModel extends BaseModel
      */
     protected $fillable = [
         'vendors__id',
+        'woocommerce_integrations__id',
         'woocommerce_order_id',
         'order_number',
         'status',
@@ -44,6 +46,7 @@ class WooCommerceOrderModel extends BaseModel
      */
     protected $casts = [
         'vendors__id' => 'integer',
+        'woocommerce_integrations__id' => 'integer',
         'woocommerce_order_id' => 'integer',
         'total' => 'float',
         'customer_data' => 'array',
@@ -195,5 +198,13 @@ class WooCommerceOrderModel extends BaseModel
     {
         $orderData = $this->order_data;
         return $orderData['line_items'] ?? [];
+    }
+
+    /**
+     * Get the integration that owns the order
+     */
+    public function integration()
+    {
+        return $this->belongsTo(WooCommerceIntegrationModel::class, 'woocommerce_integrations__id');
     }
 } 

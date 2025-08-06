@@ -567,6 +567,9 @@
 
 @push('scripts')
 <script>
+// Pass existing variable mappings to JavaScript
+window.existingVariableMappings = @json($existingVariableMappings ?? []);
+
 $(document).ready(function() {
     console.log('Document ready, jQuery version:', $.fn.jquery);
     console.log('Connect form exists:', $('#connect-form').length > 0);
@@ -664,6 +667,8 @@ $(document).ready(function() {
         const formData = $(this).serialize();
         const submitBtn = $(this).find('button[type="submit"]');
         
+        console.log('Submitting notification settings form:', formData);
+        
         submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
         
         $.ajax({
@@ -674,6 +679,7 @@ $(document).ready(function() {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             },
             success: function(response) {
+                console.log('Settings save response:', response);
                 if (response.success) {
                     toastr.success('Settings saved successfully!');
                 } else {
@@ -681,6 +687,7 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr) {
+                console.error('Settings save error:', xhr);
                 toastr.error('Failed to save settings');
             },
             complete: function() {
@@ -697,6 +704,12 @@ $(document).ready(function() {
         const selectedOption = $(this).find('option:selected');
         const templateComponents = selectedOption.data('template-components');
         
+        console.log('Template selection changed:', {
+            notificationType,
+            templateComponents,
+            templateComponentsLength: templateComponents ? templateComponents.length : 0
+        });
+        
         if (templateComponents && templateComponents.length > 0) {
             showVariableMapping(notificationType, templateComponents);
         } else {
@@ -704,24 +717,91 @@ $(document).ready(function() {
         }
     });
 
+    // Initialize variable mappings for existing selections
+    $('.template-select').each(function() {
+        const notificationType = $(this).data('notification-type');
+        const selectedOption = $(this).find('option:selected');
+        const templateComponents = selectedOption.data('template-components');
+        
+        console.log('Initializing template:', {
+            notificationType,
+            templateComponents,
+            templateComponentsLength: templateComponents ? templateComponents.length : 0
+        });
+        
+        if (templateComponents && templateComponents.length > 0) {
+            showVariableMapping(notificationType, templateComponents);
+        }
+    });
+
     // Show variable mapping section
     function showVariableMapping(notificationType, templateComponents) {
+        console.log('Showing variable mapping for:', notificationType, templateComponents);
+        
         const section = $(`#variable-mapping-${notificationType}`);
         const container = section.find('.template-variables-container');
         
         // Clear existing content
         container.empty();
         
+        // Get existing mappings for this notification type
+        const existingMappings = window.existingVariableMappings[notificationType] || {};
+        
+        console.log('Existing mappings:', existingMappings);
+        
         // Add variable mapping fields
-        templateComponents.forEach(component => {
+        templateComponents.forEach((component, index) => {
+            console.log(`Processing component ${index}:`, component);
+            
             if (component.type === 'body' && component.text) {
                 const variables = extractVariables(component.text);
+                console.log('Extracted variables from text:', variables);
+                
                 variables.forEach(variable => {
-                    const field = createVariableField(variable, notificationType);
+                    const field = createVariableField(variable, notificationType, existingMappings[variable]);
+                    container.append(field);
+                });
+            } else if (component.type === 'body' && component.example) {
+                // Handle case where text might be in example field
+                const variables = extractVariables(component.example);
+                console.log('Extracted variables from example:', variables);
+                
+                variables.forEach(variable => {
+                    const field = createVariableField(variable, notificationType, existingMappings[variable]);
+                    container.append(field);
+                });
+            } else if (component.text) {
+                // Handle case where text is directly in component
+                const variables = extractVariables(component.text);
+                console.log('Extracted variables from component text:', variables);
+                
+                variables.forEach(variable => {
+                    const field = createVariableField(variable, notificationType, existingMappings[variable]);
                     container.append(field);
                 });
             }
         });
+        
+        // If no variables found, try to extract from template name or other fields
+        if (container.children().length === 0) {
+            console.log('No variables found in components, trying alternative extraction');
+            
+            // Try to extract from the first component that has any text content
+            for (const component of templateComponents) {
+                const textToCheck = component.text || component.example || component.content || '';
+                if (textToCheck) {
+                    const variables = extractVariables(textToCheck);
+                    console.log('Extracted variables from alternative text:', variables);
+                    
+                    variables.forEach(variable => {
+                        const field = createVariableField(variable, notificationType, existingMappings[variable]);
+                        container.append(field);
+                    });
+                    
+                    if (variables.length > 0) break;
+                }
+            }
+        }
         
         section.show();
     }
@@ -733,36 +813,54 @@ $(document).ready(function() {
 
     // Extract variables from template text
     function extractVariables(text) {
-        const variables = [];
-        const regex = /\{\{(\d+)\}\}/g;
-        let match;
+        console.log('Extracting variables from text:', text);
         
-        while ((match = regex.exec(text)) !== null) {
-            variables.push(match[1]);
+        const variables = [];
+        
+        // Use a single comprehensive pattern to avoid duplicates
+        const pattern = /\{\{([^}]+)\}\}/g;
+        
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+            const variable = match[1];
+            if (!variables.includes(variable)) {
+                variables.push(variable);
+            }
         }
         
+        console.log('Extracted variables:', variables);
         return variables;
     }
 
     // Create variable field
-    function createVariableField(variable, notificationType) {
+    function createVariableField(variable, notificationType, existingValue = '') {
+        const wooCommerceVariables = {
+            'customer_name': 'Customer Name',
+            'order_number': 'Order Number',
+            'order_total': 'Order Total',
+            'order_status': 'Order Status',
+            'order_date': 'Order Date',
+            'payment_method': 'Payment Method',
+            'shipping_address': 'Shipping Address',
+            'billing_address': 'Billing Address',
+            'tracking_number': 'Tracking Number',
+            'tracking_company': 'Tracking Company',
+            'tracking_url': 'Tracking URL',
+            'delivery_date': 'Delivery Date',
+            'cod_amount': 'COD Amount'
+        };
+        
+        let options = '<option value="">Select WooCommerce field</option>';
+        
+        for (const [key, label] of Object.entries(wooCommerceVariables)) {
+            const selected = key === existingValue ? 'selected' : '';
+            options += `<option value="${key}" ${selected}>${label}</option>`;
+        }
+        
         return '<div class="form-group">' +
-            '<label for="variable_' + notificationType + '_' + variable + '">Variable {{' + variable + '}}</label>' +
+            '<label for="variable_' + notificationType + '_' + variable + '">Variable {' + '{' + variable + '}' + '}</label>' +
             '<select name="variable_mapping[' + notificationType + '][' + variable + ']" class="form-control form-control-sm">' +
-                '<option value="">Select WooCommerce field</option>' +
-                '<option value="customer_name">Customer Name</option>' +
-                '<option value="order_number">Order Number</option>' +
-                '<option value="order_total">Order Total</option>' +
-                '<option value="order_status">Order Status</option>' +
-                '<option value="order_date">Order Date</option>' +
-                '<option value="payment_method">Payment Method</option>' +
-                '<option value="shipping_address">Shipping Address</option>' +
-                '<option value="billing_address">Billing Address</option>' +
-                '<option value="tracking_number">Tracking Number</option>' +
-                '<option value="tracking_company">Tracking Company</option>' +
-                '<option value="tracking_url">Tracking URL</option>' +
-                '<option value="delivery_date">Delivery Date</option>' +
-                '<option value="cod_amount">COD Amount</option>' +
+                options +
             '</select>' +
         '</div>';
     }
