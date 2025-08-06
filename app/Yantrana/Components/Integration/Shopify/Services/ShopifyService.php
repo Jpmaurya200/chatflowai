@@ -1215,7 +1215,7 @@ class ShopifyService
     /**
      * Fetch customer data from Shopify API
      */
-    protected function fetchCustomerFromShopify(int $customerId, int $vendorId)
+    public function fetchCustomerFromShopify(int $customerId, int $vendorId)
     {
         try {
             $integration = $this->shopifyIntegrationRepository->getActiveByVendorId($vendorId);

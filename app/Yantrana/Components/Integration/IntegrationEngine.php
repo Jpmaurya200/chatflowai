@@ -237,4 +237,20 @@ class IntegrationEngine extends BaseEngine implements IntegrationEngineInterface
             throw $e;
         }
     }
+
+    /**
+     * Get Shopify service
+     */
+    public function getShopifyService()
+    {
+        return $this->shopifyService;
+    }
+
+    /**
+     * Get WooCommerce service
+     */
+    public function getWooCommerceService()
+    {
+        return $this->wooCommerceService;
+    }
 } 
