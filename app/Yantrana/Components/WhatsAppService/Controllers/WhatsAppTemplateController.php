@@ -111,6 +111,28 @@ class WhatsAppTemplateController extends BaseController
             ],
         ];
 
+        // Add validation for example fields when template body contains variables
+        if (!empty($request->template_body) && preg_match('/\{\{\d+\}\}/', $request->template_body)) {
+            $validations['example_body_fields'] = [
+                'required',
+                'array'
+            ];
+            
+            // Add validation for each example field
+            preg_match_all('/\{\{\d+\}\}/', $request->template_body, $matches);
+            if (!empty($matches[0])) {
+                foreach ($matches[0] as $match) {
+                    $variableNumber = preg_replace('/\{\{(\d+)\}\}/', '$1', $match);
+                    $validations["example_body_fields.{$variableNumber}"] = [
+                        'required',
+                        'string',
+                        'min:1',
+                        'max:100'
+                    ];
+                }
+            }
+        }
+
         // Add carousel-specific validations
         if($request->media_header_type === 'carousel') {
             // Debug: Log carousel cards data

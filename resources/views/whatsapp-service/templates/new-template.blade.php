@@ -716,6 +716,10 @@
                                     <button id="lwAddPlaceHolder" class="btn btn-primary btn-sm modern-btn ms-2" type="button">
                                         <i class="fa fa-plus"></i> {{ __tr('Add Variables') }}
                                     </button>
+                                    <div class="alert alert-warning mt-2">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        <strong>{{ __tr('Important:') }}</strong> {{ __tr('When you add variables') }} ({{1}}, {{2}}, {{ __tr('etc.), you must provide example values below. These are required by WhatsApp for template approval.') }}
+                                    </div>
                                 </div>
 
                                 <div>
@@ -732,11 +736,12 @@
                                                             </span>
                                                         </div>
                                                         <input type="text" class="form-control"
-                                                            x-bind:name="'example_body_fields[' + index + ']'"
+                                                            x-bind:name="'example_body_fields[' + item.text_variable.replace(/\{\{(\d+)\}\}/g, '$1') + ']'"
                                                             required="required"
-                                                            style="box-shadow: 0 0 6px rgba(38,156,76,0.3); transition: box-shadow 0.4s ease;"
-                                                            onfocus="this.style.boxShadow='0 0 10px 2px rgba(38,156,76,0.6)'"
-                                                            onblur="this.style.boxShadow='0 0 6px rgba(38,156,76,0.3)'" />
+                                                            placeholder="{{ __tr('Enter example value (required)') }}"
+                                                            style="box-shadow: 0 0 6px rgba(38,156,76,0.3); transition: box-shadow 0.4s ease; border: 2px solid #ffc107;"
+                                                            onfocus="this.style.boxShadow='0 0 10px 2px rgba(38,156,76,0.6)'; this.style.borderColor='#269C4C';"
+                                                            onblur="this.style.boxShadow='0 0 6px rgba(38,156,76,0.3)'; this.style.borderColor='#ffc107';" />
                                                     </div>
                                                 </div>
                                             </template>
@@ -784,6 +789,10 @@
                                     <button id="lwCarouselAddPlaceHolder" class="btn btn-primary btn-sm modern-btn ms-2" type="button">
                                         <i class="fa fa-plus"></i> {{ __tr('Add Variables') }}
                                     </button>
+                                    <div class="alert alert-warning mt-2">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        <strong>{{ __tr('Important:') }}</strong> {{ __tr('When you add variables') }} ({{1}}, {{2}}, {{ __tr('etc.), you must provide example values below. These are required by WhatsApp for template approval.') }}
+                                    </div>
                                 </div>
 
                                 <div>
@@ -800,11 +809,12 @@
                                                             </span>
                                                         </div>
                                                         <input type="text" class="form-control"
-                                                            x-bind:name="'example_body_fields[' + index + ']'"
+                                                            x-bind:name="'example_body_fields[' + item.text_variable.replace(/\{\{(\d+)\}\}/g, '$1') + ']'"
                                                             required="required"
-                                                            style="box-shadow: 0 0 6px rgba(38,156,76,0.3); transition: box-shadow 0.4s ease;"
-                                                            onfocus="this.style.boxShadow='0 0 10px 2px rgba(38,156,76,0.6)'"
-                                                            onblur="this.style.boxShadow='0 0 6px rgba(38,156,76,0.3)'" />
+                                                            placeholder="{{ __tr('Enter example value (required)') }}"
+                                                            style="box-shadow: 0 0 6px rgba(38,156,76,0.3); transition: box-shadow 0.4s ease; border: 2px solid #ffc107;"
+                                                            onfocus="this.style.boxShadow='0 0 10px 2px rgba(38,156,76,0.6)'; this.style.borderColor='#269C4C';"
+                                                            onblur="this.style.boxShadow='0 0 6px rgba(38,156,76,0.3)'; this.style.borderColor='#ffc107';" />
                                                     </div>
                                                 </div>
                                             </template>
@@ -1360,7 +1370,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function insertPlaceholder(textarea) {
         const start = textarea.selectionStart;
         const placeholderCount = (textarea.value.match(/\{\{\d+\}\}/g) || []).length + 1;
-        const placeholder = '{{' + placeholderCount + '}}';
+        const placeholder = '{' + '{' + placeholderCount + '}' + '}';
 
         textarea.value = textarea.value.substring(0, start) + placeholder + textarea.value.substring(start);
         textarea.focus();

@@ -183,10 +183,28 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
                         // Add individual BODY component for each card
                         // Each carousel card MUST have its own BODY component with text
                         $cardBodyText = !empty($cardData['body_text']) ? $cardData['body_text'] : 'Card ' . (count($carouselData) + 1);
-                        $cardComponents[] = [
+                        $cardBodyComponent = [
                             "type" => "BODY",
                             "text" => $cardBodyText
                         ];
+                        
+                        // Check if card body text contains variables and add example field if needed
+                        $cardHasVariables = preg_match('/\{\{\d+\}\}/', $cardBodyText);
+                        if($cardHasVariables) {
+                            // Create example values for carousel card body variables
+                            $cardExampleValues = [];
+                            preg_match_all('/\{\{\d+\}\}/', $cardBodyText, $cardMatches);
+                            if (!empty($cardMatches[0])) {
+                                foreach ($cardMatches[0] as $match) {
+                                    $cardExampleValues[] = ''; // Empty value for each variable
+                                }
+                            }
+                            $cardBodyComponent['example'] = [
+                                "body_text" => $cardExampleValues
+                            ];
+                        }
+                        
+                        $cardComponents[] = $cardBodyComponent;
 
                         // Add buttons for each card - carousel templates REQUIRE buttons
                         $cardButtons = [];
@@ -241,6 +259,7 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
                             'card_index' => count($carouselData),
                             'header_type' => $cardData['header_type'] ?? 'none',
                             'body_text' => $cardBodyText,
+                            'card_has_variables' => $cardHasVariables ?? false,
                             'components_count' => count($cardComponents),
                             'components' => $cardComponents
                         ]);
@@ -248,28 +267,94 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
                 }
             }
         }
-        // body text - required for carousel templates
+        // body text - required for all templates
         if($request->template_body || $request->media_header_type == 'carousel') {
             $bodyText = $request->template_body ?: 'Check out our products!'; // Default text for carousel
             $bodyComponent = [
                 "type" => "BODY",
                 "text" => $bodyText,
             ];
+            // Check if body text contains variables ({{1}}, {{2}}, etc.)
+            $hasVariables = preg_match('/\{\{\d+\}\}/', $bodyText);
+            
             if(!empty($request->example_body_fields) and is_array($request->example_body_fields)) {
+                // Convert associative array to indexed array for WhatsApp API
+                $exampleValues = [];
+                if (array_keys($request->example_body_fields) !== range(0, count($request->example_body_fields) - 1)) {
+                    // It's an associative array, convert to indexed array
+                    $exampleValues = array_values($request->example_body_fields);
+                } else {
+                    // It's already an indexed array
+                    $exampleValues = $request->example_body_fields;
+                }
+                
+                // Filter out null/empty values and ensure we have valid strings
+                $exampleValues = array_map(function($value) {
+                    return $value === null ? '' : (string)$value;
+                }, $exampleValues);
+                
+                // Check if all example values are empty
+                $allEmpty = true;
+                foreach ($exampleValues as $value) {
+                    if (!empty(trim($value))) {
+                        $allEmpty = false;
+                        break;
+                    }
+                }
+                
+                if ($allEmpty) {
+                    // If all values are empty, create default example values
+                    preg_match_all('/\{\{\d+\}\}/', $bodyText, $matches);
+                    if (!empty($matches[0])) {
+                        $exampleValues = [];
+                        foreach ($matches[0] as $index => $match) {
+                            $exampleValues[] = 'Sample Value ' . ($index + 1);
+                        }
+                    }
+                }
+                
                 $bodyComponent['example'] = [
-                    "body_text" => [
-                        $request->example_body_fields
-                    ]
+                    "body_text" => $exampleValues
+                ];
+                
+                // Debug logging for example field conversion
+                \Illuminate\Support\Facades\Log::info('Example field conversion', [
+                    'original_example_body_fields' => $request->example_body_fields,
+                    'converted_example_values' => $exampleValues,
+                    'is_associative' => array_keys($request->example_body_fields) !== range(0, count($request->example_body_fields) - 1),
+                    'all_empty' => $allEmpty
+                ]);
+            } elseif($hasVariables) {
+                // If body has variables but no example fields provided, create example with empty values
+                // This is required by WhatsApp API for templates with variables
+                $exampleValues = [];
+                preg_match_all('/\{\{\d+\}\}/', $bodyText, $matches);
+                if (!empty($matches[0])) {
+                    foreach ($matches[0] as $match) {
+                        $exampleValues[] = ''; // Empty value for each variable
+                    }
+                }
+                $bodyComponent['example'] = [
+                    "body_text" => $exampleValues
                 ];
             }
             $components[] = $bodyComponent;
 
             // Debug logging
-            \Illuminate\Support\Facades\Log::info('Added BODY component for carousel template', [
+            \Illuminate\Support\Facades\Log::info('Added BODY component', [
                 'body_text' => $bodyText,
                 'media_header_type' => $request->media_header_type,
+                'has_variables' => $hasVariables,
+                'example_body_fields' => $request->example_body_fields ?? 'none',
                 'component' => $bodyComponent
             ]);
+        } elseif($request->media_header_type != 'carousel' && !$request->template_body) {
+            // For non-carousel templates without body text, create empty body component
+            // This ensures the template structure is valid
+            $components[] = [
+                "type" => "BODY",
+                "text" => ""
+            ];
         }
 
         // Add carousel component after body (if carousel data exists)
@@ -359,14 +444,15 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
             }
             return $this->engineSuccessResponse([], __tr('Failed to update template'));
         } else  {
-            // Debug logging for carousel templates
-            if($request->media_header_type == 'carousel') {
-                \Illuminate\Support\Facades\Log::info('Creating carousel template with components', [
-                    'template_name' => $request->template_name,
-                    'components_count' => count($components),
-                    'components' => $components
-                ]);
-            }
+            // Debug logging for template creation
+            \Illuminate\Support\Facades\Log::info('Creating template with components', [
+                'template_name' => $request->template_name,
+                'language_code' => $request->language_code,
+                'category' => $request->category,
+                'media_header_type' => $request->media_header_type,
+                'components_count' => count($components),
+                'components' => $components
+            ]);
 
             // create new template
             $createTemplateRequest = $this->whatsAppApiService->createTemplate(
@@ -377,6 +463,12 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
                 $vendorId
             );
         }
+
+        // Log the API response for debugging
+        \Illuminate\Support\Facades\Log::info('Template creation API response', [
+            'template_name' => $request->template_name,
+            'response' => $createTemplateRequest
+        ]);
 
         if($createTemplateRequest['status'] == 'REJECTED') {
             $this->processSyncTemplates();
