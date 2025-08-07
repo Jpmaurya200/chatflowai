@@ -536,20 +536,48 @@ class ShopifyService
     protected function sendNotification(ShopifyOrderModel $order, string $notificationType, ShopifyIntegrationModel $integration)
     {
         try {
+            \Log::info('=== SEND NOTIFICATION START ===');
+            \Log::info('Sending notification', [
+                'order_id' => $order->_id,
+                'notification_type' => $notificationType,
+                'vendor_id' => $integration->vendors__id
+            ]);
+
             // Create notification record
             $notification = $this->shopifyOrderNotificationRepository->createNotification([
                 'shopify_orders__id' => $order->_id,
                 'vendors__id' => $order->vendors__id,
-                'contacts__id' => $order->contacts__id,
                 'notification_type' => $notificationType,
-                'status' => 'pending',
+                'status' => 'pending'
             ]);
+
+            // Get or create contact
+            $contact = $this->getOrCreateContact($order->__data, $order->vendors__id);
+            
+            if (!$contact) {
+                \Log::error('No contact found for order', [
+                    'order_id' => $order->_id,
+                    'vendor_id' => $order->vendors__id
+                ]);
+                
+                $notification->markAsFailed('No contact found for order');
+                $notification->save();
+                
+                return [
+                    'success' => false,
+                    'message' => 'No contact found for order'
+                ];
+            }
 
             // Get template for this notification type
             $template = $this->getTemplateForNotificationType($notificationType, $order->vendors__id);
             
             if (!$template) {
-                throw new Exception("No template found for notification type: {$notificationType}");
+                \Log::error('No template found for notification type', [
+                    'notification_type' => $notificationType,
+                    'vendor_id' => $integration->vendors__id
+                ]);
+                throw new Exception("No WhatsApp template found for notification type: {$notificationType}. Please create a template with name 'shopify_{$notificationType}' or 'shopify_generic_notification'");
             }
 
             // Prepare template variables using mappings
@@ -573,6 +601,12 @@ class ShopifyService
                 $notification->setWhatsAppMessageData($whatsAppResult->data() ?? []);
                 $notification->save();
 
+                \Log::info('=== SEND NOTIFICATION END ===', [
+                    'success' => true,
+                    'notification_id' => $notification->_id,
+                    'message' => 'Notification sent successfully'
+                ]);
+
                 return [
                     'success' => true,
                     'message' => 'Notification sent successfully',
@@ -581,6 +615,12 @@ class ShopifyService
             } else {
                 $notification->markAsFailed($whatsAppResult->message() ?? 'WhatsApp sending failed');
                 $notification->save();
+
+                \Log::error('Shopify notification sending failed', [
+                    'order_id' => $order->_id,
+                    'notification_type' => $notificationType,
+                    'error' => $whatsAppResult->message() ?? 'Unknown error'
+                ]);
 
                 return [
                     'success' => false,
@@ -594,6 +634,12 @@ class ShopifyService
                 'notification_type' => $notificationType,
                 'error' => $e->getMessage()
             ]);
+
+            // Create failed notification record if not already created
+            if (isset($notification)) {
+                $notification->markAsFailed($e->getMessage());
+                $notification->save();
+            }
 
             return [
                 'success' => false,
@@ -854,41 +900,78 @@ class ShopifyService
             $templateUid = $integration->getTemplateUid($notificationType);
             
             if ($templateUid) {
+                \Log::info('Looking up mapped template', [
+                    'template_uid' => $templateUid,
+                    'notification_type' => $notificationType,
+                    'vendor_id' => $vendorId
+                ]);
+                
                 $template = $this->whatsAppTemplateRepository->fetchIt($templateUid);
-                if ($template && $template->vendors__id == $vendorId) {
+                
+                \Log::info('Mapped template lookup result', [
+                    'template_found' => !is_null($template),
+                    'template_id' => $template ? $template->_id : null,
+                    'template_name' => $template ? $template->template_name : null
+                ]);
+                
+                if ($template) {
                     return $template;
                 }
             }
         }
 
-        // Fallback: try to get template by name (exact match)
+        // Fallback to the old method
+        $templateName = $this->getTemplateName($notificationType);
+        
+        \Log::info('Looking up WhatsApp template (fallback)', [
+            'template_name' => $templateName,
+            'vendor_id' => $vendorId,
+            'notification_type' => $notificationType
+        ]);
+
+        // First try to find the specific template
         $template = $this->whatsAppTemplateRepository->fetchIt([
-            'template_name' => $notificationType,
             'vendors__id' => $vendorId,
+            'template_name' => $templateName,
             'status' => 'APPROVED'
         ]);
 
-        if ($template) {
-            return $template;
-        }
-
-        // If not found, try to get template by partial name match
-        $template = $this->whatsAppTemplateRepository->fetchIt([
-            'vendors__id' => $vendorId,
-            'status' => 'APPROVED'
-        ], function($query) use ($notificationType) {
-            return $query->where('template_name', 'LIKE', "%{$notificationType}%");
-        });
-
-        if ($template) {
-            return $template;
-        }
-
-        // If still not found, get the first available template
-        $template = $this->whatsAppTemplateRepository->fetchIt([
-            'vendors__id' => $vendorId,
-            'status' => 'APPROVED'
+        \Log::info('Specific template lookup result', [
+            'template_found' => !is_null($template),
+            'template_id' => $template ? $template->_id : null,
+            'template_name' => $template ? $template->template_name : null
         ]);
+
+        // If specific template not found, try to find a generic Shopify template
+        if (!$template) {
+            \Log::info('Specific template not found, looking for generic Shopify template');
+            $template = $this->whatsAppTemplateRepository->fetchIt([
+                'vendors__id' => $vendorId,
+                'template_name' => 'shopify_generic_notification',
+                'status' => 'APPROVED'
+            ]);
+            
+            \Log::info('Generic template lookup result', [
+                'template_found' => !is_null($template),
+                'template_id' => $template ? $template->_id : null,
+                'template_name' => $template ? $template->template_name : null
+            ]);
+        }
+
+        // If still not found, try to find any approved template for this vendor
+        if (!$template) {
+            \Log::info('No Shopify templates found, looking for any approved template');
+            $template = $this->whatsAppTemplateRepository->fetchIt([
+                'vendors__id' => $vendorId,
+                'status' => 'APPROVED'
+            ]);
+            
+            \Log::info('Any template lookup result', [
+                'template_found' => !is_null($template),
+                'template_id' => $template ? $template->_id : null,
+                'template_name' => $template ? $template->template_name : null
+            ]);
+        }
 
         return $template;
     }
@@ -899,16 +982,16 @@ class ShopifyService
     protected function getTemplateName(string $notificationType): string
     {
         $templateMap = [
-            'order_confirmation' => 'order_confirmation',
-            'payment_confirmation' => 'payment_confirmation',
-            'shipment_tracking' => 'shipment_tracking',
-            'delivery_confirmation' => 'delivery_confirmation',
-            'cod_verification' => 'cod_verification',
-            'order_cancelled' => 'order_cancelled',
-            'refund_processed' => 'refund_processed',
+            'order_confirmation' => 'shopify_order_confirmation',
+            'payment_confirmation' => 'shopify_payment_confirmation',
+            'shipment_tracking' => 'shopify_shipment_tracking',
+            'delivery_confirmation' => 'shopify_delivery_confirmation',
+            'cod_verification' => 'shopify_cod_verification',
+            'order_cancelled' => 'shopify_order_cancelled',
+            'refund_processed' => 'shopify_refund_processed',
         ];
 
-        return $templateMap[$notificationType] ?? 'order_update';
+        return $templateMap[$notificationType] ?? 'shopify_generic_notification';
     }
 
     /**
