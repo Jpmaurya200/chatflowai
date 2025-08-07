@@ -258,7 +258,7 @@ class WhatsAppApiService extends BaseEngine implements WhatsAppServiceEngineInte
                 ];
                 foreach ((array) $section['rows'] as $row) {
                     $sections[$sectionIndex]['rows'][] = [
-                        'id' => $row['row_id'],
+                        'id' => $row['id'] ?? $row['row_id'] ?? '',
                         'title' => $row['title'],
                         'description' => $row['description'],
                     ];

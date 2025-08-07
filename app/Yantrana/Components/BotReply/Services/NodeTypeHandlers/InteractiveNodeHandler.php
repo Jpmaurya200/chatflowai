@@ -107,7 +107,7 @@ class InteractiveNodeHandler extends BaseNodeHandler
                                 'title' => $section['title'],
                                 'rows' => array_map(function($row) {
                                     return [
-                                        'id' => $row['row_id'],
+                                        'id' => $row['id'] ?? $row['row_id'] ?? '',
                                         'title' => $row['title'],
                                         'description' => $row['description'] ?? ''
                                     ];
