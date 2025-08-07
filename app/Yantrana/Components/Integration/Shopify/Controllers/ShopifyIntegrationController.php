@@ -197,8 +197,7 @@ class ShopifyIntegrationController extends BaseController
             'notification_types.*' => 'string|in:order_confirmation,payment_confirmation,shipment_tracking,delivery_confirmation,cod_verification,order_cancelled,refund_processed',
             'template_uid' => 'array',
             'template_uid.*' => 'nullable|string',
-            'variable_mappings' => 'array',
-            'variable_mappings.*' => 'array'
+            'variable_mappings' => 'nullable|string'
         ]);
 
         $vendorId = getVendorId();
@@ -211,17 +210,30 @@ class ShopifyIntegrationController extends BaseController
             ], 404);
         }
 
+        // Set notification types
         $integration->setNotificationTypes($request->notification_types);
         
         // Save template mappings
         if ($request->has('template_uid')) {
-            $integration->setTemplateMappings($request->template_uid);
+            $templateMappings = [];
+            foreach ($request->template_uid as $notificationType => $templateUid) {
+                if (!empty($templateUid)) {
+                    $templateMappings[$notificationType] = $templateUid;
+                }
+            }
+            $integration->setTemplateMappings($templateMappings);
         }
         
         // Save variable mappings
-        if ($request->has('variable_mappings')) {
-            foreach ($request->variable_mappings as $notificationType => $variables) {
-                $integration->setVariableMappings($notificationType, $variables);
+        if ($request->has('variable_mappings') && !empty($request->variable_mappings)) {
+            $variableMappings = json_decode($request->variable_mappings, true);
+            
+            if (is_array($variableMappings)) {
+                foreach ($variableMappings as $notificationType => $variables) {
+                    if (is_array($variables) && !empty($variables)) {
+                        $integration->setVariableMappings($notificationType, $variables);
+                    }
+                }
             }
         }
         

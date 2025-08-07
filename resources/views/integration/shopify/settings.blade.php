@@ -742,8 +742,38 @@ $(document).ready(function() {
     $('#notification-settings-form').submit(function(e) {
         e.preventDefault();
         
-        const formData = $(this).serialize();
         const submitBtn = $(this).find('button[type="submit"]');
+        
+        // Collect form data manually to include variable mappings
+        const formData = new FormData(this);
+        
+        // Collect variable mappings
+        const variableMappings = {};
+        $('.shopify-variable-select').each(function() {
+            const select = $(this);
+            const name = select.attr('name');
+            const value = select.val();
+            
+            if (name && value) {
+                // Extract notification type and variable name from the select name
+                // name format: variable_mappings[notification_type][variable_name]
+                const match = name.match(/variable_mappings\[([^\]]+)\]\[([^\]]+)\]/);
+                if (match) {
+                    const notificationType = match[1];
+                    const variableName = match[2];
+                    
+                    if (!variableMappings[notificationType]) {
+                        variableMappings[notificationType] = {};
+                    }
+                    variableMappings[notificationType][variableName] = value;
+                }
+            }
+        });
+        
+        // Add variable mappings to form data
+        if (Object.keys(variableMappings).length > 0) {
+            formData.append('variable_mappings', JSON.stringify(variableMappings));
+        }
         
         submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
         
@@ -751,6 +781,8 @@ $(document).ready(function() {
             url: '{{ route("vendor.integration.shopify.update_notification_settings") }}',
             method: 'POST',
             data: formData,
+            processData: false,
+            contentType: false,
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             },
@@ -901,8 +933,8 @@ $(document).ready(function() {
                     matches.forEach(match => {
                         const varNumber = match.replace(/\{\{(\d+)\}\}/, '$1');
                         variables.push({
-                            name: `header_field_${varNumber}`,
-                            label: `Header Variable ${varNumber}`
+                            name: varNumber,
+                            label: `Variable ${varNumber}`
                         });
                     });
                 }
@@ -913,8 +945,8 @@ $(document).ready(function() {
                     matches.forEach(match => {
                         const varNumber = match.replace(/\{\{(\d+)\}\}/, '$1');
                         variables.push({
-                            name: `field_${varNumber}`,
-                            label: `Body Variable ${varNumber}`
+                            name: varNumber,
+                            label: `Variable ${varNumber}`
                         });
                     });
                 }
@@ -924,8 +956,8 @@ $(document).ready(function() {
                     component.buttons.forEach(button => {
                         if (button.type === 'URL' && button.url && button.url.includes('{{1}}')) {
                             variables.push({
-                                name: 'button_0',
-                                label: 'Button URL Variable'
+                                name: '1',
+                                label: 'Variable 1'
                             });
                         }
                     });

@@ -30,6 +30,7 @@ class ShopifyIntegrationModel extends BaseModel
             'shop_data' => 'array',
             'credentials' => 'array:encrypted',
             'metadata' => 'array:extend',
+            'template_mappings' => 'array',
         ],
     ];
 
@@ -260,6 +261,9 @@ class ShopifyIntegrationModel extends BaseModel
             'order_number' => 'Order Number',
             'order_name' => 'Order Name',
             'order_id' => 'Order ID',
+            'order_total' => 'Order Total',
+            'order_status' => 'Order Status',
+            'order_date' => 'Order Date',
             'total_price' => 'Total Price',
             'subtotal_price' => 'Subtotal Price',
             'total_tax' => 'Total Tax',
@@ -267,7 +271,6 @@ class ShopifyIntegrationModel extends BaseModel
             'currency' => 'Currency',
             'financial_status' => 'Payment Status',
             'fulfillment_status' => 'Fulfillment Status',
-            'order_date' => 'Order Date',
             'processed_at' => 'Processed Date',
             
             // Customer Information
@@ -278,6 +281,7 @@ class ShopifyIntegrationModel extends BaseModel
             'customer_last_name' => 'Customer Last Name',
             
             // Address Information
+            'shipping_address' => 'Shipping Address',
             'shipping_address_name' => 'Shipping Address Name',
             'shipping_address_company' => 'Shipping Company',
             'shipping_address_address1' => 'Shipping Address Line 1',
@@ -288,6 +292,7 @@ class ShopifyIntegrationModel extends BaseModel
             'shipping_address_zip' => 'Shipping ZIP/Postal Code',
             'shipping_address_phone' => 'Shipping Phone',
             
+            'billing_address' => 'Billing Address',
             'billing_address_name' => 'Billing Address Name',
             'billing_address_company' => 'Billing Company',
             'billing_address_address1' => 'Billing Address Line 1',
@@ -298,16 +303,22 @@ class ShopifyIntegrationModel extends BaseModel
             'billing_address_zip' => 'Billing ZIP/Postal Code',
             'billing_address_phone' => 'Billing Phone',
             
-            // Line Items
-            'line_items_summary' => 'Order Items Summary',
-            'total_items' => 'Total Items Count',
-            'total_weight' => 'Total Weight',
+            // Payment Information
+            'payment_method' => 'Payment Method',
+            'payment_status' => 'Payment Status',
+            'cod_amount' => 'COD Amount',
             
-            // Fulfillment
+            // Delivery Information
+            'delivery_date' => 'Delivery Date',
             'tracking_number' => 'Tracking Number',
             'tracking_company' => 'Shipping Company',
             'tracking_url' => 'Tracking URL',
             'fulfillment_date' => 'Fulfillment Date',
+            
+            // Line Items
+            'line_items_summary' => 'Order Items Summary',
+            'total_items' => 'Total Items Count',
+            'total_weight' => 'Total Weight',
             
             // Additional
             'note' => 'Order Note',
