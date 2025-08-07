@@ -1353,6 +1353,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+            // Add input event listener for carousel template body to detect variables
+        if (carouselTemplateBody) {
+            carouselTemplateBody.addEventListener('input', function() {
+                console.log('Carousel template body input event triggered');
+                updateCarouselPlaceholders(this.value);
+            });
+            
+            // Trigger initial check for existing variables
+            if (carouselTemplateBody.value) {
+                updateCarouselPlaceholders(carouselTemplateBody.value);
+            }
+            
+            // Watch for Alpine.js updates to carousel template body
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                        updateCarouselPlaceholders(carouselTemplateBody.value);
+                    }
+                });
+            });
+            
+            observer.observe(carouselTemplateBody, {
+                attributes: true,
+                attributeFilter: ['value']
+            });
+            
+            // Test function to manually trigger carousel placeholder update
+            window.testCarouselPlaceholders = function() {
+                console.log('Testing carousel placeholders...');
+                updateCarouselPlaceholders(carouselTemplateBody.value);
+            };
+            
+            // Also listen for when carousel type is selected
+            document.addEventListener('DOMContentLoaded', function() {
+                const headerTypeSelect = document.querySelector('select[name="media_header_type"]');
+                if (headerTypeSelect) {
+                    headerTypeSelect.addEventListener('change', function() {
+                        if (this.value === 'carousel') {
+                            console.log('Carousel type selected, checking for variables...');
+                            setTimeout(() => {
+                                if (carouselTemplateBody.value) {
+                                    updateCarouselPlaceholders(carouselTemplateBody.value);
+                                }
+                            }, 100);
+                        }
+                    });
+                }
+            });
+        }
+
     function insertFormatting(textarea, startTag, endTag) {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
@@ -1378,6 +1428,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Trigger Alpine.js update
         textarea.dispatchEvent(new Event('input'));
+    }
+
+    function updateCarouselPlaceholders(text) {
+        console.log('updateCarouselPlaceholders called with:', text);
+        const placeholderRegex = /\{\{\d+\}\}/g;
+        let newText = updateSequence(text, placeholderRegex);
+        carouselTemplateBody.value = newText;
+        var res = {};
+        var matches = newText.match(placeholderRegex);
+        if (matches) {
+            console.log('Found matches:', matches);
+            for (let i = 0; i < matches.length; i++) {
+                var newArr = {
+                    'text_variable': matches[i],
+                    'text_variable_value': matches[i],
+                };
+                res[matches[i].replace(/\{\{(\d+)\}\}/g, '$1')] = newArr;
+            }
+        }
+        
+        console.log('Updating Alpine.js with:', res);
+        // Update Alpine.js model for carousel variables
+        __DataRequest.updateModels({newBodyTextInputFields : res});
+        
+        // Also update the text_body to ensure Alpine.js sync
+        __DataRequest.updateModels({text_body: newText});
     }
 
     // Function to check FilePond status and sync data
