@@ -17,30 +17,78 @@ $vendorViewBySuperAdmin = false;
             <!-- Welcome card -->
             <div class="row pb-0 pt-3 pt-lg-6 d-flex align-items-stretch mt-4">
                 <div class="col-12 p-0">
-                    <div class="welcome-card" style="background: linear-gradient(135deg, #41C6B5, #1771E6); border-radius: 16px; box-shadow: 0 10px 30px rgba(23, 113, 230, 0.15); overflow: hidden; position: relative;">
-                        <div class="card-body p-4 p-md-2">
+                    <div class="welcome-card" style="
+                        background-size: 18px 18px;
+                        border-radius: 16px;
+                        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2);
+                        overflow: hidden;
+                        position: relative;
+                        transition: all 0.4s ease;
+                    ">
+                        <div class="card-body p-3 p-md-2">
                             <div class="row align-items-center ml-2">
                                 <div class="col-md-8">
-                                    <h1 class="text-white mb-3 font-weight-bold" style="font-size: 2rem;">Welcome, {{ getUserAuthInfo('profile.first_name') }}!</h1>
-                                    <p class="text-white mb-4 opacity-80" style="font-size: 0.95rem; max-width: 600px;">Manage your WhatsApp business communications, create campaigns, and engage with your customers all in one place.</p>
-                                    
+                                    <h1 class="mb-2 font-weight-bold" style="font-size: 2rem; color: #14532d;">
+                                        Welcome, {{ getUserAuthInfo('profile.first_name') }}!
+                                    </h1>
+                                    <p class="text-black mb-3" style="font-size: 0.95rem; color: #14532d;">
+                                        Manage your WhatsApp business communications, create campaigns,
+                                        <br>and engage with your customers all in one place.
+                                    </p>
                                 </div>
+
                                 <div class="d-flex flex-wrap">
-                                    <a href="{{ route('subscription.read.show') }}" class="btn btn-light font-weight-bold mr-3  mb-md-0" style="padding: 10px 20px; border-radius: 8px; transition: all 0.3s ease;">
-                                            <i class="fas fa-crown mr-2"></i> View Plan
-                                        </a>
-                                        <a href="<?= route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) ?>" class="btn btn-api font-weight-bold mr-3  mb-md-0 ">
-                                            <i class="fas fa-cog mr-2"></i> API Setup
-                                        </a>    
-                            </div>
-                                
+                                    <!-- View Plan Button -->
+                                    <a href="{{ route('subscription.read.show') }}" class="btn font-weight-bold mr-3 mb-md-0" style="
+                                        padding: 10px 20px;
+                                        border-radius: 8px;
+                                        background-color: #ffffff;
+                                        color: #14532d;
+                                        transition: all 0.3s ease;
+                                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                                    " onmouseover="this.style.backgroundColor='#14532d'; this.style.color='white'"
+                                    onmouseout="this.style.backgroundColor='white'; this.style.color='#14532d'">
+                                        <i class="fas fa-crown mr-2"></i> View Plan
+                                    </a>
+
+                                    <!-- API Setup Button -->
+                                    <a href="{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}" class="btn font-weight-bold mr-3 mb-md-0" style="
+                                        padding: 10px 20px;
+                                        border-radius: 8px;
+                                        background-color: #ffffff;
+                                        color: #14532d;
+                                        transition: all 0.3s ease;
+                                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                                    " onmouseover="this.style.backgroundColor='#14532d'; this.style.color='white'" 
+                                    onmouseout="this.style.backgroundColor='white'; this.style.color='#14532d'">
+                                        <i class="fas fa-cog mr-2"></i> API Setup
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                        <!-- Decorative elements -->
-                        <div class="welcome-shape-1" style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);"></div>
-                        <div class="welcome-shape-2" style="position: absolute; bottom: -80px; left: -80px; width: 250px; height: 250px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);"></div>
+
+                        <!-- Decorative Elements -->
+                        <div class="welcome-shape-1" style="
+                            position: absolute;
+                            top: -50px;
+                            right: -50px;
+                            width: 200px;
+                            height: 200px;
+                            border-radius: 50%;
+                            background: rgba(255, 255, 255, 0.08);
+                        "></div>
+
+                        <div class="welcome-shape-2" style="
+                            position: absolute;
+                            bottom: -80px;
+                            left: -80px;
+                            width: 250px;
+                            height: 250px;
+                            border-radius: 50%;
+                            background: rgba(255, 255, 255, 0.08);
+                        "></div>
                     </div>
-        	    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -49,151 +97,423 @@ $vendorViewBySuperAdmin = false;
 
 <!-- features section  -->
 <div class="container-fluid mt-4 ">
-        <div class="row features-row">
-            <div class="col-md-4 col-sm-6">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-comments"></i>
-                        <span x-cloak x-show="unreadMessagesCount" class="feature-counter" x-text="unreadMessagesCount">{{ __tr('Live Chat') }}</span>
+    <div class="row features-row">
+        <div class="col-md-4 col-sm-6">
+            <div style="
+                background-color: #ffffff;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                cursor: pointer;
+            "
+            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 24px rgba(0, 0, 0, 0.12)'"
+            onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.05)'"
+            >
+                <!-- Top: Icon and Dynamic Count -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                ">
+                    <div style="font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                        <i class="fas fa-comments" style="font-size: 20px; color: #28a745; margin-right: 8px;"></i>
+                        Live Chat
                     </div>
-                    <div class="feature-content">
-                        <h3 class="feature-title">Live Chat</h3>
-                        <p class="feature-description">Centralize WhatsApp chats in one team inbox for seamless support.</p>
-                        <a href="{{ route('vendor.chat_message.contact.view') }}" class="feature-button"
-                        @if (!isWhatsAppBusinessAccountReady())
-                           onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                       @endif>
-                            Go To Unified Team Inbox
-                            <i class="fas fa-arrow-right ml-2"></i>
-                        </a>
+                    <div x-cloak x-show="unreadMessagesCount"
+                        x-text="unreadMessagesCount"
+                        style="font-size: 15px; font-weight: bold; color: #111;">
                     </div>
                 </div>
+
+                <!-- Description -->
+                <div style="font-size: 14px; color: #666; margin-bottom: 16px;">
+                    Centralize WhatsApp chats in one team inbox for seamless support.
+                </div>
+
+                <!-- CTA Button -->
+                <div style="margin-top: auto;">
+                    <a href="{{ route('vendor.chat_message.contact.view') }}"
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            font-size: 14px;
+                            font-weight: 500;
+                            margin-top: 10px;
+                            color: #fff;
+                            background-color: #28a745;
+                            padding: 10px 16px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            transition: background-color 0.3s ease;
+                        "
+                        onmouseover="this.style.backgroundColor='#246A48'"
+                        onmouseout="this.style.backgroundColor='#28a745'"
+                        class="chat-button"
+                        @if (!isWhatsAppBusinessAccountReady())
+                            onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                        @endif>
+                        <i class="fa fa-plus-circle" style="margin-right: 8px;"></i>
+                        Go To
+                    </a>
+                </div>
             </div>
+        </div>
+
+   
+        <div class="col-md-4 col-sm-6">
+            <div style="
+                background-color: #ffffff;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                cursor: pointer;
+            "
+            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 24px rgba(0, 0, 0, 0.12)'"
+            onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.05)'"
+            >
+                <!-- Top Row: Title and Count -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                ">
+                    <div style="font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                        <i class="fa fa-layer-group" style="font-size: 20px; color: #28a745; margin-right: 8px;"></i>
+                        Template
+                    </div>
+                    <div style="font-size: 15px; font-weight: bold; color: #111;">
+                        {{ __tr($totalTemplates) }}
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div style="font-size: 14px; color: #666; margin-bottom: 16px;">
+                    Create and manage approved templates for consistent, compliant WhatsApp messaging.
+                </div>
+
+                <!-- CTA Button -->
+                <div style="margin-top: 12px;">
+                    <a href="{{ route('vendor.whatsapp_service.templates.read.new_view') }}"
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            font-size: 14px;
+                            font-weight: 500;
+                            color: #fff;
+                            background-color: #4CAF50;
+                            padding: 10px 16px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            transition: background-color 0.3s ease;
+                        "
+                        onmouseover="this.style.backgroundColor='#388e3c'"
+                        onmouseout="this.style.backgroundColor='#4CAF50'"
+                        class="template-button"
+                        @if (!isWhatsAppBusinessAccountReady())
+                            onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                        @endif>
+                        <i class="fa fa-plus-circle" style="margin-right: 8px;"></i>
+                        {{ __tr('Create') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+ 
+        <div class="col-md-4 col-sm-6">
+            <div style="
+                background-color: #ffffff;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                cursor: pointer;
+            "
+            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 24px rgba(0, 0, 0, 0.12)'"
+            onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.05)'"
+            >
+                <!-- Top Row: Icon & Campaign Count -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                ">
+                    <div style="font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                        <i class="fa fa-rocket" style="font-size: 20px; color: #2B4D87; margin-right: 8px;"></i>
+                        Campaign
+                    </div>
+                    <div style="font-size: 15px; font-weight: bold; color: #111;">
+                        {{ __tr($totalCampaigns) }}
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div style="font-size: 14px; color: #666; margin-bottom: 16px;">
+                    Run targeted campaigns with personalized content at scale.
+                </div>
+
+                <!-- CTA Button -->
+                <div style="margin-top: auto;">
+                    <a href="{{ route('vendor.campaign.new.view') }}"
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            font-size: 14px;
+                            font-weight: 500;
+                            color: #fff;
+                            background-color: #2B4D87;
+                            padding: 10px 16px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            transition: background-color 0.3s ease;
+                        "
+                        onmouseover="this.style.backgroundColor='#1f3b64'"
+                        onmouseout="this.style.backgroundColor='#2B4D87'"
+                        class="campaign-button"
+                        @if (!isWhatsAppBusinessAccountReady())
+                            onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                        @endif>
+                        <i class="fa fa-plus-circle" style="margin-right: 8px;"></i>
+                        Create
+                    </a>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="col-md-4 col-sm-6">
+            <div style="
+                background-color: #ffffff;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                cursor: pointer;
+            "
+            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 24px rgba(0, 0, 0, 0.12)'"
+            onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.05)'"
+            >
+                <!-- Top: Icon and Contact Count -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                ">
+                    <div style="font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                        <i class="fa fa-users" style="font-size: 20px; color: #D52284; margin-right: 8px;"></i>
+                        Contacts
+                    </div>
+                    <div style="font-size: 15px; font-weight: bold; color: #111;">
+                        {{ __tr($totalContacts) }}
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div style="font-size: 14px; color: #666; margin-bottom: 16px;">
+                    Segment and manage customers with custom fields and tags.
+                </div>
+
+                <!-- CTA Button -->
+                <div style="margin-top: auto;">
+                    <a href="{{ route('vendor.contact.read.list_view') }}"
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            font-size: 14px;
+                            font-weight: 500;
+                            color: #fff;
+                            background-color: #D52284;
+                            padding: 10px 16px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            transition: background-color 0.3s ease;
+                        "
+                        onmouseover="this.style.backgroundColor='#b51e70'"
+                        onmouseout="this.style.backgroundColor='#D52284'"
+                        class="contact-button"
+                        @if (!isWhatsAppBusinessAccountReady())
+                            onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                        @endif>
+                        <i class="fa fa-plus-circle" style="margin-right: 8px;"></i>
+                        Create
+                    </a>
+                </div>
+            </div>
+        </div>
+
+
+       <div class="col-md-4 col-sm-6">
+            <div style="
+                background: #ffffff;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                cursor: pointer;
+            "
+            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 24px rgba(0, 0, 0, 0.12)'"
+            onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.05)'"
+            >
+                <!-- Top: Icon + Count -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                ">
+                    <div style="font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                        <i class="fas fa-robot" style="font-size: 20px; color: #6f42c1; margin-right: 8px;"></i>
+                        Bot Reply
+                    </div>
+                    <div style="font-size: 15px; font-weight: bold; color: #111;">
+                        {{ __tr($totalBotReplies) }}
+                    </div>
+                </div>
+
+                <div style="font-size: 14px; color: #666; margin-bottom: 16px;">
+                    Automate replies to handle FAQs and offer 24/7 WhatsApp support.
+                </div>
+
+                <div style="margin-top: auto;">
+                    <a href="{{ route('vendor.bot_reply.read.list_view') }}"
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            font-size: 14px;
+                            font-weight: 500;
+                            color: #fff;
+                            background-color: #6f42c1;
+                            padding: 10px 16px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            transition: background-color 0.3s ease;
+                        "
+                        onmouseover="this.style.backgroundColor='#5936a9'"
+                        onmouseout="this.style.backgroundColor='#6f42c1'"
+                        class="bot-button"
+                        @if (!isWhatsAppBusinessAccountReady())
+                            onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                        @endif>
+                        <i class="fa fa-plus-circle" style="margin-right: 8px;"></i>
+                        Create
+                    </a>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="col-md-4 col-sm-6">
+            <div style="
+                background: #ffffff;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                cursor: pointer;
+            "
+            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 24px rgba(0, 0, 0, 0.12)'"
+            onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.05)'">
             
-            <div class="col-md-4 col-sm-6">
-                <div class="feature-card">
-                    <div class="feature-icon template-icon">
-                        <i class="fa fa-layer-group"></i>
-                        <span class="feature-counter">{{ __tr($totalTemplates) }}</span>
+                <!-- Top Row: Icon & Count -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                ">
+                    <div style="font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                        <i class="fa fa-user-tie" style="font-size: 20px; color: #fd7e14; margin-right: 8px;"></i>
+                        Agents
                     </div>
-                    <div class="feature-content">
-                        <h3 class="feature-title">Template</h3>
-                        <p class="feature-description">Create and manage approved templates for consistent, compliant WhatsApp messaging.</p>
-                        <a href="{{ route('vendor.whatsapp_service.templates.read.new_view') }}" class="feature-button template-button"
-                        @if (!isWhatsAppBusinessAccountReady())
-                           onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                       @endif>
-                            Create New Template
-                            <i class="fas fa-arrow-right ml-2"></i>
-                        </a>
+                    <div style="font-size: 15px; font-weight: bold; color: #111;">
+                        {{ __tr($activeTeamMembers) }}
                     </div>
                 </div>
-            </div>
-            
-            <div class="col-md-4 col-sm-6">
-                <div class="feature-card">
-                    <div class="feature-icon campaign-icon">
-                        <i class="fa fa-rocket"></i>
-                        <span class="feature-counter">{{ __tr($totalCampaigns) }}</span>
-                    </div>
-                    <div class="feature-content">
-                        <h3 class="feature-title">Campaign</h3>
-                        <p class="feature-description">Run targeted campaigns with personalized content at scale.</p>
-                        <a href="{{ route('vendor.campaign.new.view') }}" class="feature-button campaign-button"
-                        @if (!isWhatsAppBusinessAccountReady())
-                           onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                       @endif>
-                            Create New Campaign
-                            <i class="fas fa-arrow-right ml-2"></i>
-                        </a>
-                    </div>
+
+                <div style="font-size: 14px; color: #666; margin-bottom: 16px;">
+                    Control team access and track agent performance for better support.
                 </div>
-            </div>
-            <div class="col-md-4 col-sm-6">
-                <div class="feature-card">
-                    <div class="feature-icon contact-icon">
-                        <i class="fa fa-users"></i>
-                        <span class="feature-counter">{{ __tr($totalContacts) }}</span>
-                    </div>
-                    <div class="feature-content">
-                        <h3 class="feature-title">Contacts</h3>
-                        <p class="feature-description">Segment and manage customers with custom fields and tags.</p>
-                        <a href="{{ route('vendor.contact.read.list_view') }}" class="feature-button contact-button"
+
+                <div style="margin-top: auto;">
+                    <a href="{{ route('vendor.user.read.list_view') }}"
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            font-size: 14px;
+                            font-weight: 500;
+                            color: #fff;
+                            background-color: #fd7e14;
+                            padding: 10px 16px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            transition: background-color 0.3s ease;
+                        "
+                        onmouseover="this.style.backgroundColor='#e96a00'"
+                        onmouseout="this.style.backgroundColor='#fd7e14'"
+                        class="agent-button"
                         @if (!isWhatsAppBusinessAccountReady())
-                           onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                       @endif>
-                            Create New Contact
-                            <i class="fas fa-arrow-right ml-2"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 col-sm-6">
-                <div class="feature-card">
-                    <div class="feature-icon bot-icon">
-                        <i class="fas fa-robot"></i>
-                        <span class="feature-counter">{{ __tr($totalBotReplies) }}</span>
-        </div>
-                    <div class="feature-content">
-                        <h3 class="feature-title">Bot Reply</h3>
-                        <p class="feature-description">Automate replies to handle FAQs and offer 24/7 WhatsApp support.</p>
-                        <a href="{{ route('vendor.bot_reply.read.list_view') }}" class="feature-button bot-button"
-                        @if (!isWhatsAppBusinessAccountReady())
-                           onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                       @endif>
-                            Create New Chatbot
-                            <i class="fas fa-arrow-right ml-2"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 col-sm-6">
-                <div class="feature-card">
-                    <div class="feature-icon agent-icon">
-                        <i class="fa fa-user-tie"></i>
-                        <span class="feature-counter">{{ __tr($activeTeamMembers) }}</span>
-        </div>
-                    <div class="feature-content">
-                        <h3 class="feature-title">Agents</h3>
-                        <p class="feature-description" style="margin: 0 !important;">Control team access and track agent performance for better support.</p>
-                        <a href="{{ route('vendor.user.read.list_view') }}" class="feature-button agent-button"
-                        @if (!isWhatsAppBusinessAccountReady())
-                           onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                       @endif>
-                            Create New Agent
-                            <i class="fas fa-arrow-right ml-2"></i>
-                        </a>
-                    </div>
+                            onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                        @endif>
+                        <i class="fa fa-plus-circle" style="margin-right: 8px;"></i>
+                        Create
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
+</div>
         <!--feature section end  -->
 
 
 <div class="container-fluid ">
     <div class="row  mt-4 d-flex align-items-stretch">
-        <div class="col-xl-6 ">
-            <div class="card h-100" style="border-radius: 16px; border: none; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);">
-                <div class="card-body p-2">
-                    <div style="position: relative;">
-                        <canvas id="donutChart" width="400" height="400" style="max-height:220px;"></canvas>
+        <div class="col-xl-6">
+            <div class="graph-card shadow-lg" style="border-radius: 20px; overflow: hidden;">
+                <div class="graph-card-body p-3">
+                <div class="graph-header mb-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white fw-semibold">Message Analytics</h5>
+                    <span class="badge bg-success-subtle text-success fw-medium">Live</span>
+                </div>
+                <div class="chart-wrapper" style="position: relative;">
+                    <canvas id="donutChart" width="400" height="400" style="max-height:220px;"></canvas>
+                </div>
+                <div class="chart-legend mt-4 d-flex justify-content-center gap-4 flex-wrap">
+                    <div class="legend-item d-flex align-items-center">
+                    <span class="legend-dot" style="background-color: #22D571;"></span>
+                    <span class="text-white ms-2" style="margin-right: 8px;">Sent Messages</span>
                     </div>
-                    <div class="chart-legend mt-4 d-flex justify-content-center">
-                        <div class="d-flex flex-wrap justify-content-center">
-                            <div class="legend-item d-flex align-items-center mr-4 mb-2">
-                                <div class="legend-color" style="width: 12px; height: 12px; border-radius: 50%; background-color: #22D571; margin-right: 8px;"></div>
-                                <span class="legend-label">Sent Messages</span>
-                            </div>
-                            <div class="legend-item d-flex align-items-center mr-4 mb-2">
-                                <div class="legend-color" style="width: 12px; height: 12px; border-radius: 50%; background-color: #FFD166; margin-right: 8px;"></div>
-                                <span class="legend-label">Pending Messages</span>
-                            </div>
-                        </div>
+                    <div class="legend-item d-flex align-items-center">
+                    <span class="legend-dot" style="background-color: #FFD166;"></span>
+                    <span class="text-white ms-2">Pending Messages</span>
                     </div>
+                </div>
                 </div>
             </div>
         </div>
+
         <div class="col-xl-6 d-flex align-items-center mt-4 mt-xl-0">
             <div class="card h-100 w-100" style="border-radius: 16px; border: none; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);">
                 <div class="card-body ">
@@ -237,7 +557,7 @@ $vendorViewBySuperAdmin = false;
                             </div>
                         </div>
                     </div>
-                                        <div class="col-lg-4 mt-3">
+                    <div class="col-lg-4 mt-3">
                         <div class="stat-card stat-card-green">
                             <div class="stat-card-bg"></div>
                             <div class="stat-card-icon">
@@ -372,6 +692,32 @@ $vendorViewBySuperAdmin = false;
 @endif
 <style>
     /* Modern Card Styling based on reference image */
+    .graph-card {
+    background: linear-gradient(135deg, #084C41, #0C6E4F);
+    transition: all 0.4s ease;
+    box-shadow: 0 10px 30px rgba(34, 213, 113, 0.2);
+  }
+
+  .graph-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 15px 45px rgba(34, 213, 113, 0.35);
+  }
+
+  .graph-card-body {
+    color: white;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    border-radius: 50%;
+  }
+
+  .badge.bg-success-subtle {
+    background-color: rgba(34, 213, 113, 0.15);
+    color: #22D571;
+  }
     .stat-card {
         background: white;
         border-radius: 16px;

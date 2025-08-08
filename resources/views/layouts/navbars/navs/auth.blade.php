@@ -1,8 +1,37 @@
 <!-- Top navbar -->
+<style>
+    /* Match sidebar look: green gradient, white text/icons */
+    #navbar-main {
+        background: #10B981 !important; /* fallback */
+        background: linear-gradient(180deg, #10B981 0%, #237D59 100%) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #navbar-main .navbar-nav .nav-link,
+    #navbar-main .navbar-brand,
+    #navbar-main .h1,
+    #navbar-main .h4,
+    #navbar-main .h5 {
+        color: #ffffff !important;
+    }
+    #navbar-main .nav-link:hover,
+    #navbar-main .nav-link:focus {
+        color: #ffffff !important;
+        opacity: 0.9;
+    }
+    #navbar-main .circular-icon {
+        color: currentColor !important;
+    }
+    /* Keep dropdown readable on light background */
+    #navbar-main .dropdown-menu {
+        border-radius: 10px;
+        border: 1px solid rgba(0,0,0,0.05);
+        box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+    }
+</style>
 <nav class="navbar navbar-top shadow navbar-expand-md navbar-dark d-lg-flex d-none" id="navbar-main">
     <div class="container-fluid">
         <!-- Brand -->
-        <a class="h1 mb-0 d-none d-lg-inline-block"  style="color: #0861F2;" href="{{ route('home') }}">
+        <a class="h1 mb-0 d-none d-lg-inline-block" href="{{ route('home') }}">
             <!-- <strong>{{ __tr('Dashboard') }}</strong> -->
         </a>
         
@@ -28,7 +57,7 @@
             <li class="nav-item dropdown">
                 <a class="nav-link pr-0" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     <div class="media align-items-center">
-                        <div class="media-body ml-2 d-none d-lg-block" style="color: #0861F2;">
+                        <div class="media-body ml-2 d-none d-lg-block">
                             <i class="fa fa-user circular-icon"style="font-size: 15px;" ></i> <span><strong>{{ getUserAuthInfo('profile.full_name') }}</strong></span>
                         </div>
                     </div>
