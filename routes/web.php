@@ -30,6 +30,8 @@ use App\Yantrana\Components\Sheets\Controllers\GoogleSheetScriptController;
 use App\Yantrana\Components\Integration\Shopify\Controllers\ShopifyIntegrationController;
 use App\Yantrana\Components\Integration\Shopify\Controllers\ShopifyWebhookController;
 use App\Yantrana\Components\Integration\WooCommerce\Controllers\WooCommerceIntegrationController;
+use App\Yantrana\Components\FacebookService\Controllers\FacebookServiceController;
+use App\Yantrana\Components\InstagramService\Controllers\InstagramServiceController;
 
 
 
@@ -54,8 +56,19 @@ Route::get('/console', function () {
 })->name('home');
 
 
+
+
 // authentication routes
 require __DIR__ . '/auth.php';
+
+// Instagram routes
+require __DIR__ . '/instagram-routes.php';
+
+// Facebook routes
+require __DIR__ . '/facebook-routes.php';
+
+// Facebook Chat routes
+require __DIR__ . '/facebook-chat-routes.php';
 // Authenticated Routes
 Route::middleware([
     App\Http\Middleware\Authenticate::class,

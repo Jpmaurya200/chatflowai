@@ -638,7 +638,10 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             return $this->engineFailedResponse([], __tr('Failed to send test message'));
         }
         // remove test message log entry
-        $this->whatsAppMessageLogRepository->deleteIt($isTestMessageProcessed->data('message_log_id'));
+        $messageLogId = $isTestMessageProcessed->data('messageUid');
+        if ($messageLogId) {
+            $this->whatsAppMessageLogRepository->deleteIt($messageLogId);
+        }
 
         // create campaign data
         $campaignData = [
@@ -689,7 +692,11 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                             'last_name' => $contact->last_name,
                             'countries__id' => $contact->countries__id,
                         ],
-                        'campaign_data' => $templateMessageSentProcess->data()
+                        'campaign_data' => array_merge($templateMessageSentProcess->data(), [
+                            'whatsAppTemplateName' => $whatsAppTemplate->template_name,
+                            'whatsAppTemplateLanguage' => $whatsAppTemplate->language,
+                            'fromPhoneNumberId' => is_array($request) ? ($request['from_phone_number_id'] ?? null) : $request->from_phone_number_id
+                        ])
                     ]
                 ];
                 // }
@@ -758,10 +765,10 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                 'campaignId' => $queuedMessage->campaigns__id,
                 'campaignData' => $campaignData,
                 'contactsData' => $contactsData,
-                'whatsAppTemplateName' => $campaignData['whatsAppTemplateName'],
-                'whatsAppTemplateLanguage' => $campaignData['whatsAppTemplateLanguage'],
+                'whatsAppTemplateName' => $campaignData['whatsAppTemplateName'] ?? null,
+                'whatsAppTemplateLanguage' => $campaignData['whatsAppTemplateLanguage'] ?? null,
                 'phoneNumber' => $queuedMessage->phone_with_country_code,
-                'messageComponents' => $campaignData['messageComponents'],
+                'messageComponents' => $campaignData['messageComponents'] ?? [],
                 'vendorId' => $queuedMessage->vendors__id,
                 'currentPhoneNumberId' => $currentPhoneNumberId,
             ];
@@ -779,6 +786,19 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                 // set the from number
                 fromPhoneNumberIdForRequest($poolRequestItem['currentPhoneNumberId']);
                 // prepare the request for pool
+                if (!$poolRequestItem['whatsAppTemplateName'] || !$poolRequestItem['whatsAppTemplateLanguage']) {
+                    // Mark as failed if template information is missing
+                    $this->whatsAppMessageQueueRepository->updateIt($poolRequestItem['queueUid'], [
+                        'status' => 2, // error - do not requeue
+                        '__data' => [
+                            'process_response' => [
+                                'error_message' => 'Template information missing',
+                                'error_status' => 'template_info_missing',
+                            ]
+                        ]
+                    ]);
+                    return null;
+                }
                 return $this->whatsAppApiService->sendTemplateMessageViaPool($pool, $poolRequestItem['queueUid'], $poolRequestItem['whatsAppTemplateName'], $poolRequestItem['whatsAppTemplateLanguage'], $poolRequestItem['phoneNumber'], $poolRequestItem['messageComponents'], $poolRequestItem['vendorId']);
             }, $poolData);
         });
@@ -922,14 +942,14 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             // as the result of sending already give it won't try to send message again
             $processedResponse = $this->sendActualWhatsAppTemplateMessage(
                 $poolRequestItem['vendorId'],
-                $contactsData['_id'],
+                $contactsData['_id'] ?? 0,
                 $poolRequestItem['phoneNumber'],
-                $contactsData['_uid'],
-                $campaignData['whatsAppTemplateName'],
-                $campaignData['whatsAppTemplateLanguage'],
-                $campaignData['templateProforma'],
-                $campaignData['templateComponents'],
-                $campaignData['messageComponents'],
+                $contactsData['_uid'] ?? '',
+                $campaignData['whatsAppTemplateName'] ?? '',
+                $campaignData['whatsAppTemplateLanguage'] ?? '',
+                $campaignData['templateProforma'] ?? [],
+                $campaignData['templateComponents'] ?? [],
+                $campaignData['messageComponents'] ?? [],
                 $poolRequestItem['campaignId'],
                 $contactsData,
                 ($campaignData['fromPhoneNumberId'] ?? null),
@@ -947,7 +967,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                 $vendorUid = getPublicVendorUid($poolRequestItem['vendorId']);
                 // Dispatch event for message
                 event(new VendorChannelBroadcast($vendorUid, [
-                    'contactUid' => $contactsData['_uid'],
+                    'contactUid' => $contactsData['_uid'] ?? '',
                     'isNewIncomingMessage' => null,
                     'campaignUid' => $campaignUid,
                     'lastMessageUid' => null,

@@ -7,7 +7,7 @@
 ])
 @php
 $campaignData = $campaign->__data;
-$selectedGroups = Arr::get($campaignData, 'selected_groups', []);
+$selectedGroups = is_array(Arr::get($campaignData, 'selected_groups', [])) ? Arr::get($campaignData, 'selected_groups', []) : [];
 $isRestrictByTemplateContactLanguage = Arr::get($campaignData, 'is_for_template_language_only');
 $isAllContacts = Arr::get($campaignData, 'is_all_contacts');
 $messageLog = $campaign->messageLog;
@@ -120,9 +120,13 @@ $totalDeliveredCount = $totalDelivered + $totalRead;
                                 {{ __tr('All contacts ') }}
                                 @else
                                 {{ __tr('All contacts from: ') }}
-                                @foreach ($selectedGroups as $selectedGroup)
-                                <strong class="text-nowrap text-warning">{{ $selectedGroup['title'] }}</strong>
-                                @endforeach
+                                @if(is_array($selectedGroups))
+                                    @foreach ($selectedGroups as $selectedGroup)
+                                        @if(is_array($selectedGroup) && isset($selectedGroup['title']))
+                                            <strong class="text-nowrap text-warning">{{ $selectedGroup['title'] }}</strong>
+                                        @endif
+                                    @endforeach
+                                @endif
                                 {{ __tr(' groups.') }}
                                 @endif
                                 @if ($isRestrictByTemplateContactLanguage)

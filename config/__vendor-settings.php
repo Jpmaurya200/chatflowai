@@ -501,6 +501,130 @@ return [
                 'default' => '',
             ],
         ],
+        /**
+         * Instagram API setup
+         */
+        'instagram_api_setup' => [
+            'instagram_account_id' => [
+                'key' => 'instagram_account_id',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required',
+                    'string',
+                ],
+            ],
+            'instagram_account_name' => [
+                'key' => 'instagram_account_name',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => false,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'nullable',
+                    'string',
+                ],
+            ],
+            'instagram_access_token' => [
+                'key' => 'instagram_access_token',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required',
+                    'string',
+                ],
+            ],
+            'enable_instagram_messaging' => [
+                'key' => 'enable_instagram_messaging',
+                'data_type' => 2,    // boolean
+                'default' => false,
+            ],
+        ],
+
+        /**
+         * Facebook API setup
+         */
+        'facebook_api_setup' => [
+            'facebook_page_id' => [
+                'key' => 'facebook_page_id',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required',
+                    'string',
+                ],
+            ],
+            'facebook_page_name' => [
+                'key' => 'facebook_page_name',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => false,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'nullable',
+                    'string',
+                ],
+            ],
+            'facebook_page_access_token' => [
+                'key' => 'facebook_page_access_token',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required',
+                    'string',
+                ],
+            ],
+            'facebook_app_id' => [
+                'key' => 'facebook_app_id',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required',
+                    'numeric',
+                ],
+            ],
+            'facebook_app_secret' => [
+                'key' => 'facebook_app_secret',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required',
+                    'string',
+                ],
+            ],
+            // Webhook settings removed for now
+            // 'facebook_webhook_verify_token' => [...],
+            // 'facebook_webhook_verified_at' => [...],
+            'facebook_test_recipient_contact' => [
+                'key' => 'facebook_test_recipient_contact',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => false,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'nullable',
+                    'string',
+                ],
+            ],
+            'enable_facebook_messaging' => [
+                'key' => 'enable_facebook_messaging',
+                'data_type' => 2,    // boolean
+                'default' => false,
+            ],
+        ],
+
         'whatsapp_orders_setup' => [
             // Order Processing Settings
             'enable_whatsapp_orders' => [

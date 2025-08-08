@@ -384,13 +384,36 @@
                 </li>
                  @if (hasVendorAccess('messaging')  )
                 <li class="nav-item">
-                    <a class="nav-link {{ markAsActiveLink('vendor.chat_message.contact.view') }}" href="{{ route('vendor.chat_message.contact.view') }}"
-                    @if (!isWhatsAppBusinessAccountReady())
-                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                   @endif>
-                        <span x-cloak x-show="unreadMessagesCount" class="badge badge-success rounded-pill ml--2" x-text="unreadMessagesCount"></span>
-                        <i class="fa fa-comments icon-chat "></i> <span class="ml--2">{{ __tr('Live Chat') }}</span>
+                    <a class="nav-link" href="#vendorChannelsSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="false" aria-controls="vendorChannelsSubmenuNav">
+                        <i class="fa fa-comments icon-chat"></i>
+                        <span class="">{{ __tr('Channels') }}</span>
                     </a>
+                    <div class="collapse lw-expandable-nav" id="vendorChannelsSubmenuNav">
+                        <ul class="nav nav-sm flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.chat_message.contact.view') }}"
+                                    href="{{ route('vendor.chat_message.contact.view') }}"
+                                    @if (!isWhatsAppBusinessAccountReady())
+                                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                                   @endif>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-whatsapp text-success"></i> {{ __tr('WhatsApp Chat') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.facebook.contact.chat.view') }}"
+                                    href="{{ route('vendor.facebook.contact.chat.view') }}">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-facebook text-primary"></i> {{ __tr('Facebook Chat') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.instagram.contact.chat.view') }}"
+                                    href="{{ route('vendor.instagram.contact.chat.view') }}">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-instagram text-danger"></i> {{ __tr('Instagram Chat') }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </li>
                 @endif
                 @if (hasVendorAccess('manage_templates')  )
@@ -590,8 +613,20 @@
                             <li class="nav-item">
                                 <strong><a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'whatsapp-cloud-api-setup') ? 'active' : '' ?> @if(!isWhatsAppBusinessAccountReady()) text-warning @endif"
                                     href="<?= route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) ?>">
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('WhatsApp Setup') }} @if(!isWhatsAppBusinessAccountReady())<i class="fas fa-exclamation-triangle ml-1"></i>@endif
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-whatsapp text-success"></i> {{ __tr('WhatsApp Setup') }} @if(!isWhatsAppBusinessAccountReady())<i class="fas fa-exclamation-triangle ml-1"></i>@endif
                                 </a></strong>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'facebook-api-setup') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'facebook-api-setup']) ?>">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-facebook text-primary"></i> {{ __tr('Facebook Setup') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'instagram-api-setup') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'instagram-api-setup']) ?>">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-instagram text-danger"></i> {{ __tr('Instagram Setup') }}
+                                </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'ai-chat-bot-setup') ? 'active' : '' ?>"
