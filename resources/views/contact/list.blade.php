@@ -314,10 +314,11 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                 $('.dataTables_wrapper table>tbody input[type=checkbox].lw-checkboxes:checked').trigger('click');
                 isSelectedAll = false;
             } );">
-            <button x-show="!isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Select All')
-                }}</button>
-            <button x-show="isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Unselect All')
-                }}</button>
+            <button x-show="!isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Select All') }}</button>
+            <button x-show="isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Unselect All') }}</button>
+            <button x-show="isSelectedAll && selectedContacts.length" class="btn btn-neo btn-neo-gradient-red btn-sm my-2 ml-2" @click="deleteSelectedContacts">
+                <i class="fa fa-trash"></i> {{ __tr('All Contacts Delete') }}
+            </button>
             <div class="btn-group">
                 <button :class="!selectedContacts.length ? 'disabled' : ''"
                     class="btn btn-danger mt-1 btn-sm dropdown-toggle" type="button" data-toggle="dropdown"
@@ -602,6 +603,18 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
     .btn-neo-gradient-green:hover,
     .btn-neo-gradient-green:focus { background-position: right center; transform: translateY(-1px); box-shadow: 0 10px 24px rgba(11, 119, 83, 0.28); }
     .btn-neo-gradient-green:active { transform: translateY(0); box-shadow: 0 6px 14px rgba(11, 119, 83, 0.22); }
+
+    /* Solid red gradient */
+    .btn-neo-gradient-red {
+        color: #ffffff !important;
+        border: 0;
+        background-image: linear-gradient(135deg, #ff6b6b 0%, #e35d6a 50%, #b91c1c 100%);
+        background-size: 200% 200%;
+        box-shadow: 0 2px 8px rgba(185, 28, 28, 0.18);
+    }
+    .btn-neo-gradient-red:hover,
+    .btn-neo-gradient-red:focus { background-position: right center; transform: translateY(-1px); box-shadow: 0 10px 24px rgba(185, 28, 28, 0.28); }
+    .btn-neo-gradient-red:active { transform: translateY(0); box-shadow: 0 6px 14px rgba(185, 28, 28, 0.22); }
 </style>
 @push('appScripts')
 <script>
