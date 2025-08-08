@@ -120,7 +120,7 @@ class WhatsAppApiService extends BaseEngine implements WhatsAppServiceEngineInte
                 'language' => [
                     'code' => $whatsAppTemplateLanguage,
                 ],
-                'components' => $components,
+                'components' => array_values($components),
             ],
         ]);
     }
@@ -150,7 +150,7 @@ class WhatsAppApiService extends BaseEngine implements WhatsAppServiceEngineInte
                 'language' => [
                     'code' => $whatsAppTemplateLanguage,
                 ],
-                'components' => $components,
+                'components' => array_values($components),
             ],
         ]);
     }

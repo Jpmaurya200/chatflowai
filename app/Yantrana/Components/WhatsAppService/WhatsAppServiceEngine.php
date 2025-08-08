@@ -812,20 +812,18 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             }
             try {
 
-            // Handle different response types
-            if (!$response || !method_exists($response, 'ok')) {
-                // Handle error cases
+            // Ensure we have a valid HTTP response object
+            if (!$response instanceof Response) {
                 $errorMessage = '';
                 if ($response instanceof \Exception) {
                     $errorMessage = $response->getMessage();
                 } elseif (is_object($response) && method_exists($response, 'getMessage')) {
                     $errorMessage = $response->getMessage();
                 } else {
-                    $errorMessage = 'Unknown error occurred';
+                    $errorMessage = 'Invalid response from HTTP pool';
                 }
 
                 if ($poolRequestItem['retries'] > 5) {
-                    // Max retries reached - mark as permanent error
                     $this->whatsAppMessageQueueRepository->updateIt($responseKey, [
                         'status' => 2, // error - do not requeue
                         '__data' => [
@@ -853,22 +851,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                 continue;
             }
 
-            // Safely handle response data
-            try {
-                $responseData = $response->json();
-                if (!isset($responseData['text'])) {
-                    $responseData['text'] = '';
-                }
-                $response = $responseData;
-            } catch (\Exception $e) {
-                // If json parsing fails, ensure we have a valid response structure
-                $response = [
-                    'text' => '',
-                    'error' => 'Failed to parse response data'
-                ];
-            }
-
-                if ($response and !$response->ok()) {
+            if ($response && !$response->ok()) {
                     $response->throw(function (Response $response, $exception) use (&$poolRequestItem, &$errorMessage) {
                         $getContents = $response->getBody()->getContents();
                         $getContentsDecoded = json_decode($getContents, true);
@@ -1257,6 +1240,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                     ];
                 }
             } elseif ($templateComponent['type'] == 'CAROUSEL') {
+                $__hasCarousel = true;
                 // Handle carousel template message components
                 $carouselComponent = [
                     'type' => 'CAROUSEL',
@@ -1265,80 +1249,133 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
 
                 foreach ($templateComponent['cards'] as $cardIndex => $card) {
                     $cardComponent = [
-                        'card_index' => $cardIndex,
                         'components' => []
                     ];
+
+                    // Resolve possible nested carousel inputs (new UI) or flat inputs (legacy UI)
+                    $nestedCarouselInput = $inputs['carousel_cards'][$cardIndex] ?? null;
+                    $hasHeaderForCard = false;
 
                     // Add header component for each card
                     foreach ($card['components'] as $cardComponentData) {
                         if ($cardComponentData['type'] == 'HEADER') {
                             if ($cardComponentData['format'] == 'PRODUCT') {
-                                // For product headers, we need to specify product parameters
-                                // This would typically come from user input or product catalog
+                                // For product headers, require a valid product_retailer_id from input
+                                $productRetailerId = $nestedCarouselInput['product_retailer_id'] ?? ($inputs["carousel_card_{$cardIndex}_product_id"] ?? null);
+                                if (empty($productRetailerId)) {
+                                    return $this->engineFailedResponse([], __tr('Carousel card __index__ requires a product selection', ['__index__' => $cardIndex + 1]));
+                                }
                                 $cardComponent['components'][] = [
                                     'type' => 'HEADER',
                                     'parameters' => [
                                         [
-                                            'type' => 'PRODUCT',
+                                            'type' => 'product',
                                             'product' => [
-                                                'product_retailer_id' => 'default_product_' . $cardIndex // Default product ID
+                                                'product_retailer_id' => (string) $productRetailerId
                                             ]
                                         ]
                                     ]
                                 ];
+                                $hasHeaderForCard = true;
                             } elseif (in_array($cardComponentData['format'], ['IMAGE', 'VIDEO'])) {
                                 // For image/video headers - process uploaded media
                                 $mediaType = strtolower($cardComponentData['format']);
-                                $inputKey = "carousel_card_{$cardIndex}_{$mediaType}";
+                                $legacyInputKey = "carousel_card_{$cardIndex}_{$mediaType}";
+                                $mediaUrl = null;
 
-                                if (!empty($inputs[$inputKey])) {
-                                    // Process uploaded media file
-                                    $isProcessed = $this->mediaEngine->whatsappMediaUploadProcess(['filepond' => $inputs[$inputKey]], "whatsapp_{$mediaType}");
+                                if (!empty($inputs[$legacyInputKey])) {
+                                    // Legacy flat input: process upload
+                                    $isProcessed = $this->mediaEngine->whatsappMediaUploadProcess(['filepond' => $inputs[$legacyInputKey]], "whatsapp_{$mediaType}");
                                     if ($isProcessed->failed()) {
                                         return $isProcessed;
                                     }
                                     $mediaUrl = $isProcessed->data('path');
-                                } else {
-                                    // Skip this card if no media uploaded
-                                    continue 2; // Skip to next card
+                                } elseif ($nestedCarouselInput && !empty($nestedCarouselInput['uploaded_media_file_name'])) {
+                                    // New nested input already contains stored path/url
+                                    $mediaUrl = $nestedCarouselInput['uploaded_media_file_name'];
+                                }
+
+                                if (empty($mediaUrl)) {
+                                    // Media is required per carousel card
+                                    return $this->engineFailedResponse([], __tr('Carousel card __index__ requires a header media', ['__index__' => $cardIndex + 1]));
                                 }
 
                                 $cardComponent['components'][] = [
                                     'type' => 'HEADER',
                                     'parameters' => [
                                         [
-                                            'type' => strtoupper($cardComponentData['format']),
+                                            'type' => $mediaType,
                                             $mediaType => [
                                                 'link' => $mediaUrl
                                             ]
                                         ]
                                     ]
                                 ];
+                                $hasHeaderForCard = true;
+                            }
+                        } elseif ($cardComponentData['type'] == 'BODY') {
+                            // Card body may contain variables; pass parameters if required
+                            $cardBodyText = $cardComponentData['text'] ?? '';
+                            if ($cardBodyText && Str::contains($cardBodyText, '{{1}}')) {
+                                $bodyParam = $nestedCarouselInput['body_text'] ?? ($inputs["carousel_card_{$cardIndex}_body_text"] ?? null);
+                                if (empty($bodyParam)) {
+                                    return $this->engineFailedResponse([], __tr('Carousel card __index__ requires body text', ['__index__' => $cardIndex + 1]));
+                                }
+                                $cardComponent['components'][] = [
+                                    'type' => 'BODY',
+                                    'parameters' => [
+                                        [
+                                            'type' => 'TEXT',
+                                            'text' => $bodyParam
+                                        ]
+                                    ]
+                                ];
                             }
                         } elseif ($cardComponentData['type'] == 'BUTTONS') {
-                            // Handle card buttons - only add if they have parameters
+                            // Handle card buttons - include only when parameters required, only one URL button per card
+                            $addedUrlButton = false;
                             foreach ($cardComponentData['buttons'] as $buttonIndex => $button) {
+                                if ($addedUrlButton) { break; }
                                 if ($button['type'] == 'URL' && isset($button['url']) && Str::contains($button['url'], '{{1}}')) {
                                     $cardComponent['components'][] = [
                                         'type' => 'BUTTON',
                                         'sub_type' => 'URL',
-                                        'index' => $buttonIndex,
+                                        'index' => '0',
                                         'parameters' => [
                                             [
-                                                'type' => 'text',
+                                                'type' => 'TEXT',
                                                 'text' => 'default_param'
                                             ]
                                         ]
                                     ];
+                                    $addedUrlButton = true;
                                 }
                                 // SPM and QUICK_REPLY buttons don't need parameters
                             }
                         }
                     }
 
+                    if (!$hasHeaderForCard) {
+                        return $this->engineFailedResponse([], __tr('Carousel card __index__ is missing required header', ['__index__' => $cardIndex + 1]));
+                    }
+
                     $carouselComponent['cards'][] = $cardComponent;
                 }
 
+                if (count($carouselComponent['cards']) < 2) {
+                    return $this->engineFailedResponse([], __tr('Carousel templates require at least 2 cards'));
+                }
+
+                // DEBUG: log the built components for troubleshooting scheduler issues
+                if (config('app.debug')) {
+                    \Log::debug('WA Carousel components payload', [
+                        // show what will be sent: BODY + CAROUSEL
+                        'components' => array_values(array_merge($componentBody, [$carouselComponent]))
+                    ]);
+                }
+
+                // Ensure BODY stays at index 0 and CAROUSEL follows it
+                $mainIndex++;
                 $componentBody[$mainIndex] = $carouselComponent;
                 $mainIndex++;
             } elseif ($templateComponent['type'] == 'BUTTONS') {
