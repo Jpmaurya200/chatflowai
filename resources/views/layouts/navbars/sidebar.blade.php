@@ -1,39 +1,58 @@
 <style>
     /* Modern Sidebar Styling */
     #sidenav-main {
-        background-color: #ffffff !important;
+        background: #10B981 !important; /* fallback */
+        background: linear-gradient(180deg, #10B981 0%, #237D59 100%) !important;
         box-shadow: 0 0 30px rgba(0, 0, 0, 0.05);
     }
     
     .navbar-vertical .navbar-nav .nav-link {
-        padding: 8px 15px;
-        color:black;
+        padding: 14px 16px;
+        color: #ffffff;
         font-weight: 500;
-        font-size: 12px;
-        border-radius: 6px;
-        margin: 4px 8px;
+        font-size: 14px;
+        border-radius: 12px;
+        margin: 8px 8px;
         transition: all 0.2s ease;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background-color: transparent;
     }
     
-    .navbar-vertical .navbar-nav .nav-link:hover {
-        background-color: #f5f7fa;
-        color: #3a4a5c;
+    .navbar-vertical .navbar-nav .nav-link:hover,
+    .navbar-vertical .navbar-nav .nav-link:focus {
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+        border-color: rgba(255, 255, 255, 0.28);
     }
     
     .navbar-vertical .navbar-nav .nav-link.active {
-        background-color: #f0f5ff;
-        color: #1771E6;
-        font-weight: 600;
+        background-color: #ffffff; /* extreme white */
+        color: #237D59 !important; /* contrasting green text */
+        font-weight: 700;
+        border-color: #ffffff;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
     }
     
     .navbar-vertical .navbar-nav .nav-link i, 
     .navbar-vertical .navbar-nav .nav-link .fa,
-    .navbar-vertical .navbar-nav .nav-link .fas {
+    .navbar-vertical .navbar-nav .nav-link .fas,
+    .navbar-vertical .navbar-nav .nav-link .far,
+    .navbar-vertical .navbar-nav .nav-link .fab {
         font-size: 16px;
         width: 20px;
         margin-right: 8px;
         text-align: center;
         vertical-align: middle;
+        color: currentColor !important; /* icons inherit link color */
+    }
+
+    /* Active icons follow text color on filled pill */
+    .navbar-vertical .navbar-nav .nav-link.active i,
+    .navbar-vertical .navbar-nav .nav-link.active .fa,
+    .navbar-vertical .navbar-nav .nav-link.active .fas,
+    .navbar-vertical .navbar-nav .nav-link.active .far,
+    .navbar-vertical .navbar-nav .nav-link.active .fab {
+        color: #237D59 !important;
     }
     
     /* Icon colors */
@@ -118,9 +137,14 @@
     }
     
     .nav-link-ul {
-        font-size: 12px !important;
-        padding: 6px 10px 6px 30px !important;
+        font-size: 13px !important;
+        padding: 10px 12px 10px 34px !important;
         position: relative;
+        color: #ffffff;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 10px;
+        margin: 6px 6px;
+        background-color: transparent;
     }
     .navbar-vertical.navbar-expand-md .navbar-nav .nav-link {
         padding: 10px 10px 10px 10px !important;
@@ -133,21 +157,29 @@
         width: 4px;
         height: 4px;
         border-radius: 50%;
-        background-color: #c0c6cc;
+        background-color: rgba(18, 43, 29, 0.35);
     }
     
     
     .nav-link-ul:hover::before {
-        background-color: #1771E6;
+        background-color: #ffffff;
+    }
+    .nav-link-ul:hover,
+    .nav-link-ul:focus {
+        background-color: rgba(255,255,255,0.06);
+        border-color: rgba(255,255,255,0.26);
     }
     
     .nav-link-ul.active {
-        color: #1771E6 !important;
-        font-weight: 600;
+        color: #237D59 !important;
+        font-weight: 700;
+        background-color: #ffffff; /* extreme white */
+        border-color: #ffffff;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
     }
    
     .nav-link-ul.active::before {
-        background-color: #1771E6;
+        background-color: #ffffff;
     }
     
     /* Dropdown indicators */
@@ -158,7 +190,6 @@
         position: absolute;
         right: 20px;
         transition: transform 0.2s ease;
-        
     }
     
     .nav-link[data-toggle="collapse"][aria-expanded="true"]::after {
@@ -168,12 +199,54 @@
     /* Section dividers */
     .sidebar-section-divider {
         height: 1px;
-        background-color: #edf0f5;
+        background-color: rgba(255, 255, 255, 0.35);
         margin: 15px 20px;
     }
-    
-    /* Active submenu background */
-   
+
+    /* Footer/secondary links contrast on gradient */
+    .nav-link-footer {
+        color: #0f5132;
+    }
+    .nav-link-footer:hover,
+    .nav-link-footer:focus,
+    .nav-link-footer.active {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.22);
+    }
+
+    /* Small screen tweaks to maintain readability */
+    @media (max-width: 767.98px) {
+        #sidenav-main {
+            background: linear-gradient(180deg, #10B981 0%, #237D59 100%) !important;
+        }
+        .navbar-vertical .navbar-nav .nav-link {
+            padding: 10px 14px;
+        }
+    }
+
+    /* Logo badge on white for contrast over gradient */
+    .lw-sidebar-logo-normal,
+    .lw-sidebar-logo-small {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 8px 10px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10);
+        display: inline-block;
+        height: auto;
+        background-clip: padding-box;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    /* Reasonable sizing so it looks crisp */
+    .lw-sidebar-logo-normal { max-height: 44px; }
+    .lw-sidebar-logo-small { max-height: 36px; }
+
+    /* Show only one logo at a time to avoid duplicates */
+    .lw-sidebar-logo-small { display: none; }
+    @media (max-width: 991.98px) { /* below lg */
+        .lw-sidebar-logo-normal { display: none; }
+        .lw-sidebar-logo-small { display: inline-block; }
+    }
 </style>
 
 <!-- Update the icon classes in the navbar -->
