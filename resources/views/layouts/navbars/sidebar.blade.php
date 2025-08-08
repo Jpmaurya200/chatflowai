@@ -223,6 +223,30 @@
             padding: 10px 14px;
         }
     }
+
+    /* Logo badge on white for contrast over gradient */
+    .lw-sidebar-logo-normal,
+    .lw-sidebar-logo-small {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 8px 10px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10);
+        display: inline-block;
+        height: auto;
+        background-clip: padding-box;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    /* Reasonable sizing so it looks crisp */
+    .lw-sidebar-logo-normal { max-height: 44px; }
+    .lw-sidebar-logo-small { max-height: 36px; }
+
+    /* Show only one logo at a time to avoid duplicates */
+    .lw-sidebar-logo-small { display: none; }
+    @media (max-width: 991.98px) { /* below lg */
+        .lw-sidebar-logo-normal { display: none; }
+        .lw-sidebar-logo-small { display: inline-block; }
+    }
 </style>
 
 <!-- Update the icon classes in the navbar -->

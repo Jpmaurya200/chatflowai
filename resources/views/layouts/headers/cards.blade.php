@@ -93,7 +93,111 @@ $vendorViewBySuperAdmin = false;
         </div>
     </div>
 </div>
-    
+
+<div class="container-fluid p-0">
+    <div class="row d-flex align-items-stretch">
+        <div class="col-12 mb-xl-3">
+            <div class="row">
+                    <div class="col-lg-4 mt-3">
+                        <div class="stat-card stat-card-blue">
+                            <div class="stat-card-bg"></div>
+                            <div class="stat-card-icon">
+                                <i class="fas fa-paper-plane"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div style="font-size:15px;">
+                                  Total<br>
+                                    <span class="font-weight-bold text-primary total" style="font-size:20px;">{{ __tr($totalMessagesProcessed + $messagesInQueue) }}</span>
+                                     <span class="font-weight-bold text-primary"> Messages</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mt-3">
+                        <div class="stat-card stat-card-green">
+                            <div class="stat-card-bg"></div>
+                            <div class="stat-card-icon">
+                                <i class="fas fa-clipboard-check"></i>
+                            </div>
+                            <div class="stat-card-content">
+                            <div style="font-size:15px;">
+                                    Sent<br>
+                                    <span class="font-weight-bold text-success total" style="font-size:20px;">{{ __tr($totalMessagesProcessed) }}</span>
+                                    <span class="font-weight-bold text-success"> Messages</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>                    
+                    <div class="col-lg-4 mt-3">
+                        <div class="stat-card stat-card-pink">
+                            <div class="stat-card-bg"></div>
+                            <div class="stat-card-icon">
+                                <i class="fas fa-hourglass-half"></i>
+                                    </div>
+                            <div class="stat-card-content">
+                                <div style="font-size:15px;">
+                                     Pending<br>
+                                     <span class="font-weight-bold text-muted total" style="font-size:20px;">{{ __tr($messagesInQueue) }}</span>
+                                    <span class="font-weight-bold text-muted"> Messages</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </div>        
+        </div>
+    </div>
+</div>
+
+<!-- Analytics + QR row moved just below the welcome section -->
+<div class="container-fluid ">
+    <div class="row d-flex align-items-stretch">
+        <div class="col-xl-6">
+            <div class="graph-card shadow-lg" style="border-radius: 20px; overflow: hidden;">
+                <div class="graph-card-body p-3">
+                <div class="graph-header mb-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white fw-semibold">Message Analytics</h5>
+                    <span class="badge bg-success-subtle text-success fw-medium">Live</span>
+                </div>
+                <div class="chart-wrapper" style="position: relative;">
+                    <canvas id="donutChart" width="400" height="400" style="max-height:220px;"></canvas>
+                </div>
+                <div class="chart-legend mt-4 d-flex justify-content-center gap-4 flex-wrap">
+                    <div class="legend-item d-flex align-items-center">
+                    <span class="legend-dot" style="background-color: #22D571;"></span>
+                    <span class="text-white ms-2" style="margin-right: 8px;">Sent Messages</span>
+                    </div>
+                    <div class="legend-item d-flex align-items-center">
+                    <span class="legend-dot" style="background-color: #FFD166;"></span>
+                    <span class="text-white ms-2">Pending Messages</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-6 d-flex align-items-center mt-4 mt-xl-0">
+            <div class="card h-100 w-100" style="border-radius: 16px; border: none; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);">
+                <div class="card-body ">
+                    <div class="">
+                    @if (!empty(getVendorSettings('whatsapp_phone_numbers')))
+                    @foreach (getVendorSettings('whatsapp_phone_numbers') as $whatsappPhoneNumber)
+                        <div class="text-center">
+                            <img class="lw-qr-image" src="{{ route('vendor.whatsapp_qr', [
+                            'vendorUid' => getVendorUid(),
+                            'phoneNumber' => cleanDisplayPhoneNumber($whatsappPhoneNumber['display_phone_number']),
+                        ]) }}">
+                            <div class="h2 text-dark font-weight-bold">{{ $whatsappPhoneNumber['verified_name'] }}</div>
+                            <div class="h3 text-primary font-weight-bold">{{ $whatsappPhoneNumber['display_phone_number'] }}</div>
+                        </div>
+                    @endforeach
+                    @endif
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- features section  -->
 <div class="container-fluid mt-4 ">
@@ -487,112 +591,6 @@ $vendorViewBySuperAdmin = false;
 </div>
         <!--feature section end  -->
 
-
-<div class="container-fluid ">
-    <div class="row  mt-4 d-flex align-items-stretch">
-        <div class="col-xl-6">
-            <div class="graph-card shadow-lg" style="border-radius: 20px; overflow: hidden;">
-                <div class="graph-card-body p-3">
-                <div class="graph-header mb-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 text-white fw-semibold">Message Analytics</h5>
-                    <span class="badge bg-success-subtle text-success fw-medium">Live</span>
-                </div>
-                <div class="chart-wrapper" style="position: relative;">
-                    <canvas id="donutChart" width="400" height="400" style="max-height:220px;"></canvas>
-                </div>
-                <div class="chart-legend mt-4 d-flex justify-content-center gap-4 flex-wrap">
-                    <div class="legend-item d-flex align-items-center">
-                    <span class="legend-dot" style="background-color: #22D571;"></span>
-                    <span class="text-white ms-2" style="margin-right: 8px;">Sent Messages</span>
-                    </div>
-                    <div class="legend-item d-flex align-items-center">
-                    <span class="legend-dot" style="background-color: #FFD166;"></span>
-                    <span class="text-white ms-2">Pending Messages</span>
-                    </div>
-                </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-6 d-flex align-items-center mt-4 mt-xl-0">
-            <div class="card h-100 w-100" style="border-radius: 16px; border: none; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);">
-                <div class="card-body ">
-                    <div class="">
-                    @if (!empty(getVendorSettings('whatsapp_phone_numbers')))
-                    @foreach (getVendorSettings('whatsapp_phone_numbers') as $whatsappPhoneNumber)
-                        <div class="text-center">
-                            <img class="lw-qr-image" src="{{ route('vendor.whatsapp_qr', [
-                            'vendorUid' => getVendorUid(),
-                            'phoneNumber' => cleanDisplayPhoneNumber($whatsappPhoneNumber['display_phone_number']),
-                        ]) }}">
-                            <div class="h2 text-dark font-weight-bold">{{ $whatsappPhoneNumber['verified_name'] }}</div>
-                            <div class="h3 text-primary font-weight-bold">{{ $whatsappPhoneNumber['display_phone_number'] }}</div>
-                        </div>
-                    @endforeach
-                    @endif
-                    </div>
-                    
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="container-fluid p-3 mt-2">
-    <div class="row d-flex align-items-stretch">
-        <div class="col-12 mb-5 mb-xl-5">
-              
-            <div class="row">
-                    <div class="col-lg-4 mt-3">
-                        <div class="stat-card stat-card-blue">
-                            <div class="stat-card-bg"></div>
-                            <div class="stat-card-icon">
-                                <i class="fas fa-paper-plane"></i>
-                            </div>
-                            <div class="stat-card-content">
-                                <div style="font-size:15px;">
-                                  Total<br>
-                                    <span class="font-weight-bold text-primary total" style="font-size:20px;">{{ __tr($totalMessagesProcessed + $messagesInQueue) }}</span>
-                                     <span class="font-weight-bold text-primary"> Messages</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-4 mt-3">
-                        <div class="stat-card stat-card-green">
-                            <div class="stat-card-bg"></div>
-                            <div class="stat-card-icon">
-                                <i class="fas fa-clipboard-check"></i>
-                            </div>
-                            <div class="stat-card-content">
-                            <div style="font-size:15px;">
-                                    Sent<br>
-                                    <span class="font-weight-bold text-success total" style="font-size:20px;">{{ __tr($totalMessagesProcessed) }}</span>
-                                    <span class="font-weight-bold text-success"> Messages</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>                    
-                    <div class="col-lg-4 mt-3">
-                        <div class="stat-card stat-card-pink">
-                            <div class="stat-card-bg"></div>
-                            <div class="stat-card-icon">
-                                <i class="fas fa-hourglass-half"></i>
-                                    </div>
-                            <div class="stat-card-content">
-                                <div style="font-size:15px;">
-                                     Pending<br>
-                                     <span class="font-weight-bold text-muted total" style="font-size:20px;">{{ __tr($messagesInQueue) }}</span>
-                                    <span class="font-weight-bold text-muted"> Messages</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-            </div>        
-
-        </div>
-    </div>
-</div>
  
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
