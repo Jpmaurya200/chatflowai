@@ -333,7 +333,15 @@
                         <i class="fa fa-chart-line icon-dashboard"></i> {{ __tr('Dashboard') }}
                     </a>
                 </li>
-               
+                
+                <li class="nav-item {{ request('pageType') == 'other' ? 'active' : '' }}">
+                    <a class="bg-primary-light nav-link nav-link-footer"
+                        href="{{ route('manage.configuration.read', ['pageType' => 'other']) }}">
+                        <i class="fa fa-cogs icon-settings"></i>
+                        {!! __tr('Setup') !!}
+                    </a>
+                </li>
+                
                 <li class="nav-item">
                     @php
                         $__centralSubscriptionOpen = request()->routeIs('central.subscriptions', 'central.subscription.manual_subscription.read.list_view');
@@ -378,13 +386,7 @@
                     </a>
                 </li>
                 
-                <li class="nav-item {{ request('pageType') == 'other' ? 'active' : '' }}">
-                    <a class="bg-primary-light nav-link nav-link-footer"
-                        href="{{ route('manage.configuration.read', ['pageType' => 'other']) }}">
-                        <i class="fa fa-cogs icon-settings"></i>
-                        {!! __tr('Setup') !!}
-                    </a>
-                </li>
+                
                 
                 <li class="nav-item {{ request('pageType') == 'whatsapp-onboarding' ? 'active' : '' }}">
                     <a class="bg-primary-light nav-link nav-link-footer"
@@ -472,6 +474,65 @@
                         {{ __tr('Dashboard') }}
                     </a>
                 </li>
+                @if (hasVendorAccess('administrative'))
+                <li class="nav-item">
+                        @php
+                            $__vendorSettingsOpen = request()->routeIs('vendor.settings.read') && in_array(request('pageType'), [
+                                'general',
+                                'whatsapp-cloud-api-setup',
+                                'facebook-api-setup',
+                                'instagram-api-setup',
+                                'ai-chat-bot-setup',
+                            ]);
+                        @endphp
+                        <a class="nav-link {{ isWhatsAppBusinessAccountReady() ? '' : 'text-warning' }} {{ $__vendorSettingsOpen ? '' : 'collapsed' }}" href="#vendorSettingsNav" data-toggle="collapse" role="button"
+                            aria-expanded="{{ $__vendorSettingsOpen ? 'true' : 'false' }}" aria-controls="vendorSettingsNav">
+                            <i class="fa fa-cog icon-settings"></i>
+                            <span class="">{{ __tr('Setup') }}</span>
+                        </a>
+                    <div class="collapse lw-expandable-nav {{ $__vendorSettingsOpen ? 'show' : '' }}" id="vendorSettingsNav">
+                        <ul class="nav nav-sm flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'general') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'general']) ?>"
+                                    @if (!isWhatsAppBusinessAccountReady())
+                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                   @endif>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('Basic') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <strong><a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'whatsapp-cloud-api-setup') ? 'active' : '' ?> @if(!isWhatsAppBusinessAccountReady()) text-warning @endif"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) ?>">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-whatsapp text-success"></i> {{ __tr('WhatsApp Setup') }} @if(!isWhatsAppBusinessAccountReady())<i class="fas fa-exclamation-triangle ml-1"></i>@endif
+                                </a></strong>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'facebook-api-setup') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'facebook-api-setup']) ?>">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-facebook text-primary"></i> {{ __tr('Facebook Setup') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'instagram-api-setup') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'instagram-api-setup']) ?>">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-instagram text-danger"></i> {{ __tr('Instagram Setup') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'ai-chat-bot-setup') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'ai-chat-bot-setup']) ?>"
+                                    @if (!isWhatsAppBusinessAccountReady())
+                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                   @endif>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('Chatbot Settings') !!}
+                                </a>
+                            </li>
+                            
+                        </ul>
+                    </div>
+                </li>
+                @endif
                  @if (hasVendorAccess('messaging')  )
                 <li class="nav-item">
                     @php
@@ -480,7 +541,7 @@
                     <a class="nav-link {{ $__vendorChannelsOpen ? '' : 'collapsed' }}" href="#vendorChannelsSubmenuNav" data-toggle="collapse" role="button"
                         aria-expanded="{{ $__vendorChannelsOpen ? 'true' : 'false' }}" aria-controls="vendorChannelsSubmenuNav">
                         <i class="fa fa-comments icon-chat"></i>
-                        <span class="">{{ __tr('Channels') }}</span>
+                        <span class="">{{ __tr('All chats') }}</span>
                     </a>
                     <div class="collapse lw-expandable-nav {{ $__vendorChannelsOpen ? 'show' : '' }}" id="vendorChannelsSubmenuNav">
                         <ul class="nav nav-sm flex-column">
@@ -509,6 +570,47 @@
                     </div>
                 </li>
                 @endif
+                @if (hasVendorAccess('manage_contacts')  )
+                <li class="nav-item">
+                    @php
+                        $__vendorContactsOpen = request()->routeIs(
+                            'vendor.contact.read.list_view',
+                            'vendor.contact.group.read.list_view',
+                            'vendor.contact.custom_field.read.list_view'
+                        );
+                    @endphp
+                    <a class="nav-link {{ $__vendorContactsOpen ? '' : 'collapsed' }}" href="#vendorContactSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorContactsOpen ? 'true' : 'false' }}" aria-controls="vendorContactSubmenuNav"
+                        @if (!isWhatsAppBusinessAccountReady())
+                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                   @endif>
+                        <i class="fa fa-users icon-users "></i>
+                        <span class="">{{ __tr('Contacts') }}</span>
+                    </a>
+                <div class="collapse lw-expandable-nav {{ $__vendorContactsOpen ? 'show' : '' }}" id="vendorContactSubmenuNav">
+                    <ul class="nav nav-sm flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.contact.read.list_view') }}"
+                                href="{{ route('vendor.contact.read.list_view') }}">
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('All Contacts') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.contact.group.read.list_view') }}"
+                                href="{{ route('vendor.contact.group.read.list_view') }}">
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('Contact Groups') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.contact.custom_field.read.list_view') }}"
+                                href="{{ route('vendor.contact.custom_field.read.list_view') }}">
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('Add Input') }}
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            @endif
                 @if (hasVendorAccess('manage_templates')  )
                 <li class="nav-item">
                     <a class="nav-link {{ markAsActiveLink('vendor.whatsapp_service.templates.read.list_view') }}"
@@ -559,32 +661,32 @@
                     </div>
                 </li>
                 @endif
-                @if (hasVendorAccess('manage_whatsapp_orders')  )
-                <li class="nav-item">
-                    <a class="nav-link {{ markAsActiveLink('vendor.whatsapp.orders.list') }}"
-                        href="{{ route('vendor.whatsapp.orders.list') }}"
-                        @if (!isWhatsAppBusinessAccountReady())
-                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                   @endif>
-                        <i class="fa fa-shopping-cart icon-orders"></i>
-                        {{ __tr('WhatsApp Orders') }}
-                    </a>
-                </li>
-                @endif
                 
-                <!-- Integration Section -->
-                @if (hasVendorAccess('administrative'))
+                <!-- E-commerce Section -->
+                @if (hasVendorAccess('administrative') || hasVendorAccess('manage_whatsapp_orders'))
                 <li class="nav-item">
                     @php
-                        $__vendorIntegrationOpen = request()->routeIs('vendor.integration.shopify.dashboard', 'vendor.integration.woocommerce.dashboard');
+                        $__vendorEcommerceOpen = request()->routeIs('vendor.whatsapp.orders.list', 'vendor.integration.shopify.dashboard', 'vendor.integration.woocommerce.dashboard');
                     @endphp
-                    <a class="nav-link {{ $__vendorIntegrationOpen ? '' : 'collapsed' }}" href="#vendorIntegrationSubmenuNav" data-toggle="collapse" role="button"
-                        aria-expanded="{{ $__vendorIntegrationOpen ? 'true' : 'false' }}" aria-controls="vendorIntegrationSubmenuNav">
-                        <i class="fas fa-plug icon-integration"></i>
-                        <span class="">{{ __tr('Integrations') }}</span>
+                    <a class="nav-link {{ $__vendorEcommerceOpen ? '' : 'collapsed' }}" href="#vendorEcommerceSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorEcommerceOpen ? 'true' : 'false' }}" aria-controls="vendorEcommerceSubmenuNav">
+                        <i class="fa fa-store"></i>
+                        <span class="">{{ __tr('E-commerce') }}</span>
                     </a>
-                    <div class="collapse lw-expandable-nav {{ $__vendorIntegrationOpen ? 'show' : '' }}" id="vendorIntegrationSubmenuNav">
+                    <div class="collapse lw-expandable-nav {{ $__vendorEcommerceOpen ? 'show' : '' }}" id="vendorEcommerceSubmenuNav">
                         <ul class="nav nav-sm flex-column">
+                            @if (hasVendorAccess('manage_whatsapp_orders'))
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.whatsapp.orders.list') }}"
+                                    href="{{ route('vendor.whatsapp.orders.list') }}"
+                                    @if (!isWhatsAppBusinessAccountReady())
+                                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                                   @endif>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fa fa-shopping-cart icon-orders"></i> {{ __tr('WhatsApp Orders') }}
+                                </a>
+                            </li>
+                            @endif
+                            @if (hasVendorAccess('administrative'))
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.integration.shopify.dashboard') }}"
                                     href="{{ route('vendor.integration.shopify.dashboard') }}">
@@ -597,51 +699,54 @@
                                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-wordpress icon-woocommerce"></i> {{ __tr('WooCommerce') }}
                                 </a>
                             </li>
+                            @endif
                         </ul>
                     </div>
                 </li>
                 @endif
-                @if (hasVendorAccess('manage_contacts')  )
+                
+                <!-- Integration Section -->
+                @if (hasVendorAccess('administrative'))
                 <li class="nav-item">
                     @php
-                        $__vendorContactsOpen = request()->routeIs(
-                            'vendor.contact.read.list_view',
-                            'vendor.contact.group.read.list_view',
-                            'vendor.contact.custom_field.read.list_view'
-                        );
+                        $__vendorIntegrationOpen = (request()->routeIs('vendor.settings.read') && in_array(request('pageType'), ['whatsapp-orders-setup', 'api-access']))
+                            || request()->routeIs('google-sheet-script.index');
+                        $__sheetsActive = request()->routeIs('google-sheet-script.index');
                     @endphp
-                    <a class="nav-link {{ $__vendorContactsOpen ? '' : 'collapsed' }}" href="#vendorContactSubmenuNav" data-toggle="collapse" role="button"
-                        aria-expanded="{{ $__vendorContactsOpen ? 'true' : 'false' }}" aria-controls="vendorContactSubmenuNav"
-                        @if (!isWhatsAppBusinessAccountReady())
-                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                   @endif>
-                        <i class="fa fa-users icon-users "></i>
-                        <span class="">{{ __tr('Contacts') }}</span>
+                    <a class="nav-link {{ $__vendorIntegrationOpen ? '' : 'collapsed' }}" href="#vendorIntegrationSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorIntegrationOpen ? 'true' : 'false' }}" aria-controls="vendorIntegrationSubmenuNav">
+                        <i class="fas fa-plug icon-integration"></i>
+                        <span class="">{{ __tr('Integrations') }}</span>
                     </a>
-                <div class="collapse lw-expandable-nav {{ $__vendorContactsOpen ? 'show' : '' }}" id="vendorContactSubmenuNav">
-                    <ul class="nav nav-sm flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.contact.read.list_view') }}"
-                                href="{{ route('vendor.contact.read.list_view') }}">
-                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('All Contacts') }}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.contact.group.read.list_view') }}"
-                                href="{{ route('vendor.contact.group.read.list_view') }}">
-                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('Contact Groups') }}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.contact.custom_field.read.list_view') }}"
-                                href="{{ route('vendor.contact.custom_field.read.list_view') }}">
-                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('Add Input') }}
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </li>
-            @endif
+                    <div class="collapse lw-expandable-nav {{ $__vendorIntegrationOpen ? 'show' : '' }}" id="vendorIntegrationSubmenuNav">
+                        <ul class="nav nav-sm flex-column">
+                            
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'whatsapp-orders-setup') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'whatsapp-orders-setup']) ?>"
+                                    @if (!isWhatsAppBusinessAccountReady())
+                                        onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
+                                    @endif>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('Orders & Payments') !!}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'api-access') ? 'active' : '' ?>"
+                                    href="<?= route('vendor.settings.read', ['pageType' => 'api-access']) ?>">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('API Integration') !!}
+                                </a>
+                            </li>
+                            <li class="nav-item {{ $__sheetsActive ? 'active' : '' }}">
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('google-sheet-script.index') }}"
+                                    href="<?= route('google-sheet-script.index', ['pageType' => 'api-access']) ?>">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('Sheets Integration') !!}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                @endif
+                
                  @if (hasVendorAccess('manage_bot_replies')  )
                  <li class="nav-item">
                     @php
@@ -702,86 +807,7 @@
                         {{ __tr('My Plan') }}
                     </a>
                 </li>
-                <li class="nav-item">
-                        @php
-                            $__vendorSettingsOpen = !isWhatsAppBusinessAccountReady() || in_array(request('pageType'), [
-                                'general',
-                                'whatsapp-cloud-api-setup',
-                                'facebook-api-setup',
-                                'instagram-api-setup',
-                                'ai-chat-bot-setup',
-                                'whatsapp-orders-setup',
-                                'api-access',
-                            ]) || request()->routeIs('google-sheet-script.index');
-                        @endphp
-                        <a class="nav-link {{ isWhatsAppBusinessAccountReady() ? '' : 'text-warning' }} {{ $__vendorSettingsOpen ? '' : 'collapsed' }}" href="#vendorSettingsNav" data-toggle="collapse" role="button"
-                            aria-expanded="{{ $__vendorSettingsOpen ? 'true' : 'false' }}" aria-controls="vendorSettingsNav">
-                            <i class="fa fa-cog icon-settings"></i>
-                            <span class="">{{ __tr('Setup') }}</span>
-                        </a>
-                    <div class="collapse lw-expandable-nav {{ $__vendorSettingsOpen ? 'show' : '' }}" id="vendorSettingsNav">
-                        <ul class="nav nav-sm flex-column">
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'general') ? 'active' : '' ?>"
-                                    href="<?= route('vendor.settings.read', ['pageType' => 'general']) ?>"
-                                    @if (!isWhatsAppBusinessAccountReady())
-                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                   @endif>
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('Basic') }}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <strong><a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'whatsapp-cloud-api-setup') ? 'active' : '' ?> @if(!isWhatsAppBusinessAccountReady()) text-warning @endif"
-                                    href="<?= route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) ?>">
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-whatsapp text-success"></i> {{ __tr('WhatsApp Setup') }} @if(!isWhatsAppBusinessAccountReady())<i class="fas fa-exclamation-triangle ml-1"></i>@endif
-                                </a></strong>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'facebook-api-setup') ? 'active' : '' ?>"
-                                    href="<?= route('vendor.settings.read', ['pageType' => 'facebook-api-setup']) ?>">
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-facebook text-primary"></i> {{ __tr('Facebook Setup') }}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'instagram-api-setup') ? 'active' : '' ?>"
-                                    href="<?= route('vendor.settings.read', ['pageType' => 'instagram-api-setup']) ?>">
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fab fa-instagram text-danger"></i> {{ __tr('Instagram Setup') }}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'ai-chat-bot-setup') ? 'active' : '' ?>"
-                                    href="<?= route('vendor.settings.read', ['pageType' => 'ai-chat-bot-setup']) ?>"
-                                    @if (!isWhatsAppBusinessAccountReady())
-                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                   @endif>
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('Chatbot Settings') !!}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'whatsapp-orders-setup') ? 'active' : '' ?>"
-                                    href="<?= route('vendor.settings.read', ['pageType' => 'whatsapp-orders-setup']) ?>"
-                                    @if (!isWhatsAppBusinessAccountReady())
-                       onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
-                   @endif>
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('Orders & Payments') !!}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'api-access') ? 'active' : '' ?>"
-                                    href="<?= route('vendor.settings.read', ['pageType' => 'api-access']) ?>"
-                                    >
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('API Integration') !!}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'api-access') ? 'active' : '' ?>"
-                                    href="<?= route('google-sheet-script.index', ['pageType' => 'api-access']) ?>">
-                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{!! __tr('Sheets Integration') !!}
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </li>
+                
                 @endif
                 @endif
             </ul>

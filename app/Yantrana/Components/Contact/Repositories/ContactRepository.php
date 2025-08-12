@@ -305,6 +305,43 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
     }
 
     /**
+     * Delete all contacts for a vendor filtered by group and search term
+     *
+     * @param int $vendorId
+     * @param array $groupContactIds
+     * @param string|null $search
+     * @return int|false number of deleted rows or false
+     */
+    public function deleteAllForVendorByFilter(int $vendorId, array $groupContactIds = [], ?string $search = null)
+    {
+        try {
+            $query = $this->primaryModel::where([
+                'vendors__id' => $vendorId
+            ]);
+            $testUid = getVendorSettings('test_recipient_contact');
+            if ($testUid) {
+                $query->where('_uid', '!=', $testUid);
+            }
+            if (!empty($groupContactIds)) {
+                $query->whereIn('_id', $groupContactIds);
+            }
+            if ($search) {
+                $like = '%' . $search . '%';
+                $query->where(function ($q) use ($like) {
+                    $q->where('first_name', 'LIKE', $like)
+                      ->orWhere('last_name', 'LIKE', $like)
+                      ->orWhere('wa_id', 'LIKE', $like)
+                      ->orWhere('email', 'LIKE', $like)
+                      ->orWhere('countries__id', 'LIKE', $like);
+                });
+            }
+            return $query->delete();
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
      * Get all the contacts for vendor lazily with croup and custom field values
      *
      * @param int $vendorId

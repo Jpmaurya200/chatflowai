@@ -231,6 +231,44 @@ class ContactEngine extends BaseEngine implements ContactEngineInterface
     }
 
     /**
+     * Delete all contacts according to current filter (search) and optional group
+     *
+     * @param string|null $contactGroupUid
+     * @param string|null $search
+     * @return array
+     */
+    public function processDeleteAllContacts(?string $contactGroupUid = null, ?string $search = null)
+    {
+        $vendorId = getVendorId();
+
+        // Determine group scope
+        $groupContactIds = [];
+        if ($contactGroupUid) {
+            $contactGroup = $this->contactGroupRepository->fetchIt([
+                '_uid' => $contactGroupUid,
+                'vendors__id' => $vendorId,
+            ]);
+            if (!__isEmpty($contactGroup)) {
+                $groupContacts = $this->groupContactRepository->fetchItAll([
+                    'contact_groups__id' => $contactGroup->_id
+                ]);
+                $groupContactIds = $groupContacts->pluck('contacts__id')->toArray();
+            }
+        }
+
+        $deleted = $this->contactRepository->deleteAllForVendorByFilter($vendorId, $groupContactIds, (string) $search);
+
+        if ($deleted === false) {
+            return $this->engineFailedResponse([], __tr('Failed to delete Contacts'));
+        }
+
+        // if successful
+        return $this->engineSuccessResponse([
+            'reloadDatatableId' => '#lwContactList'
+        ], __tr('All matching contacts deleted successfully.'));
+    }
+
+    /**
      * Contact create
      *
      * @param  array  $inputData

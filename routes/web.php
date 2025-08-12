@@ -1159,6 +1159,11 @@ Route::middleware([
                     ContactController::class,
                     'selectedContactsDelete',
                 ])->name('vendor.contacts.selected.write.delete');
+                // delete all contacts (according to current filter)
+                Route::post('/delete-all-process/{groupUid?}', [
+                    ContactController::class,
+                    'deleteAllContacts',
+                ])->name('vendor.contacts.write.delete_all');
                 // assign group to selected contacts
                 Route::post('/assign-groups-selected-process', [
                     ContactController::class,

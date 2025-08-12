@@ -316,9 +316,9 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
             } );">
             <button x-show="!isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Select All') }}</button>
             <button x-show="isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Unselect All') }}</button>
-            <button x-show="isSelectedAll && selectedContacts.length" class="btn btn-neo btn-neo-gradient-red btn-sm my-2 ml-2" @click="deleteSelectedContacts">
+            <!-- <button x-show="isSelectedAll && selectedContacts.length" class="btn btn-neo btn-neo-gradient-red btn-sm my-2 ml-2" @click="deleteSelectedContacts">
                 <i class="fa fa-trash"></i> {{ __tr('All Contacts Delete') }}
-            </button>
+            </button> -->
             <div class="btn-group">
                 <button :class="!selectedContacts.length ? 'disabled' : ''"
                     class="btn btn-danger mt-1 btn-sm dropdown-toggle" type="button" data-toggle="dropdown"
@@ -370,12 +370,19 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                             <option value="50">50</option>
                             <option value="100" selected>100</option>
                             <option value="200">200</option>
+                            <option value="500">500</option>
                         </select>
                         <span class="entries-text">{{ __tr('entries') }}</span>
                     </div>
-                    <div class="search-control">
-                        <input type="text" id="tl-table-search" class="search-input" placeholder="{{ __tr('Search...') }}">
-                        <i class="fas fa-search search-icon"></i>
+                    <div class="right-controls">
+                        <div class="search-control">
+                            <input type="text" id="tl-table-search" class="search-input" placeholder="{{ __tr('Search...') }}">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <button id="tl-delete-all" type="button" class="btn btn-neo btn-neo-gradient-red ml-2" data-toggle="modal" data-target="#tlDeleteAllModal">
+                            <i class="fa fa-trash"></i> {{ __tr('Delete All') }}
+                        </button>
+                        <div class="info-control" id="tl-table-info" aria-live="polite" aria-atomic="true"></div>
                     </div>
                 </div>
 
@@ -406,6 +413,17 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                 </div>
             </div>
         </div>
+        <!-- Delete All confirmation modal -->
+        <x-lw.modal id="tlDeleteAllModal" :header="__tr('Confirm Delete All')" :hasForm="false">
+            <div class="lw-form-modal-body p-3">
+                <p class="mb-0">{{ __tr('This will permanently delete all contacts currently listed (respecting the current filter and group). This action cannot be undone.') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __tr('Cancel') }}</button>
+                <button type="button" id="tl-confirm-delete-all" class="btn btn-danger">{{ __tr('Delete All') }}</button>
+            </div>
+        </x-lw.modal>
+        <!-- /Delete All confirmation modal -->
         <!-- action template -->
         <script type="text/template" id="lwSelectMultipleContactsCheckbox">
             <input @click="toggle('<%- __tData._uid %>')" type="checkbox" name="selected_contacts[]" class="lw-checkboxes custom-checkbox" value="<%- __tData._uid %>">
@@ -470,20 +488,42 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
             // Set default select to current page length
             $('#tl-entries-per-page').val(table.page.len());
 
+                // Info updater
+                function updateTableInfo() {
+                    var info = table.page.info();
+                    if (!info) return;
+                    var start = info.recordsDisplay ? info.start + 1 : 0;
+                    var end = info.end;
+                    var total = info.recordsDisplay; // filtered count
+                    // Show filtered count if search active, else total records
+                    var isSearching = table.search() && table.search().length > 0;
+                    var totalText = isSearching ? info.recordsDisplay : info.recordsTotal;
+                    var text = `${'{{ __tr('Showing') }}'} ${start} ${'{{ __tr('to') }}'} ${end} ${'{{ __tr('of') }}'} ${totalText} ${'{{ __tr('entries') }}'}`;
+                    $('#tl-table-info').text(text);
+                }
+                updateTableInfo();
+
             // Change page length
             $('#tl-entries-per-page').off('change.contacts').on('change.contacts', function() {
                 var len = parseInt(this.value, 10) || 10;
                 table.page.len(len).draw();
+                    // info will refresh on draw
             });
 
             // Search
             $('#tl-table-search').off('keyup.contacts').on('keyup.contacts', function() {
                 table.search(this.value).draw();
+                    // info will refresh on draw
             });
 
             // Keep header controls responsive to redraws
             $('#lwContactList').on('draw.dt', function(){
                 $('#tl-entries-per-page').val(table.page.len());
+            });
+
+            // Update info on draw and page change
+            $('#lwContactList').on('draw.dt.updateInfo page.dt.updateInfo', function(){
+                updateTableInfo();
             });
 
             // Wire per-row "Select" in the actions dropdown to toggle the row checkbox
@@ -510,6 +550,15 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                     $tr.find('a.row-toggle-select').attr('data-uid', uid);
                 });
             });
+
+            // Handle Delete All confirmation, passing current search and group context
+            $('#tl-confirm-delete-all').off('click.contacts').on('click.contacts', function() {
+                var currentSearch = table.search() || '';
+                var postData = { search: currentSearch };
+                var url = "{{ route('vendor.contacts.write.delete_all', ['groupUid' => $groupUid]) }}";
+                __DataRequest.post(url, postData, function(response){}, {callback: function(){ table.ajax.reload(null, false); }});
+                $('#tlDeleteAllModal').modal('hide');
+            });
         }
 
         // Initialize after a small delay to allow DataTable setup
@@ -523,14 +572,17 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
     .entries-control { display: flex; align-items: center; gap: .5rem; color: #6b7280; }
     .entries-select { padding: .35rem .6rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #111827; min-width: 64px; }
     .entries-text { font-size: .9rem; color: #6b7280; }
+    .right-controls { display: flex; align-items: center; gap: 1rem; }
     .search-control { position: relative; }
     .search-input { padding: .5rem .9rem .5rem 2.2rem; border: 1px solid #cbd5e1; border-radius: 10px; min-width: 220px; }
     .search-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.12); border-color: #93c5fd; }
     .search-icon { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+    .info-control { font-size: .9rem; color: #6b7280; white-space: nowrap; }
 
     /* Hide default DataTables length & search since we use custom controls */
     .dataTables_wrapper .dataTables_length,
-    .dataTables_wrapper .dataTables_filter { display: none !important; }
+    .dataTables_wrapper .dataTables_filter,
+    .dataTables_wrapper .dataTables_info { display: none !important; }
 
     /* Modern DataTable Styles (scoped to this page) */
     .modern-datatable {
