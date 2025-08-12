@@ -1242,11 +1242,19 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
             } elseif ($templateComponent['type'] == 'CAROUSEL') {
                 $__hasCarousel = true;
                 // Handle carousel template message components
+                // For carousel templates, we need to structure it as a single component with proper indexing
+                // According to WhatsApp API, carousel should be structured as a single component
+                // The carousel component should be structured as a template component, not a message component
+                // For carousel templates, we need to structure it as a single component with proper card structure
+                // Ensure carousel component is structured correctly for WhatsApp API
                 $carouselComponent = [
                     'type' => 'CAROUSEL',
                     'cards' => []
                 ];
 
+                // Process carousel cards in order to ensure proper indexing
+                // Ensure cards are processed in the correct order to avoid duplicate indices
+                $carouselCards = [];
                 foreach ($templateComponent['cards'] as $cardIndex => $card) {
                     $cardComponent = [
                         'components' => []
@@ -1325,7 +1333,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                                     'type' => 'BODY',
                                     'parameters' => [
                                         [
-                                            'type' => 'TEXT',
+                                            'type' => 'text',
                                             'text' => $bodyParam
                                         ]
                                     ]
@@ -1343,7 +1351,7 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                                         'index' => '0',
                                         'parameters' => [
                                             [
-                                                'type' => 'TEXT',
+                                                'type' => 'text',
                                                 'text' => 'default_param'
                                             ]
                                         ]
@@ -1359,25 +1367,73 @@ class WhatsAppServiceEngine extends BaseEngine implements WhatsAppServiceEngineI
                         return $this->engineFailedResponse([], __tr('Carousel card __index__ is missing required header', ['__index__' => $cardIndex + 1]));
                     }
 
-                    $carouselComponent['cards'][] = $cardComponent;
+                    $carouselCards[] = $cardComponent;
                 }
 
-                if (count($carouselComponent['cards']) < 2) {
+                if (count($carouselCards) < 2) {
                     return $this->engineFailedResponse([], __tr('Carousel templates require at least 2 cards'));
                 }
+
+                // Assign cards to carousel component in order
+                $carouselComponent['cards'] = $carouselCards;
+
+
 
                 // DEBUG: log the built components for troubleshooting scheduler issues
                 if (config('app.debug')) {
                     \Log::debug('WA Carousel components payload', [
-                        // show what will be sent: BODY + CAROUSEL
-                        'components' => array_values(array_merge($componentBody, [$carouselComponent]))
+                        'carousel_component' => $carouselComponent,
+                        'total_cards' => count($carouselComponent['cards']),
+                        'card_count' => count($carouselCards),
+                        'template_cards_count' => count($templateComponent['cards'])
                     ]);
                 }
 
-                // Ensure BODY stays at index 0 and CAROUSEL follows it
-                $mainIndex++;
-                $componentBody[$mainIndex] = $carouselComponent;
-                $mainIndex++;
+                // For carousel templates, we need to structure it correctly for WhatsApp API
+                // The carousel should be the main component without explicit indices
+                // According to WhatsApp API, carousel templates should be sent as a single component
+                // The carousel component should be the only component in the message
+                // Ensure carousel is structured correctly for the API
+                $messageComponents = [$carouselComponent];
+                $contactId = $contact->_id;
+                $contactUid = $contact->_uid;
+
+                if ($isForCampaign) {
+                    return $this->engineSuccessResponse([
+                        'whatsAppTemplateName' => $whatsAppTemplate->template_name,
+                        'whatsAppTemplateLanguage' => $whatsAppTemplate->language,
+                        'templateProforma' => $templateProforma,
+                        'templateComponents' => $templateComponents,
+                        'messageComponents' => $messageComponents,
+                        'inputs' => $inputs,
+                        'fromPhoneNumberId' => is_array($request) ? ($request['from_phone_number_id'] ?? null) : $request->from_phone_number_id,
+                    ], __tr('Message prepared for WhatsApp campaign'));
+                }
+
+                $contactsData = [
+                    '_id' => $contact->_id,
+                    '_uid' => $contact->_uid,
+                    'first_name' => $contact->first_name,
+                    'last_name' => $contact->last_name,
+                    'countries__id' => $contact->countries__id,
+                    'is_template_test_contact' => is_array($request) ? ($request['is_template_test_contact'] ?? false) : $request->is_template_test_contact
+                ];
+                $processedResponse = $this->sendActualWhatsAppTemplateMessage(
+                    $vendorId,
+                    $contactId,
+                    $contactWhatsappNumber,
+                    $contactUid,
+                    $whatsAppTemplate->template_name,
+                    $whatsAppTemplate->language,
+                    $templateProforma,
+                    $templateComponents,
+                    $messageComponents,
+                    $campaignId,
+                    $contactsData,
+                    is_array($request) ? ($request['from_phone_number_id'] ?? null) : $request->from_phone_number_id
+                );
+                $processedResponse->updateData('inputs', $inputs);
+                return $processedResponse;
             } elseif ($templateComponent['type'] == 'BUTTONS') {
                 $componentButtonIndex = 0;
                 $skipComponentsCreations = [
