@@ -370,12 +370,16 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                             <option value="50">50</option>
                             <option value="100" selected>100</option>
                             <option value="200">200</option>
+                            <option value="500">500</option>
                         </select>
                         <span class="entries-text">{{ __tr('entries') }}</span>
                     </div>
-                    <div class="search-control">
-                        <input type="text" id="tl-table-search" class="search-input" placeholder="{{ __tr('Search...') }}">
-                        <i class="fas fa-search search-icon"></i>
+                    <div class="right-controls">
+                        <div class="search-control">
+                            <input type="text" id="tl-table-search" class="search-input" placeholder="{{ __tr('Search...') }}">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <div class="info-control" id="tl-table-info" aria-live="polite" aria-atomic="true"></div>
                     </div>
                 </div>
 
@@ -470,20 +474,42 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
             // Set default select to current page length
             $('#tl-entries-per-page').val(table.page.len());
 
+                // Info updater
+                function updateTableInfo() {
+                    var info = table.page.info();
+                    if (!info) return;
+                    var start = info.recordsDisplay ? info.start + 1 : 0;
+                    var end = info.end;
+                    var total = info.recordsDisplay; // filtered count
+                    // Show filtered count if search active, else total records
+                    var isSearching = table.search() && table.search().length > 0;
+                    var totalText = isSearching ? info.recordsDisplay : info.recordsTotal;
+                    var text = `${'{{ __tr('Showing') }}'} ${start} ${'{{ __tr('to') }}'} ${end} ${'{{ __tr('of') }}'} ${totalText} ${'{{ __tr('entries') }}'}`;
+                    $('#tl-table-info').text(text);
+                }
+                updateTableInfo();
+
             // Change page length
             $('#tl-entries-per-page').off('change.contacts').on('change.contacts', function() {
                 var len = parseInt(this.value, 10) || 10;
                 table.page.len(len).draw();
+                    // info will refresh on draw
             });
 
             // Search
             $('#tl-table-search').off('keyup.contacts').on('keyup.contacts', function() {
                 table.search(this.value).draw();
+                    // info will refresh on draw
             });
 
             // Keep header controls responsive to redraws
             $('#lwContactList').on('draw.dt', function(){
                 $('#tl-entries-per-page').val(table.page.len());
+            });
+
+            // Update info on draw and page change
+            $('#lwContactList').on('draw.dt.updateInfo page.dt.updateInfo', function(){
+                updateTableInfo();
             });
 
             // Wire per-row "Select" in the actions dropdown to toggle the row checkbox
@@ -523,14 +549,17 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
     .entries-control { display: flex; align-items: center; gap: .5rem; color: #6b7280; }
     .entries-select { padding: .35rem .6rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #111827; min-width: 64px; }
     .entries-text { font-size: .9rem; color: #6b7280; }
+    .right-controls { display: flex; align-items: center; gap: 1rem; }
     .search-control { position: relative; }
     .search-input { padding: .5rem .9rem .5rem 2.2rem; border: 1px solid #cbd5e1; border-radius: 10px; min-width: 220px; }
     .search-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.12); border-color: #93c5fd; }
     .search-icon { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+    .info-control { font-size: .9rem; color: #6b7280; white-space: nowrap; }
 
     /* Hide default DataTables length & search since we use custom controls */
     .dataTables_wrapper .dataTables_length,
-    .dataTables_wrapper .dataTables_filter { display: none !important; }
+    .dataTables_wrapper .dataTables_filter,
+    .dataTables_wrapper .dataTables_info { display: none !important; }
 
     /* Modern DataTable Styles (scoped to this page) */
     .modern-datatable {
