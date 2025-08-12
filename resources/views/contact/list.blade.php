@@ -316,9 +316,9 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
             } );">
             <button x-show="!isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Select All') }}</button>
             <button x-show="isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Unselect All') }}</button>
-            <button x-show="isSelectedAll && selectedContacts.length" class="btn btn-neo btn-neo-gradient-red btn-sm my-2 ml-2" @click="deleteSelectedContacts">
+            <!-- <button x-show="isSelectedAll && selectedContacts.length" class="btn btn-neo btn-neo-gradient-red btn-sm my-2 ml-2" @click="deleteSelectedContacts">
                 <i class="fa fa-trash"></i> {{ __tr('All Contacts Delete') }}
-            </button>
+            </button> -->
             <div class="btn-group">
                 <button :class="!selectedContacts.length ? 'disabled' : ''"
                     class="btn btn-danger mt-1 btn-sm dropdown-toggle" type="button" data-toggle="dropdown"
