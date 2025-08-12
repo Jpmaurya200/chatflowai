@@ -379,6 +379,9 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                             <input type="text" id="tl-table-search" class="search-input" placeholder="{{ __tr('Search...') }}">
                             <i class="fas fa-search search-icon"></i>
                         </div>
+                        <button id="tl-delete-all" type="button" class="btn btn-neo btn-neo-gradient-red ml-2" data-toggle="modal" data-target="#tlDeleteAllModal">
+                            <i class="fa fa-trash"></i> {{ __tr('Delete All') }}
+                        </button>
                         <div class="info-control" id="tl-table-info" aria-live="polite" aria-atomic="true"></div>
                     </div>
                 </div>
@@ -410,6 +413,17 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                 </div>
             </div>
         </div>
+        <!-- Delete All confirmation modal -->
+        <x-lw.modal id="tlDeleteAllModal" :header="__tr('Confirm Delete All')" :hasForm="false">
+            <div class="lw-form-modal-body p-3">
+                <p class="mb-0">{{ __tr('This will permanently delete all contacts currently listed (respecting the current filter and group). This action cannot be undone.') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __tr('Cancel') }}</button>
+                <button type="button" id="tl-confirm-delete-all" class="btn btn-danger">{{ __tr('Delete All') }}</button>
+            </div>
+        </x-lw.modal>
+        <!-- /Delete All confirmation modal -->
         <!-- action template -->
         <script type="text/template" id="lwSelectMultipleContactsCheckbox">
             <input @click="toggle('<%- __tData._uid %>')" type="checkbox" name="selected_contacts[]" class="lw-checkboxes custom-checkbox" value="<%- __tData._uid %>">
@@ -535,6 +549,15 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                     $tr.find('a.row-toggle-select .row-toggle-select-label').text(isChecked ? '{{ __tr('Unselect') }}' : '{{ __tr('Select') }}');
                     $tr.find('a.row-toggle-select').attr('data-uid', uid);
                 });
+            });
+
+            // Handle Delete All confirmation, passing current search and group context
+            $('#tl-confirm-delete-all').off('click.contacts').on('click.contacts', function() {
+                var currentSearch = table.search() || '';
+                var postData = { search: currentSearch };
+                var url = "{{ route('vendor.contacts.write.delete_all', ['groupUid' => $groupUid]) }}";
+                __DataRequest.post(url, postData, function(response){}, {callback: function(){ table.ajax.reload(null, false); }});
+                $('#tlDeleteAllModal').modal('hide');
             });
         }
 

@@ -118,6 +118,34 @@ class ContactController extends BaseController
         // get back to controller with engine response
         return $this->processResponse($processReaction, [], [], true);
     }
+
+    /**
+     * Delete all contacts according to current filter (search) and optional group
+     *
+     * @param BaseRequest $request
+     * @param string|null $groupUid
+     * @return json
+     */
+    public function deleteAllContacts(BaseRequest $request, $groupUid = null)
+    {
+        validateVendorAccess('manage_contacts');
+
+        // restrict demo user
+        if (isDemo() and isDemoVendorAccount()) {
+            return $this->processResponse(22, [
+                22 => __tr('Functionality is disabled in this demo.')
+            ], [], true);
+        }
+
+        $request->validate([
+            // optional search string mirrors DataTables filter
+            'search' => 'nullable|string|max:255',
+        ]);
+
+        $processReaction = $this->contactEngine->processDeleteAllContacts($groupUid, (string) $request->get('search'));
+
+        return $this->processResponse($processReaction, [], [], true);
+    }
     /**
      * Selected Contacts delete process
      *
