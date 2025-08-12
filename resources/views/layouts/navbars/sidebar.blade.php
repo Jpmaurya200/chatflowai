@@ -184,16 +184,27 @@
     
     /* Dropdown indicators */
     .nav-link[data-toggle="collapse"]::after {
-        content: '';
-        font-family: 'Font Awesome 5 Free';
-        font-weight: 900;
+        content: "\f054"; /* fa-chevron-right */
+        font-family: 'Font Awesome 5 Free', 'Font Awesome 6 Free';
+        font-weight: 900; /* solid */
         position: absolute;
-        right: 20px;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #ffffff !important; /* extreme white */
         transition: transform 0.2s ease;
+        display: inline-block;
+        pointer-events: none;
     }
     
     .nav-link[data-toggle="collapse"][aria-expanded="true"]::after {
-        transform: rotate(90deg);
+        transform: translateY(-50%) rotate(90deg);
+    }
+
+    /* Ensure space for indicator and proper positioning */
+    .navbar-vertical .navbar-nav .nav-link[data-toggle="collapse"] {
+        position: relative;
+        padding-right: 40px !important; /* room for chevron */
     }
     
     /* Section dividers */
@@ -324,12 +335,15 @@
                 </li>
                
                 <li class="nav-item">
-                    <a class="nav-link" href="#lwSubscriptionSubMenu" data-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="lwSubscriptionSubMenu">
+                    @php
+                        $__centralSubscriptionOpen = request()->routeIs('central.subscriptions', 'central.subscription.manual_subscription.read.list_view');
+                    @endphp
+                    <a class="nav-link {{ $__centralSubscriptionOpen ? '' : 'collapsed' }}" href="#lwSubscriptionSubMenu" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__centralSubscriptionOpen ? 'true' : 'false' }}" aria-controls="lwSubscriptionSubMenu">
                         <i class="fa fa-wallet icon-wallet"></i>
                         <span class="nav-link-text">{{ __tr('User Plans') }}</span>
                     </a>
-                    <div class="collapse show lw-expandable-nav" id="lwSubscriptionSubMenu">
+                    <div class="collapse lw-expandable-nav {{ $__centralSubscriptionOpen ? 'show' : '' }}" id="lwSubscriptionSubMenu">
                         <ul class="nav nav-sm flex-column">
                             <li class="nav-item {{ markAsActiveLink('central.subscriptions') }}">
                                 <a class="bg-primary-light nav-link nav-link-ul" href="{{ route('central.subscriptions') }}">
@@ -381,13 +395,16 @@
                 </li>
                 
                 <li class="nav-item">
-                    <a class="nav-link" href="#configurationMenu" data-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="configurationMenu">
+                    @php
+                        $__centralConfigOpen = in_array(request('pageType'), ['general','user','currency','payment','email','social-login','misc']) || request()->routeIs('manage.configuration.subscription-plans');
+                    @endphp
+                    <a class="nav-link {{ $__centralConfigOpen ? '' : 'collapsed' }}" href="#configurationMenu" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__centralConfigOpen ? 'true' : 'false' }}" aria-controls="configurationMenu">
                         <i class="fa fa-tools icon-tools"></i>
                         <span class="nav-link-text">{{ __tr('Settings') }}</span>
                     </a>
 
-                    <div class="collapse show lw-expandable-nav" id="configurationMenu">
+                    <div class="collapse lw-expandable-nav {{ $__centralConfigOpen ? 'show' : '' }}" id="configurationMenu">
                         <ul class="nav nav-sm flex-column">
                             <li class="nav-item">
                                 <a class="bg-primary-light nav-link nav-link-ul {{ request('pageType') == 'general' ? 'active' : '' }}"
@@ -457,12 +474,15 @@
                 </li>
                  @if (hasVendorAccess('messaging')  )
                 <li class="nav-item">
-                    <a class="nav-link" href="#vendorChannelsSubmenuNav" data-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="vendorChannelsSubmenuNav">
+                    @php
+                        $__vendorChannelsOpen = request()->routeIs('vendor.chat_message.contact.view', 'vendor.facebook.contact.chat.view', 'vendor.instagram.contact.chat.view');
+                    @endphp
+                    <a class="nav-link {{ $__vendorChannelsOpen ? '' : 'collapsed' }}" href="#vendorChannelsSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorChannelsOpen ? 'true' : 'false' }}" aria-controls="vendorChannelsSubmenuNav">
                         <i class="fa fa-comments icon-chat"></i>
                         <span class="">{{ __tr('Channels') }}</span>
                     </a>
-                    <div class="collapse lw-expandable-nav" id="vendorChannelsSubmenuNav">
+                    <div class="collapse lw-expandable-nav {{ $__vendorChannelsOpen ? 'show' : '' }}" id="vendorChannelsSubmenuNav">
                         <ul class="nav nav-sm flex-column">
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.chat_message.contact.view') }}"
@@ -515,18 +535,21 @@
                 @endif
                 @if (hasVendorAccess('manage_flows')  )
                 <li class="nav-item">
-                    <a class="nav-link" href="#vendorFlowSubmenuNav" data-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="vendorFlowSubmenuNav"
+                    @php
+                        $__vendorFlowsOpen = request()->routeIs('vendor.flow.read.list_view', 'whatsapp-flows.index');
+                    @endphp
+                    <a class="nav-link {{ $__vendorFlowsOpen ? '' : 'collapsed' }}" href="#vendorFlowSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorFlowsOpen ? 'true' : 'false' }}" aria-controls="vendorFlowSubmenuNav"
                         @if (!isWhatsAppBusinessAccountReady())
                        onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
                    @endif>
                         <i class="fas fa-sitemap gradient-icon-10"></i>
                         <span class="">{{ __tr('Flows') }}</span>
                     </a>
-                    <div class="collapse lw-expandable-nav" id="vendorFlowSubmenuNav">
+                    <div class="collapse lw-expandable-nav {{ $__vendorFlowsOpen ? 'show' : '' }}" id="vendorFlowSubmenuNav">
                         <ul class="nav nav-sm flex-column">
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.flow.read.list_view') }}"
+                                <a class="nav-link nav-link-ul {{ markAsActiveLink('whatsapp-flows.index') }}"
                                     href="{{ route('whatsapp-flows.index') }}">
                                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ __tr('All Flows') }}
                                 </a>
@@ -552,12 +575,15 @@
                 <!-- Integration Section -->
                 @if (hasVendorAccess('administrative'))
                 <li class="nav-item">
-                    <a class="nav-link" href="#vendorIntegrationSubmenuNav" data-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="vendorIntegrationSubmenuNav">
+                    @php
+                        $__vendorIntegrationOpen = request()->routeIs('vendor.integration.shopify.dashboard', 'vendor.integration.woocommerce.dashboard');
+                    @endphp
+                    <a class="nav-link {{ $__vendorIntegrationOpen ? '' : 'collapsed' }}" href="#vendorIntegrationSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorIntegrationOpen ? 'true' : 'false' }}" aria-controls="vendorIntegrationSubmenuNav">
                         <i class="fas fa-plug icon-integration"></i>
                         <span class="">{{ __tr('Integrations') }}</span>
                     </a>
-                    <div class="collapse lw-expandable-nav" id="vendorIntegrationSubmenuNav">
+                    <div class="collapse lw-expandable-nav {{ $__vendorIntegrationOpen ? 'show' : '' }}" id="vendorIntegrationSubmenuNav">
                         <ul class="nav nav-sm flex-column">
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.integration.shopify.dashboard') }}"
@@ -577,15 +603,22 @@
                 @endif
                 @if (hasVendorAccess('manage_contacts')  )
                 <li class="nav-item">
-                    <a class="nav-link" href="#vendorContactSubmenuNav" data-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="vendorContactSubmenuNav"
+                    @php
+                        $__vendorContactsOpen = request()->routeIs(
+                            'vendor.contact.read.list_view',
+                            'vendor.contact.group.read.list_view',
+                            'vendor.contact.custom_field.read.list_view'
+                        );
+                    @endphp
+                    <a class="nav-link {{ $__vendorContactsOpen ? '' : 'collapsed' }}" href="#vendorContactSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorContactsOpen ? 'true' : 'false' }}" aria-controls="vendorContactSubmenuNav"
                         @if (!isWhatsAppBusinessAccountReady())
                        onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
                    @endif>
                         <i class="fa fa-users icon-users "></i>
                         <span class="">{{ __tr('Contacts') }}</span>
                     </a>
-                <div class="collapse lw-expandable-nav" id="vendorContactSubmenuNav">
+                <div class="collapse lw-expandable-nav {{ $__vendorContactsOpen ? 'show' : '' }}" id="vendorContactSubmenuNav">
                     <ul class="nav nav-sm flex-column">
                         <li class="nav-item">
                             <a class="nav-link nav-link-ul {{ markAsActiveLink('vendor.contact.read.list_view') }}"
@@ -611,15 +644,18 @@
             @endif
                  @if (hasVendorAccess('manage_bot_replies')  )
                  <li class="nav-item">
-                    <a class="nav-link" href="#vendorAutomationSubmenuNav" data-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="vendorAutomationSubmenuNav"
+                    @php
+                        $__vendorAutomationOpen = request()->routeIs('vendor.bot_reply.read.list_view', 'vendor.bot_reply.bot_flow.read.list_view');
+                    @endphp
+                    <a class="nav-link {{ $__vendorAutomationOpen ? '' : 'collapsed' }}" href="#vendorAutomationSubmenuNav" data-toggle="collapse" role="button"
+                        aria-expanded="{{ $__vendorAutomationOpen ? 'true' : 'false' }}" aria-controls="vendorAutomationSubmenuNav"
                         @if (!isWhatsAppBusinessAccountReady())
                        onclick="alertAndRedirect(event, '{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}')"
                    @endif>
                         <i class="fas fa-robot icon-chatbot "></i>
                         <span class="">{{ __tr('Chatbot') }}</span>
                     </a>
-                <div class="collapse lw-expandable-nav" id="vendorAutomationSubmenuNav">
+                <div class="collapse lw-expandable-nav {{ $__vendorAutomationOpen ? 'show' : '' }}" id="vendorAutomationSubmenuNav">
                     <ul class="nav nav-sm flex-column">
                         <li class="nav-item">
                         
@@ -667,12 +703,23 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                        <a class="nav-link @if(isWhatsAppBusinessAccountReady()) collapsed @else text-warning @endif" href="#vendorSettingsNav" data-toggle="collapse" role="button"
-                            aria-expanded="@php echo !isWhatsAppBusinessAccountReady() ? 'true' : 'false'; @endphp" aria-controls="vendorSettingsNav">
+                        @php
+                            $__vendorSettingsOpen = !isWhatsAppBusinessAccountReady() || in_array(request('pageType'), [
+                                'general',
+                                'whatsapp-cloud-api-setup',
+                                'facebook-api-setup',
+                                'instagram-api-setup',
+                                'ai-chat-bot-setup',
+                                'whatsapp-orders-setup',
+                                'api-access',
+                            ]) || request()->routeIs('google-sheet-script.index');
+                        @endphp
+                        <a class="nav-link {{ isWhatsAppBusinessAccountReady() ? '' : 'text-warning' }} {{ $__vendorSettingsOpen ? '' : 'collapsed' }}" href="#vendorSettingsNav" data-toggle="collapse" role="button"
+                            aria-expanded="{{ $__vendorSettingsOpen ? 'true' : 'false' }}" aria-controls="vendorSettingsNav">
                             <i class="fa fa-cog icon-settings"></i>
                             <span class="">{{ __tr('Setup') }}</span>
                         </a>
-                    <div class="collapse @if(!isWhatsAppBusinessAccountReady()) show @endif lw-expandable-nav" id="vendorSettingsNav">
+                    <div class="collapse lw-expandable-nav {{ $__vendorSettingsOpen ? 'show' : '' }}" id="vendorSettingsNav">
                         <ul class="nav nav-sm flex-column">
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ul <?= (isset($pageType) and $pageType == 'general') ? 'active' : '' ?>"
