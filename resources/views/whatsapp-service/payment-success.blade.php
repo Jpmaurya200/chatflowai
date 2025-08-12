@@ -51,7 +51,7 @@
                                         <p><strong>{{ __tr('Status') }}:</strong> 
                                             <span class="badge badge-success">{{ ucfirst($payment->status) }}</span>
                                         </p>
-                                        <p><strong>{{ __tr('Gateway') }}:</strong> {{ ucfirst($payment->gateway) }}</p>
+                                        <p><strong>{{ __tr('Gateway') }}:</strong> {{ $payment->gateway_label }}</p>
                                         @if($payment->payment_completed_at)
                                             <p><strong>{{ __tr('Completed At') }}:</strong> {{ $payment->payment_completed_at->format('M d, Y H:i') }}</p>
                                         @endif

@@ -808,13 +808,13 @@
                                                                 <span x-text="item.text_variable"></span>
                                                             </span>
                                                         </div>
-                                                        <input type="text" class="form-control"
+                                                        <!-- <input type="text" class="form-control"
                                                             x-bind:name="'example_body_fields[' + item.text_variable.replace(/\{\{(\d+)\}\}/g, '$1') + ']'"
                                                             required="required"
                                                             placeholder="{{ __tr('Enter example value (required)') }}"
                                                             style="box-shadow: 0 0 6px rgba(38,156,76,0.3); transition: box-shadow 0.4s ease; border: 2px solid #ffc107;"
                                                             onfocus="this.style.boxShadow='0 0 10px 2px rgba(38,156,76,0.6)'; this.style.borderColor='#269C4C';"
-                                                            onblur="this.style.boxShadow='0 0 6px rgba(38,156,76,0.3)'; this.style.borderColor='#ffc107';" />
+                                                            onblur="this.style.boxShadow='0 0 6px rgba(38,156,76,0.3)'; this.style.borderColor='#ffc107';" /> -->
                                                     </div>
                                                 </div>
                                             </template>

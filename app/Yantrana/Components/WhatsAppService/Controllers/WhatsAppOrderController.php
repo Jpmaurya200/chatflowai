@@ -541,5 +541,63 @@ class WhatsAppOrderController extends BaseController
             ], 500);
         }
     }
+
+    /**
+     * Handle PhonePe payment webhook
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function handlePhonePeWebhook(Request $request): JsonResponse
+    {
+        try {
+            Log::info('PhonePe webhook received', [
+                'headers' => $request->headers->all(),
+                'payload_keys' => array_keys($request->all()),
+                'merchant_transaction_id' => $request->input('merchantTransactionId'),
+                'code' => $request->input('code'),
+            ]);
+
+            $payload = $request->all();
+            
+            // Extract vendor ID from the webhook payload if possible
+            $vendorId = null;
+            if (isset($payload['merchantTransactionId'])) {
+                $payment = $this->whatsAppPaymentRepository->fetchByPaymentId($payload['merchantTransactionId']);
+                if ($payment) {
+                    $vendorId = $payment->vendors__id;
+                }
+            }
+            
+            $result = $this->whatsAppPaymentService->processPaymentWebhook($payload, 'phonepe', $vendorId);
+            
+            if ($result['success']) {
+                Log::info('PhonePe webhook processed successfully', [
+                    'merchant_transaction_id' => $request->input('merchantTransactionId'),
+                    'code' => $request->input('code'),
+                    'vendor_id' => $vendorId,
+                    'result' => $result,
+                ]);
+                return response()->json(['status' => 'success']);
+            }
+            
+            Log::warning('PhonePe webhook processing failed', [
+                'error' => $result['message'],
+                'merchant_transaction_id' => $request->input('merchantTransactionId'),
+                'code' => $request->input('code'),
+            ]);
+            
+            return response()->json(['error' => $result['message']], 400);
+            
+        } catch (\Exception $e) {
+            Log::error('PhonePe webhook error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all(),
+            ]);
+            
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
 }
 

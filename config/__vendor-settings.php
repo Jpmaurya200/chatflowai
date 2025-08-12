@@ -677,7 +677,7 @@ return [
                 'validation_rules' => [
                     'required_if:payment_gateway_enabled,on',
                     'nullable',
-                    'in:razorpay'
+                    'in:razorpay,phonepe'
                 ],
             ],
             // Razorpay Settings
@@ -714,6 +714,57 @@ return [
                 'validation_rules' => [
                     'nullable',
                     'string'
+                ],
+            ],
+            // PhonePe Settings
+            'phonepe_merchant_id' => [
+                'key' => 'phonepe_merchant_id',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required_if:payment_gateway,phonepe',
+                    'nullable',
+                    'string'
+                ],
+            ],
+            'phonepe_salt_key' => [
+                'key' => 'phonepe_salt_key',
+                'data_type' => 1,    // string
+                'default' => '',
+                'hide_value' => true,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required_if:payment_gateway,phonepe',
+                    'nullable',
+                    'string'
+                ],
+            ],
+            'phonepe_salt_index' => [
+                'key' => 'phonepe_salt_index',
+                'data_type' => 3,    // number
+                'default' => 1,
+                'hide_value' => false,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required_if:payment_gateway,phonepe',
+                    'nullable',
+                    'numeric',
+                    'min:1',
+                    'max:10'
+                ],
+            ],
+            'phonepe_environment' => [
+                'key' => 'phonepe_environment',
+                'data_type' => 1,    // string
+                'default' => 'UAT',
+                'hide_value' => false,
+                'ignore_empty' => true,
+                'validation_rules' => [
+                    'required_if:payment_gateway,phonepe',
+                    'nullable',
+                    'in:UAT,PROD'
                 ],
             ],
         ],

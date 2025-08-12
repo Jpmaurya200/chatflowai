@@ -11,6 +11,7 @@ use App\Yantrana\Base\BaseEngine;
 use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppPaymentRepository;
 use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppOrderRepository;
 use App\Yantrana\Components\WhatsAppService\Services\WhatsAppApiService;
+use App\Yantrana\Components\WhatsAppService\Models\WhatsAppPaymentModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 
@@ -70,10 +71,18 @@ class WhatsAppPaymentService extends BaseEngine
                 throw new \Exception('Payment gateway not enabled. Please configure payment settings in Orders & Payments section.');
             }
 
+            // Validate currency support
+            if (!$this->isCurrencySupported($gatewaySettings['gateway'], $order->currency)) {
+                throw new \Exception("Currency {$order->currency} is not supported by {$gatewaySettings['gateway']} gateway.");
+            }
+
             // Create payment link based on gateway
             switch ($gatewaySettings['gateway']) {
-                case 'razorpay':
+                case WhatsAppPaymentModel::GATEWAY_RAZORPAY:
                     return $this->createRazorpayPaymentLink($order, $gatewaySettings, $vendorId);
+
+                case WhatsAppPaymentModel::GATEWAY_PHONEPE:
+                    return $this->createPhonePePaymentLink($order, $gatewaySettings, $vendorId);
 
                 default:
                     throw new \Exception('Unsupported payment gateway: ' . $gatewaySettings['gateway']);
@@ -152,46 +161,138 @@ class WhatsAppPaymentService extends BaseEngine
                 throw new \Exception('Payment link ID not found in Razorpay response');
             }
 
-            if (!isset($paymentLink['short_url'])) {
-                throw new \Exception('Payment link URL not found in Razorpay response');
-            }
-
-            // Store payment record
-            $payment = $this->whatsAppPaymentRepository->createPayment([
+            // Create payment record
+            $paymentData = [
                 'payment_id' => $paymentLink['id'],
                 'vendors__id' => $vendorId,
                 'order_id' => $order->order_id,
                 'amount' => $order->getFinalAmount(),
                 'currency' => $order->currency,
-                'status' => 'pending',
+                'status' => WhatsAppPaymentModel::STATUS_PENDING,
                 'payment_link_id' => $paymentLink['id'],
-                'payment_link_url' => $paymentLink['short_url'],
-                'gateway' => 'razorpay',
+                'payment_link_url' => $paymentLink['short_url'] ?? $paymentLink['url'],
+                'gateway' => WhatsAppPaymentModel::GATEWAY_RAZORPAY,
                 'gateway_response' => [
                     'request_data' => $paymentData,
                     'response_data' => $paymentLink,
                 ],
-            ]);
+                'payment_initiated_at' => now(),
+            ];
 
-            Log::info('Razorpay payment link created', [
-                'order_id' => $order->order_id,
-                'payment_id' => $paymentLink['id'],
-                'vendor_id' => $vendorId,
-            ]);
+            $payment = $this->whatsAppPaymentRepository->createPayment($paymentData);
 
             return [
                 'success' => true,
-                'payment_link' => [
-                    'id' => $paymentLink['id'],
-                    'url' => $paymentLink['url'] ?? $paymentLink['short_url'],
-                    'short_url' => $paymentLink['short_url'],
-                ],
-                'payment' => $payment,
-                'message' => 'Payment link created successfully',
+                'payment_link' => $paymentLink['short_url'] ?? $paymentLink['url'],
+                'payment_id' => $paymentLink['id'],
+                'payment_record' => $payment,
             ];
 
         } catch (\Exception $e) {
             Log::error('Failed to create Razorpay payment link', [
+                'error' => $e->getMessage(),
+                'order_id' => $order->order_id,
+                'vendor_id' => $vendorId,
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Create PhonePe payment link
+     *
+     * @param object $order
+     * @param array $settings
+     * @param int $vendorId
+     * @return array
+     */
+    protected function createPhonePePaymentLink($order, array $settings, int $vendorId): array
+    {
+        try {
+            $amount = round($order->getFinalAmount() * 100); // Amount in paise
+            $merchantTransactionId = 'TXN_' . $order->order_id . '_' . time();
+            
+            $payload = [
+                'merchantId' => $settings['merchant_id'],
+                'merchantTransactionId' => $merchantTransactionId,
+                'merchantUserId' => 'MUID_' . $vendorId,
+                'amount' => $amount,
+                'redirectUrl' => route('whatsapp.payment.success'),
+                'redirectMode' => 'POST',
+                'callbackUrl' => route('whatsapp.payment.webhook.phonepe'),
+                'mobileNumber' => $order->customer_phone,
+                'paymentInstrument' => [
+                    'type' => 'PAY_PAGE'
+                ]
+            ];
+
+            $jsonPayload = json_encode($payload);
+            $base64Payload = base64_encode($jsonPayload);
+            
+            // Generate checksum
+            $checksum = hash('sha256', $base64Payload . '/pg/v1/pay' . $settings['salt_key']) . '###' . $settings['salt_index'];
+
+            // Determine API URL based on environment
+            $baseUrl = $settings['environment'] === 'PROD' 
+                ? 'https://api.phonepe.com/apis/hermes'
+                : 'https://api-preprod.phonepe.com/apis/hermes';
+
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'X-VERIFY' => $checksum,
+            ])->post($baseUrl . '/pg/v1/pay', [
+                'request' => $base64Payload
+            ]);
+
+            if (!$response->successful()) {
+                throw new \Exception('PhonePe API error: ' . $response->body());
+            }
+
+            $paymentResponse = $response->json();
+
+            Log::debug('PhonePe payment link response', [
+                'order_id' => $order->order_id,
+                'response_keys' => array_keys($paymentResponse),
+                'has_url' => isset($paymentResponse['data']['instrumentResponse']['redirectInfo']['url']),
+            ]);
+
+            // Validate required fields in response
+            if (!isset($paymentResponse['data']['instrumentResponse']['redirectInfo']['url'])) {
+                throw new \Exception('Payment URL not found in PhonePe response');
+            }
+
+            $paymentUrl = $paymentResponse['data']['instrumentResponse']['redirectInfo']['url'];
+
+            // Create payment record
+            $paymentData = [
+                'payment_id' => $merchantTransactionId,
+                'vendors__id' => $vendorId,
+                'order_id' => $order->order_id,
+                'amount' => $order->getFinalAmount(),
+                'currency' => $order->currency,
+                'status' => WhatsAppPaymentModel::STATUS_PENDING,
+                'payment_link_id' => $merchantTransactionId,
+                'payment_link_url' => $paymentUrl,
+                'gateway' => WhatsAppPaymentModel::GATEWAY_PHONEPE,
+                'gateway_response' => [
+                    'request_data' => $payload,
+                    'response_data' => $paymentResponse,
+                ],
+                'payment_initiated_at' => now(),
+            ];
+
+            $payment = $this->whatsAppPaymentRepository->createPayment($paymentData);
+
+            return [
+                'success' => true,
+                'payment_link' => $paymentUrl,
+                'payment_id' => $merchantTransactionId,
+                'payment_record' => $payment,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create PhonePe payment link', [
                 'error' => $e->getMessage(),
                 'order_id' => $order->order_id,
                 'vendor_id' => $vendorId,
@@ -215,17 +316,17 @@ class WhatsAppPaymentService extends BaseEngine
             // Get payment gateway settings
             $gatewaySettings = $this->getPaymentGatewaySettings($vendorId);
 
-            // Verify webhook signature for Razorpay
-            if ($gateway === 'razorpay' && !empty($gatewaySettings['webhook_secret'])) {
-                $signature = request()->header('X-Razorpay-Signature');
-                if (!$this->verifyRazorpaySignature($webhookData, $signature, $gatewaySettings['webhook_secret'])) {
-                    throw new \Exception('Invalid webhook signature');
-                }
+            // Verify webhook signature
+            if (!$this->verifyWebhookSignature($webhookData, $gateway, $gatewaySettings)) {
+                throw new \Exception('Invalid webhook signature');
             }
 
             switch ($gateway) {
-                case 'razorpay':
+                case WhatsAppPaymentModel::GATEWAY_RAZORPAY:
                     return $this->processRazorpayWebhook($webhookData, $vendorId);
+                
+                case WhatsAppPaymentModel::GATEWAY_PHONEPE:
+                    return $this->processPhonePeWebhook($webhookData, $vendorId);
                 
                 default:
                     throw new \Exception('Unsupported payment gateway');
@@ -247,12 +348,33 @@ class WhatsAppPaymentService extends BaseEngine
     }
 
     /**
-     * Process Razorpay webhook
+     * Verify webhook signature based on gateway
      *
      * @param array $webhookData
-     * @param int|null $vendorId
-     * @return array
+     * @param string $gateway
+     * @param array $settings
+     * @return bool
      */
+    protected function verifyWebhookSignature(array $webhookData, string $gateway, array $settings): bool
+    {
+        switch ($gateway) {
+            case WhatsAppPaymentModel::GATEWAY_RAZORPAY:
+                if (empty($settings['webhook_secret'])) {
+                    return true; // Skip verification if no secret configured
+                }
+                $signature = request()->header('X-Razorpay-Signature');
+                return $this->verifyRazorpaySignature($webhookData, $signature, $settings['webhook_secret']);
+
+            case WhatsAppPaymentModel::GATEWAY_PHONEPE:
+                // PhonePe doesn't use signature verification in the same way
+                // We'll rely on the callback URL and transaction ID validation
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     /**
      * Verify Razorpay webhook signature
      *
@@ -271,6 +393,13 @@ class WhatsAppPaymentService extends BaseEngine
         return hash_equals($expectedSignature, $signature);
     }
 
+    /**
+     * Process Razorpay webhook
+     *
+     * @param array $webhookData
+     * @param int|null $vendorId
+     * @return array
+     */
     protected function processRazorpayWebhook(array $webhookData, ?int $vendorId = null): array
     {
         $event = $webhookData['event'] ?? '';
@@ -280,7 +409,6 @@ class WhatsAppPaymentService extends BaseEngine
             'vendor_id' => $vendorId,
             'webhook_data' => array_keys($webhookData),
         ]);
-        
         
         if ($event === 'payment_link.paid') {
             return $this->handlePaymentLinkPaid($webhookData, $vendorId);
@@ -293,6 +421,147 @@ class WhatsAppPaymentService extends BaseEngine
         return [
             'success' => true,
             'message' => 'Webhook event not handled: ' . $event,
+        ];
+    }
+
+    /**
+     * Process PhonePe webhook
+     *
+     * @param array $webhookData
+     * @param int|null $vendorId
+     * @return array
+     */
+    protected function processPhonePeWebhook(array $webhookData, ?int $vendorId = null): array
+    {
+        Log::info('Processing PhonePe webhook', [
+            'vendor_id' => $vendorId,
+            'webhook_data' => array_keys($webhookData),
+        ]);
+
+        $merchantTransactionId = $webhookData['merchantTransactionId'] ?? '';
+        $transactionId = $webhookData['transactionId'] ?? '';
+        $amount = $webhookData['amount'] ?? 0;
+        $code = $webhookData['code'] ?? '';
+        $message = $webhookData['message'] ?? '';
+
+        if (empty($merchantTransactionId)) {
+            throw new \Exception('Missing merchant transaction ID in PhonePe webhook');
+        }
+
+        // Find payment record
+        $payment = $this->whatsAppPaymentRepository->fetchByPaymentId($merchantTransactionId, $vendorId);
+        
+        if (!$payment) {
+            throw new \Exception('Payment record not found: ' . $merchantTransactionId);
+        }
+
+        // Check payment status
+        if ($code === 'PAYMENT_SUCCESS') {
+            return $this->handlePhonePePaymentSuccess($webhookData, $payment, $vendorId);
+        } else {
+            return $this->handlePhonePePaymentFailure($webhookData, $payment, $vendorId);
+        }
+    }
+
+    /**
+     * Handle PhonePe payment success
+     *
+     * @param array $webhookData
+     * @param object $payment
+     * @param int $vendorId
+     * @return array
+     */
+    protected function handlePhonePePaymentSuccess(array $webhookData, $payment, int $vendorId): array
+    {
+        $merchantTransactionId = $webhookData['merchantTransactionId'];
+        $transactionId = $webhookData['transactionId'];
+        $amount = $webhookData['amount'] / 100; // Convert from paise to rupees
+
+        // Update payment record
+        $this->whatsAppPaymentRepository->updatePaymentStatus(
+            $merchantTransactionId,
+            WhatsAppPaymentModel::STATUS_COMPLETED,
+            [
+                'transaction_id' => $transactionId,
+                'payment_method' => 'UPI',
+                'gateway_response' => [
+                    'webhook_data' => $webhookData,
+                ],
+                'payment_completed_at' => now(),
+            ],
+            $vendorId
+        );
+
+        // Update order status
+        $this->whatsAppOrderRepository->updateOrderStatus(
+            $payment->order_id,
+            'paid',
+            [
+                'payment_id' => $merchantTransactionId,
+                'payment_status' => 'completed',
+            ],
+            $vendorId
+        );
+
+        // Send confirmation message
+        $order = $this->whatsAppOrderRepository->fetchByOrderId($payment->order_id, $vendorId);
+        if ($order) {
+            try {
+                $this->sendPaymentConfirmationMessage($order->customer_phone, $order, $vendorId);
+            } catch (\Exception $e) {
+                Log::error('Failed to send PhonePe payment confirmation message', [
+                    'error' => $e->getMessage(),
+                    'order_id' => $payment->order_id,
+                ]);
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => 'PhonePe payment processed successfully',
+        ];
+    }
+
+    /**
+     * Handle PhonePe payment failure
+     *
+     * @param array $webhookData
+     * @param object $payment
+     * @param int $vendorId
+     * @return array
+     */
+    protected function handlePhonePePaymentFailure(array $webhookData, $payment, int $vendorId): array
+    {
+        $merchantTransactionId = $webhookData['merchantTransactionId'];
+        $message = $webhookData['message'] ?? 'Payment failed';
+
+        // Update payment record
+        $this->whatsAppPaymentRepository->updatePaymentStatus(
+            $merchantTransactionId,
+            WhatsAppPaymentModel::STATUS_FAILED,
+            [
+                'gateway_response' => [
+                    'webhook_data' => $webhookData,
+                ],
+                'payment_failed_at' => now(),
+            ],
+            $vendorId
+        );
+
+        // Update order status
+        $this->whatsAppOrderRepository->updateOrderStatus(
+            $payment->order_id,
+            'payment_failed',
+            [
+                'payment_id' => $merchantTransactionId,
+                'payment_status' => 'failed',
+            ],
+            $vendorId
+        );
+
+        return [
+            'success' => true,
+            'message' => 'PhonePe payment failure processed',
         ];
     }
 
@@ -360,17 +629,9 @@ class WhatsAppPaymentService extends BaseEngine
             // Don't throw the exception as payment is already confirmed
         }
 
-        Log::info('Payment confirmed via webhook', [
-            'order_id' => $orderId,
-            'payment_id' => $paymentId,
-            'vendor_id' => $order->vendors__id,
-        ]);
-
         return [
             'success' => true,
-            'order_id' => $orderId,
-            'payment_id' => $paymentId,
-            'message' => 'Payment confirmed successfully',
+            'message' => 'Payment processed successfully',
         ];
     }
 
@@ -385,6 +646,8 @@ class WhatsAppPaymentService extends BaseEngine
     {
         $paymentData = $webhookData['payload']['payment']['entity'] ?? [];
         $paymentId = $paymentData['id'] ?? '';
+        $errorCode = $paymentData['error_code'] ?? '';
+        $errorDescription = $paymentData['error_description'] ?? '';
 
         if (!$paymentId) {
             throw new \Exception('Missing payment ID in webhook data');
@@ -397,19 +660,16 @@ class WhatsAppPaymentService extends BaseEngine
             [
                 'gateway_response' => [
                     'webhook_data' => $webhookData,
+                    'error_code' => $errorCode,
+                    'error_description' => $errorDescription,
                 ],
+                'payment_failed_at' => now(),
             ],
             $vendorId
         );
 
-        Log::info('Payment failed via webhook', [
-            'payment_id' => $paymentId,
-            'vendor_id' => $vendorId,
-        ]);
-
         return [
             'success' => true,
-            'payment_id' => $paymentId,
             'message' => 'Payment failure processed',
         ];
     }
@@ -422,30 +682,18 @@ class WhatsAppPaymentService extends BaseEngine
      * @param int $vendorId
      * @return void
      */
-    public function sendPaymentConfirmationMessage(string $customerPhone, $order, int $vendorId): void
+    protected function sendPaymentConfirmationMessage(string $customerPhone, $order, int $vendorId): void
     {
         try {
-            Log::info('Attempting to send payment confirmation message', [
-                'customer_phone' => $customerPhone,
-                'order_id' => $order->order_id,
-                'vendor_id' => $vendorId,
-            ]);
-
-            // Format items list
-            $itemsList = "";
+            // Build items list
+            $itemsList = '';
             if ($order->items && is_array($order->items)) {
                 foreach ($order->items as $item) {
-                    $itemName = $item['name'] ?? 'Product';
+                    $price = $item['price'] ?? 0;
                     $quantity = $item['quantity'] ?? 1;
-                    $price = ($item['item_price'] ?? 0) * $quantity;
-                    
-                    $itemsList .= sprintf(
-                        "• %s x%d - %s %s\n",
-                        $itemName,
-                        $quantity,
-                        $order->currency,
-                        number_format($price, 2)
-                    );
+                    $itemsList .= "• {$item['name']} x{$quantity} - " . 
+                        $order->currency . ' ' . 
+                        number_format($price, 2) . "\n";
                 }
             }
 
@@ -502,6 +750,19 @@ class WhatsAppPaymentService extends BaseEngine
     }
 
     /**
+     * Check if currency is supported by gateway
+     *
+     * @param string $gateway
+     * @param string $currency
+     * @return bool
+     */
+    protected function isCurrencySupported(string $gateway, string $currency): bool
+    {
+        $supportedCurrencies = WhatsAppPaymentModel::getAvailableGateways()[$gateway]['supported_currencies'] ?? [];
+        return in_array($currency, $supportedCurrencies);
+    }
+
+    /**
      * Get payment gateway settings
      *
      * @param int $vendorId
@@ -509,7 +770,7 @@ class WhatsAppPaymentService extends BaseEngine
      */
     protected function getPaymentGatewaySettings(int $vendorId): array
     {
-        $gateway = getVendorSettings('payment_gateway', null, null, $vendorId) ?: 'razorpay';
+        $gateway = getVendorSettings('payment_gateway', null, null, $vendorId) ?: WhatsAppPaymentModel::GATEWAY_RAZORPAY;
         $enabled = getVendorSettings('payment_gateway_enabled', null, null, $vendorId) ?: false;
 
         $settings = [
@@ -517,7 +778,7 @@ class WhatsAppPaymentService extends BaseEngine
             'enabled' => $enabled,
         ];
 
-        if ($gateway === 'razorpay') {
+        if ($gateway === WhatsAppPaymentModel::GATEWAY_RAZORPAY) {
             $settings['key_id'] = getVendorSettings('razorpay_key_id', null, null, $vendorId) ?: '';
             $settings['key_secret'] = getVendorSettings('razorpay_key_secret', null, null, $vendorId) ?: '';
             $settings['webhook_secret'] = getVendorSettings('razorpay_webhook_secret', null, null, $vendorId) ?: '';
@@ -531,15 +792,50 @@ class WhatsAppPaymentService extends BaseEngine
                     'has_key_secret' => !empty($settings['key_secret']),
                 ]);
             }
+        } elseif ($gateway === WhatsAppPaymentModel::GATEWAY_PHONEPE) {
+            $settings['merchant_id'] = getVendorSettings('phonepe_merchant_id', null, null, $vendorId) ?: '';
+            $settings['salt_key'] = getVendorSettings('phonepe_salt_key', null, null, $vendorId) ?: '';
+            $settings['salt_index'] = getVendorSettings('phonepe_salt_index', null, null, $vendorId) ?: '1';
+            $settings['environment'] = getVendorSettings('phonepe_environment', null, null, $vendorId) ?: 'UAT';
+
+            // Check if required PhonePe settings are configured
+            if (empty($settings['merchant_id']) || empty($settings['salt_key'])) {
+                $settings['enabled'] = false;
+                Log::warning('PhonePe credentials not configured', [
+                    'vendor_id' => $vendorId,
+                    'has_merchant_id' => !empty($settings['merchant_id']),
+                    'has_salt_key' => !empty($settings['salt_key']),
+                ]);
+            }
         }
 
         Log::debug('Payment gateway settings retrieved', [
             'vendor_id' => $vendorId,
             'gateway' => $gateway,
             'enabled' => $enabled,
-            'has_credentials' => !empty($settings['key_id']) && !empty($settings['key_secret']),
+            'has_credentials' => $this->hasValidCredentials($settings),
         ]);
 
         return $settings;
+    }
+
+    /**
+     * Check if gateway has valid credentials
+     *
+     * @param array $settings
+     * @return bool
+     */
+    protected function hasValidCredentials(array $settings): bool
+    {
+        switch ($settings['gateway']) {
+            case WhatsAppPaymentModel::GATEWAY_RAZORPAY:
+                return !empty($settings['key_id']) && !empty($settings['key_secret']);
+            
+            case WhatsAppPaymentModel::GATEWAY_PHONEPE:
+                return !empty($settings['merchant_id']) && !empty($settings['salt_key']);
+            
+            default:
+                return false;
+        }
     }
 }

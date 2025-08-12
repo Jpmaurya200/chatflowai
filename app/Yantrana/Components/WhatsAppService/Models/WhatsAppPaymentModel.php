@@ -14,6 +14,23 @@ use App\Yantrana\Components\Vendor\Models\VendorModel;
 class WhatsAppPaymentModel extends BaseModel
 {
     /**
+     * Payment Gateway Constants
+     */
+    const GATEWAY_RAZORPAY = 'razorpay';
+    const GATEWAY_PHONEPE = 'phonepe';
+    
+    /**
+     * Payment Status Constants
+     */
+    const STATUS_PENDING = 'pending';
+    const STATUS_PROCESSING = 'processing';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_FAILED = 'failed';
+    const STATUS_CANCELLED = 'cancelled';
+    const STATUS_REFUNDED = 'refunded';
+    const STATUS_PARTIALLY_REFUNDED = 'partially_refunded';
+
+    /**
      * @var string - The database table used by the model.
      */
     protected $table = 'whatsapp_payments';
@@ -78,6 +95,7 @@ class WhatsAppPaymentModel extends BaseModel
         'is_successful',
         'is_failed',
         'is_pending',
+        'gateway_label',
     ];
 
     /**
@@ -110,16 +128,29 @@ class WhatsAppPaymentModel extends BaseModel
     protected function getStatusLabelAttribute(): string
     {
         $statusLabels = [
-            'pending' => 'Pending',
-            'processing' => 'Processing',
-            'completed' => 'Completed',
-            'failed' => 'Failed',
-            'cancelled' => 'Cancelled',
-            'refunded' => 'Refunded',
-            'partially_refunded' => 'Partially Refunded',
+            self::STATUS_PENDING => 'Pending',
+            self::STATUS_PROCESSING => 'Processing',
+            self::STATUS_COMPLETED => 'Completed',
+            self::STATUS_FAILED => 'Failed',
+            self::STATUS_CANCELLED => 'Cancelled',
+            self::STATUS_REFUNDED => 'Refunded',
+            self::STATUS_PARTIALLY_REFUNDED => 'Partially Refunded',
         ];
 
         return $statusLabels[$this->status] ?? ucfirst($this->status);
+    }
+
+    /**
+     * Get gateway label
+     */
+    protected function getGatewayLabelAttribute(): string
+    {
+        $gatewayLabels = [
+            self::GATEWAY_RAZORPAY => 'Razorpay',
+            self::GATEWAY_PHONEPE => 'PhonePe',
+        ];
+
+        return $gatewayLabels[$this->gateway] ?? ucfirst($this->gateway);
     }
 
     /**
@@ -127,7 +158,7 @@ class WhatsAppPaymentModel extends BaseModel
      */
     protected function getIsSuccessfulAttribute(): bool
     {
-        return $this->status === 'completed';
+        return $this->status === self::STATUS_COMPLETED;
     }
 
     /**
@@ -135,7 +166,7 @@ class WhatsAppPaymentModel extends BaseModel
      */
     protected function getIsFailedAttribute(): bool
     {
-        return in_array($this->status, ['failed', 'cancelled']);
+        return in_array($this->status, [self::STATUS_FAILED, self::STATUS_CANCELLED]);
     }
 
     /**
@@ -143,7 +174,39 @@ class WhatsAppPaymentModel extends BaseModel
      */
     protected function getIsPendingAttribute(): bool
     {
-        return in_array($this->status, ['pending', 'processing']);
+        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_PROCESSING]);
+    }
+
+    /**
+     * Get available payment gateways
+     */
+    public static function getAvailableGateways(): array
+    {
+        return [
+            self::GATEWAY_RAZORPAY => [
+                'name' => 'Razorpay',
+                'description' => 'Popular payment gateway for Indian businesses',
+                'supported_currencies' => ['INR', 'USD'],
+                'webhook_url' => 'whatsapp.payment.webhook.razorpay',
+            ],
+            self::GATEWAY_PHONEPE => [
+                'name' => 'PhonePe',
+                'description' => 'UPI-based payment solution',
+                'supported_currencies' => ['INR'],
+                'webhook_url' => 'whatsapp.payment.webhook.phonepe',
+            ],
+        ];
+    }
+
+    /**
+     * Check if gateway supports currency
+     */
+    public function isCurrencySupported(string $currency): bool
+    {
+        $gateways = self::getAvailableGateways();
+        $gateway = $gateways[$this->gateway] ?? null;
+        
+        return $gateway && in_array($currency, $gateway['supported_currencies']);
     }
 
     /**
@@ -183,11 +246,47 @@ class WhatsAppPaymentModel extends BaseModel
     }
 
     /**
+     * Set gateway-specific metadata
+     */
+    public function setGatewayMetadata(string $key, $value): void
+    {
+        $data = $this->__data ?? [];
+        $data['gateway_metadata'][$key] = $value;
+        $this->__data = $data;
+    }
+
+    /**
+     * Get gateway-specific metadata
+     */
+    public function getGatewayMetadata(string $key, $default = null)
+    {
+        return $this->__data['gateway_metadata'][$key] ?? $default;
+    }
+
+    /**
+     * Set customer details
+     */
+    public function setCustomerDetails(array $details): void
+    {
+        $data = $this->__data ?? [];
+        $data['customer_details'] = $details;
+        $this->__data = $data;
+    }
+
+    /**
+     * Get customer details
+     */
+    public function getCustomerDetails(): array
+    {
+        return $this->__data['customer_details'] ?? [];
+    }
+
+    /**
      * Mark payment as completed
      */
     public function markAsCompleted(string $transactionId = null): void
     {
-        $this->status = 'completed';
+        $this->status = self::STATUS_COMPLETED;
         $this->payment_completed_at = now();
         
         if ($transactionId) {
@@ -200,7 +299,7 @@ class WhatsAppPaymentModel extends BaseModel
      */
     public function markAsFailed(string $reason = null): void
     {
-        $this->status = 'failed';
+        $this->status = self::STATUS_FAILED;
         $this->payment_failed_at = now();
         
         if ($reason) {
@@ -209,11 +308,32 @@ class WhatsAppPaymentModel extends BaseModel
     }
 
     /**
+     * Mark payment as processing
+     */
+    public function markAsProcessing(): void
+    {
+        $this->status = self::STATUS_PROCESSING;
+    }
+
+    /**
+     * Mark payment as cancelled
+     */
+    public function markAsCancelled(string $reason = null): void
+    {
+        $this->status = self::STATUS_CANCELLED;
+        $this->payment_failed_at = now();
+        
+        if ($reason) {
+            $this->setPaymentMetadata('cancellation_reason', $reason);
+        }
+    }
+
+    /**
      * Check if payment can be refunded
      */
     public function canBeRefunded(): bool
     {
-        return $this->status === 'completed';
+        return $this->status === self::STATUS_COMPLETED;
     }
 
     /**
@@ -226,5 +346,56 @@ class WhatsAppPaymentModel extends BaseModel
         }
 
         return $this->payment_initiated_at->diffInMinutes($this->payment_completed_at);
+    }
+
+    /**
+     * Get gateway webhook URL
+     */
+    public function getWebhookUrl(): string
+    {
+        $gateways = self::getAvailableGateways();
+        $gateway = $gateways[$this->gateway] ?? null;
+        
+        return $gateway ? route($gateway['webhook_url']) : '';
+    }
+
+    /**
+     * Scope for filtering by gateway
+     */
+    public function scopeByGateway($query, string $gateway)
+    {
+        return $query->where('gateway', $gateway);
+    }
+
+    /**
+     * Scope for filtering by status
+     */
+    public function scopeByStatus($query, string $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Scope for successful payments
+     */
+    public function scopeSuccessful($query)
+    {
+        return $query->where('status', self::STATUS_COMPLETED);
+    }
+
+    /**
+     * Scope for failed payments
+     */
+    public function scopeFailed($query)
+    {
+        return $query->whereIn('status', [self::STATUS_FAILED, self::STATUS_CANCELLED]);
+    }
+
+    /**
+     * Scope for pending payments
+     */
+    public function scopePending($query)
+    {
+        return $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_PROCESSING]);
     }
 }

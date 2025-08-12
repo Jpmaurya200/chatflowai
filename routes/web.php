@@ -1701,6 +1701,11 @@ Route::post('/whatsapp/payment/webhook/razorpay', [
     'handleRazorpayWebhook',
 ])->name('whatsapp.payment.webhook.razorpay');
 
+Route::post('/whatsapp/payment/webhook/phonepe', [
+    WhatsAppOrderController::class,
+    'handlePhonePeWebhook',
+])->name('whatsapp.payment.webhook.phonepe');
+
 // Payment success page
 Route::get('/whatsapp/payment/success', [
     WhatsAppOrderController::class,
