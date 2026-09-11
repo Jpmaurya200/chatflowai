@@ -12,7 +12,8 @@ RUN apk update && apk add --no-cache \
     freetype-dev \
     libzip-dev \
     oniguruma-dev \
-    icu-dev
+    icu-dev \
+    && mkdir -p /run/nginx /var/log/nginx /var/lib/nginx/tmp
 
 # Configure and install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
