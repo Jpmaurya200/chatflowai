@@ -13,6 +13,7 @@ RUN apk update && apk add --no-cache \
     libzip-dev \
     oniguruma-dev \
     icu-dev \
+    mariadb-client \
     && mkdir -p /run/nginx /var/log/nginx /var/lib/nginx/tmp
 
 # Configure and install PHP extensions
@@ -46,9 +47,10 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 # Copy Nginx configuration
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 
-# Copy and setup entrypoint
+# Copy and setup entrypoint & worker
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY docker/worker.sh /usr/local/bin/worker.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/worker.sh
 
 # Expose port 80
 EXPOSE 80
