@@ -444,28 +444,32 @@ if (! function_exists('getAppSettings')) {
 
         $appSettings = [];
         $exceptItems = config('__settings.autoload_exceptions', []);
-        if (!empty($exceptItems) and $itemName and in_array($itemName, $exceptItems)) {
-            $configurationSetting = \App\Yantrana\Components\Configuration\Models\ConfigurationModel::where('name', $itemName)->select('name', 'value', 'data_type')->first();
-            if (!__isEmpty($configurationSetting)) {
-                $appSettings[$configurationSetting->name] = $configurationSetting->value;
-            }
-            $storeConfiguration = $appSettings;
-        } else {
-            $storeConfiguration = viaFlashCache('app_setting_all', function () use (&$appSettings, &$exceptItems) {
-                $configurationSettings = \App\Yantrana\Components\Configuration\Models\ConfigurationModel::select('name', 'value', 'data_type');
-                if (!empty($exceptItems)) {
-                    $configurationSettings->whereNotIn('name', $exceptItems);
+        try {
+            if (!empty($exceptItems) and $itemName and in_array($itemName, $exceptItems)) {
+                $configurationSetting = \App\Yantrana\Components\Configuration\Models\ConfigurationModel::where('name', $itemName)->select('name', 'value', 'data_type')->first();
+                if (!__isEmpty($configurationSetting)) {
+                    $appSettings[$configurationSetting->name] = $configurationSetting->value;
                 }
-                $configurationSettings = $configurationSettings->get();
-                // check if configuration settings exists in db
-                if (! __isEmpty($configurationSettings)) {
-                    foreach ($configurationSettings as $configurationSetting) {
-                        $appSettings[$configurationSetting->name] = $configurationSetting->value;
+                $storeConfiguration = $appSettings;
+            } else {
+                $storeConfiguration = viaFlashCache('app_setting_all', function () use (&$appSettings, &$exceptItems) {
+                    $configurationSettings = \App\Yantrana\Components\Configuration\Models\ConfigurationModel::select('name', 'value', 'data_type');
+                    if (!empty($exceptItems)) {
+                        $configurationSettings->whereNotIn('name', $exceptItems);
                     }
-                }
-                unset($configurationSettings);
-                return $appSettings;
-            });
+                    $configurationSettings = $configurationSettings->get();
+                    // check if configuration settings exists in db
+                    if (! __isEmpty($configurationSettings)) {
+                        foreach ($configurationSettings as $configurationSetting) {
+                            $appSettings[$configurationSetting->name] = $configurationSetting->value;
+                        }
+                    }
+                    unset($configurationSettings);
+                    return $appSettings;
+                });
+            }
+        } catch (\Throwable $e) {
+            $storeConfiguration = [];
         }
         // Fetch default setting
         $defaultSettings = config('__settings.items');
