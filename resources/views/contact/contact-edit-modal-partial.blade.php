@@ -40,7 +40,7 @@
             <option value="">{{ __tr('Select Groups') }}</option>
             @if(isset($vendorContactGroups) && $vendorContactGroups)
                 @foreach($vendorContactGroups as $vendorContactGroup)
-                <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
+                <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} ({{ $vendorContactGroup['contacts_count'] ?? 0 }} contacts) {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
                 @endforeach
             @endif
         </x-slot>

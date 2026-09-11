@@ -1,31 +1,48 @@
 <!-- Top navbar -->
 <style>
-    /* Match sidebar look: green gradient, white text/icons */
+    /* Modern SaaS Top Navbar */
     #navbar-main {
-        background: #10B981 !important; /* fallback */
-        background: linear-gradient(180deg, #10B981 0%, #237D59 100%) !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        background: #FFFFFF !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
     }
     #navbar-main .navbar-nav .nav-link,
     #navbar-main .navbar-brand,
     #navbar-main .h1,
     #navbar-main .h4,
     #navbar-main .h5 {
-        color: #ffffff !important;
+        color: #0F172A !important;
     }
     #navbar-main .nav-link:hover,
     #navbar-main .nav-link:focus {
-        color: #ffffff !important;
-        opacity: 0.9;
+        color: #10B981 !important;
     }
     #navbar-main .circular-icon {
-        color: currentColor !important;
+        background-color: #F1F5F9;
+        color: #475569 !important;
+        transition: all 0.15s ease;
     }
-    /* Keep dropdown readable on light background */
+    #navbar-main .circular-icon:hover {
+        background-color: #E2E8F0;
+        color: #0F172A !important;
+    }
     #navbar-main .dropdown-menu {
-        border-radius: 10px;
-        border: 1px solid rgba(0,0,0,0.05);
-        box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+        border-radius: 12px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+        padding: 8px;
+    }
+    #navbar-main .dropdown-item {
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 13.5px;
+        padding: 8px 14px;
+        color: #334155;
+        transition: all 0.15s ease;
+    }
+    #navbar-main .dropdown-item:hover {
+        background-color: #F8FAFC;
+        color: #10B981;
     }
 </style>
 <nav class="navbar navbar-top shadow navbar-expand-md navbar-dark d-lg-flex d-none" id="navbar-main">

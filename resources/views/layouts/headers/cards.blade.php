@@ -18,51 +18,35 @@ $vendorViewBySuperAdmin = false;
             <div class="row pb-0 pt-3 pt-lg-6 d-flex align-items-stretch mt-4">
                 <div class="col-12 p-0">
                     <div class="welcome-card" style="
-                        background-size: 18px 18px;
+                        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
                         border-radius: 16px;
-                        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2);
+                        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
                         overflow: hidden;
                         position: relative;
-                        transition: all 0.4s ease;
                     ">
-                        <div class="card-body p-3 p-md-2">
-                            <div class="row align-items-center ml-2">
-                                <div class="col-md-8">
-                                    <h1 class="mb-2 font-weight-bold" style="font-size: 2rem; color: #14532d;">
-                                        Welcome, {{ getUserAuthInfo('profile.first_name') }}!
-                                    </h1>
-                                    <p class="text-black mb-3" style="font-size: 0.95rem; color: #14532d;">
-                                        Manage your WhatsApp business communications, create campaigns,
-                                        <br>and engage with your customers all in one place.
+                        <div class="card-body p-4">
+                            <div class="row align-items-center">
+                                <div class="col-lg-8">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <h1 class="mb-0 font-weight-bold" style="font-size: 1.85rem; color: #FFFFFF;">
+                                            Welcome, {{ getUserAuthInfo('profile.first_name') }}!
+                                        </h1>
+                                        <span class="badge ml-3" style="background: rgba(16, 185, 129, 0.2); color: #34D399; font-size: 11px;">PRO</span>
+                                    </div>
+                                    <p class="mb-0" style="font-size: 0.95rem; color: #94A3B8;">
+                                        Manage your WhatsApp Cloud API, launch high-conversion campaigns, and automate customer conversations.
                                     </p>
                                 </div>
-
-                                <div class="d-flex flex-wrap">
-                                    <!-- View Plan Button -->
-                                    <a href="{{ route('subscription.read.show') }}" class="btn font-weight-bold mr-3 mb-md-0" style="
-                                        padding: 10px 20px;
-                                        border-radius: 8px;
-                                        background-color: #ffffff;
-                                        color: #14532d;
-                                        transition: all 0.3s ease;
-                                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                                    " onmouseover="this.style.backgroundColor='#14532d'; this.style.color='white'"
-                                    onmouseout="this.style.backgroundColor='white'; this.style.color='#14532d'">
-                                        <i class="fas fa-crown mr-2"></i> View Plan
-                                    </a>
-
-                                    <!-- API Setup Button -->
-                                    <a href="{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}" class="btn font-weight-bold mr-3 mb-md-0" style="
-                                        padding: 10px 20px;
-                                        border-radius: 8px;
-                                        background-color: #ffffff;
-                                        color: #14532d;
-                                        transition: all 0.3s ease;
-                                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                                    " onmouseover="this.style.backgroundColor='#14532d'; this.style.color='white'" 
-                                    onmouseout="this.style.backgroundColor='white'; this.style.color='#14532d'">
-                                        <i class="fas fa-cog mr-2"></i> API Setup
-                                    </a>
+                                <div class="col-lg-4 text-lg-right mt-3 mt-lg-0">
+                                    <div class="d-flex flex-wrap justify-content-lg-end" style="gap: 10px;">
+                                        <a href="{{ route('subscription.read.show') }}" class="btn btn-sm btn-secondary" style="border-radius: 8px;">
+                                            <i class="fas fa-crown text-warning mr-1"></i> View Plan
+                                        </a>
+                                        <a href="{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}" class="btn btn-sm btn-primary" style="border-radius: 8px;">
+                                            <i class="fab fa-whatsapp mr-1"></i> API Setup
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -181,13 +165,25 @@ $vendorViewBySuperAdmin = false;
                     <div class="">
                     @if (!empty(getVendorSettings('whatsapp_phone_numbers')))
                     @foreach (getVendorSettings('whatsapp_phone_numbers') as $whatsappPhoneNumber)
+                        @php
+                            $qualityRating = strtoupper($whatsappPhoneNumber['quality_rating'] ?? 'GREEN');
+                            $qualityBg = ($qualityRating === 'GREEN') ? '#ecfdf5' : (($qualityRating === 'YELLOW') ? '#fef3c7' : '#fee2e2');
+                            $qualityColor = ($qualityRating === 'GREEN') ? '#059669' : (($qualityRating === 'YELLOW') ? '#d97706' : '#dc2626');
+                            $qualityDot = ($qualityRating === 'GREEN') ? '#10b981' : (($qualityRating === 'YELLOW') ? '#f59e0b' : '#ef4444');
+                        @endphp
                         <div class="text-center">
-                            <img class="lw-qr-image" src="{{ route('vendor.whatsapp_qr', [
+                            <img class="lw-qr-image mb-2" src="{{ route('vendor.whatsapp_qr', [
                             'vendorUid' => getVendorUid(),
                             'phoneNumber' => cleanDisplayPhoneNumber($whatsappPhoneNumber['display_phone_number']),
                         ]) }}">
-                            <div class="h2 text-dark font-weight-bold">{{ $whatsappPhoneNumber['verified_name'] }}</div>
-                            <div class="h3 text-primary font-weight-bold">{{ $whatsappPhoneNumber['display_phone_number'] }}</div>
+                            <div class="h3 text-dark font-weight-bold mb-0">{{ $whatsappPhoneNumber['verified_name'] }}</div>
+                            <div class="h5 text-primary font-weight-bold mb-2">{{ $whatsappPhoneNumber['display_phone_number'] }}</div>
+                            <div class="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill" style="background-color: {{ $qualityBg }}; border: 1px solid {{ $qualityColor }}30;">
+                                <span class="rounded-circle d-inline-block mr-1" style="width: 7px; height: 7px; background-color: {{ $qualityDot }};"></span>
+                                <span class="small font-weight-bold" style="color: {{ $qualityColor }}; font-size: 11px;">
+                                    {{ __tr('Meta Quality Health') }}: {{ $qualityRating }}
+                                </span>
+                            </div>
                         </div>
                     @endforeach
                     @endif

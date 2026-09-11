@@ -65,6 +65,13 @@ class WhatsAppOrderService extends BaseEngine
         try {
             $vendorId = $vendorId ?: getVendorId();
             
+            // Debug: Log order data structure
+            Log::debug('Processing catalog order', [
+                'customer_phone' => $customerPhone,
+                'vendor_id' => $vendorId,
+                'order_data_structure' => $this->debugOrderDataStructure($orderData, $vendorId),
+            ]);
+            
             // Get or create contact
             $contact = $this->getOrCreateContact($customerPhone, $vendorId);
             
@@ -72,7 +79,7 @@ class WhatsAppOrderService extends BaseEngine
             $orderId = $this->whatsAppOrderRepository->generateOrderId($vendorId);
             
             // Calculate totals
-            $totals = $this->calculateOrderTotals($orderData['product_items']);
+            $totals = $this->calculateOrderTotals($orderData['product_items'], $vendorId);
             
             // Create order
             $order = $this->whatsAppOrderRepository->createOrder([
@@ -101,6 +108,12 @@ class WhatsAppOrderService extends BaseEngine
                 throw new \Exception('Failed to create order');
             }
 
+            // Debug: Log the created order's item structure
+            Log::debug('Created order item structure', [
+                'order_id' => $orderId,
+                'order_debug_data' => $order->debugOrderData(),
+            ]);
+
             // Send order confirmation message
             $this->sendOrderConfirmationMessage($customerPhone, $order, $vendorId);
 
@@ -108,7 +121,11 @@ class WhatsAppOrderService extends BaseEngine
                 'order_id' => $orderId,
                 'customer_phone' => $customerPhone,
                 'vendor_id' => $vendorId,
+                'subtotal' => $totals['subtotal'],
+                'tax_amount' => $totals['tax'],
+                'shipping_amount' => $totals['shipping'],
                 'total_amount' => $totals['total'],
+                'currency' => $totals['currency'],
             ]);
 
             return [
@@ -193,7 +210,7 @@ class WhatsAppOrderService extends BaseEngine
                               "• Reply to this chat\n" .
                               "• We'll arrange payment and delivery\n\n" .
                               "📝 *Order ID: #{$order->order_id}*\n" .
-                              "💰 *Amount: {$order->fresh()->formatted_total_amount}*\n\n" .
+                              "💰 *Amount: {$order->fresh()->formatted_final_amount}*\n\n" .
                               "Thank you for your patience! 🙏";
 
                 $this->whatsAppApiService->sendMessage($customerPhone, $errorMessage, $vendorId);
@@ -248,7 +265,7 @@ class WhatsAppOrderService extends BaseEngine
         $confirmationMessage = "🛍️ *Order Confirmed!*\n\n" .
                               "Thank you for your order!\n\n" .
                               "📝 Order ID: #{$order->order_id}\n" .
-                              "💰 Total: {$order->formatted_total_amount}\n\n" .
+                              "💰 Total: {$order->formatted_final_amount}\n\n" .
                               "📦 Items:\n{$order->formatted_items}";
 
         $this->whatsAppApiService->sendMessage($customerPhone, $confirmationMessage, $vendorId);
@@ -283,16 +300,16 @@ class WhatsAppOrderService extends BaseEngine
      *
      * @param string $customerPhone
      * @param object $order
-     * @param array $paymentLink
+     * @param string $paymentLink
      * @param int $vendorId
      * @return void
      */
-    protected function sendPaymentMessage(string $customerPhone, $order, array $paymentLink, int $vendorId): void
+    protected function sendPaymentMessage(string $customerPhone, $order, string $paymentLink, int $vendorId): void
     {
         $message = "✅ *Address Confirmed!*\n\n" .
                   "📍 *Delivery Address:*\n{$order->delivery_address}\n\n" .
-                  "💳 *Complete Payment:*\n{$paymentLink['short_url']}\n\n" .
-                  "💰 *Amount: {$order->formatted_total_amount}*\n\n" .
+                  "💳 *Complete Payment:*\n{$paymentLink}\n\n" .
+                  "💰 *Amount: {$order->formatted_final_amount}*\n\n" .
                   "🔒 *Secure Payment Options:*\n\n" .
                   "⏰ Payment link expires in 24 hours";
 
@@ -303,10 +320,13 @@ class WhatsAppOrderService extends BaseEngine
      * Calculate order totals
      *
      * @param array $items
+     * @param int|null $vendorId
      * @return array
      */
-    protected function calculateOrderTotals(array $items): array
+    protected function calculateOrderTotals(array $items, ?int $vendorId = null): array
     {
+        $vendorId = $vendorId ?: getVendorId();
+        
         $subtotal = 0;
         
         foreach ($items as $item) {
@@ -316,11 +336,24 @@ class WhatsAppOrderService extends BaseEngine
         }
 
         // Get tax and shipping settings from vendor settings
-        $taxRate = getVendorSettings('order_tax_rate', 0) / 100;
-        $shippingAmount = getVendorSettings('order_shipping_amount', 0);
+        $taxRate = getVendorSettings('order_tax_rate', null, null, $vendorId) ?: 0;
+        $shippingAmount = getVendorSettings('order_shipping_amount', null, null, $vendorId) ?: 0;
+        
+        // Convert tax rate from percentage to decimal
+        $taxRate = floatval($taxRate) / 100;
         
         $taxAmount = $subtotal * $taxRate;
         $total = $subtotal + $taxAmount + $shippingAmount;
+
+        Log::debug('Order totals calculated', [
+            'vendor_id' => $vendorId,
+            'subtotal' => $subtotal,
+            'tax_rate' => $taxRate * 100, // Log as percentage
+            'tax_amount' => $taxAmount,
+            'shipping_amount' => $shippingAmount,
+            'total' => $total,
+            'currency' => getVendorSettings('order_currency', null, null, $vendorId) ?: 'INR',
+        ]);
 
         return [
             'subtotal' => $subtotal,
@@ -328,7 +361,7 @@ class WhatsAppOrderService extends BaseEngine
             'shipping' => $shippingAmount,
             'discount' => 0,
             'total' => $total,
-            'currency' => getVendorSettings('order_currency', 'INR'),
+            'currency' => getVendorSettings('order_currency', null, null, $vendorId) ?: 'INR',
         ];
     }
 
@@ -355,5 +388,78 @@ class WhatsAppOrderService extends BaseEngine
         }
 
         return $contact;
+    }
+
+    /**
+     * Debug order data structure (for troubleshooting)
+     *
+     * @param array $orderData
+     * @param int|null $vendorId
+     * @return array
+     */
+    public function debugOrderDataStructure(array $orderData, ?int $vendorId = null): array
+    {
+        $vendorId = $vendorId ?: getVendorId();
+        
+        $debug = [
+            'vendor_id' => $vendorId,
+            'order_data_keys' => array_keys($orderData),
+            'product_items_count' => count($orderData['product_items'] ?? []),
+            'product_items_structure' => [],
+        ];
+
+        if (!empty($orderData['product_items'])) {
+            foreach ($orderData['product_items'] as $index => $item) {
+                $debug['product_items_structure'][$index] = [
+                    'available_fields' => array_keys($item),
+                    'product_retailer_id' => $item['product_retailer_id'] ?? null,
+                    'name' => $item['name'] ?? null,
+                    'title' => $item['title'] ?? null,
+                    'product_name' => $item['product_name'] ?? null,
+                    'display_name' => $item['display_name'] ?? null,
+                    'description' => $item['description'] ?? null,
+                    'quantity' => $item['quantity'] ?? null,
+                    'item_price' => $item['item_price'] ?? null,
+                    'price' => $item['price'] ?? null,
+                ];
+            }
+        }
+
+        return $debug;
+    }
+
+    /**
+     * Test order totals calculation (for debugging)
+     *
+     * @param array $items
+     * @param int|null $vendorId
+     * @return array
+     */
+    public function testOrderTotalsCalculation(array $items, ?int $vendorId = null): array
+    {
+        $vendorId = $vendorId ?: getVendorId();
+        
+        // Get current vendor settings
+        $taxRate = getVendorSettings('order_tax_rate', null, null, $vendorId) ?: 0;
+        $shippingAmount = getVendorSettings('order_shipping_amount', null, null, $vendorId) ?: 0;
+        $currency = getVendorSettings('order_currency', null, null, $vendorId) ?: 'INR';
+        
+        // Calculate totals
+        $totals = $this->calculateOrderTotals($items, $vendorId);
+        
+        return [
+            'vendor_id' => $vendorId,
+            'vendor_settings' => [
+                'tax_rate' => $taxRate,
+                'shipping_amount' => $shippingAmount,
+                'currency' => $currency,
+            ],
+            'calculated_totals' => $totals,
+            'debug_info' => [
+                'tax_rate_decimal' => floatval($taxRate) / 100,
+                'tax_calculation' => $totals['subtotal'] . ' * ' . (floatval($taxRate) / 100) . ' = ' . $totals['tax'],
+                'total_calculation' => $totals['subtotal'] . ' + ' . $totals['tax'] . ' + ' . $totals['shipping'] . ' = ' . $totals['total'],
+            ],
+        ];
     }
 }

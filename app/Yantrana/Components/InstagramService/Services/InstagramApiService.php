@@ -903,6 +903,13 @@ class InstagramApiService extends BaseEngine
             if ($response->successful()) {
                 $data = $response->json();
 
+                Log::info('Instagram Media Posts API Response', [
+                    'has_data' => isset($data['data']),
+                    'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                    'response_keys' => array_keys($data),
+                    'sample_data' => isset($data['data'][0]) ? $data['data'][0] : null
+                ]);
+
                 if (isset($data['data'])) {
                     return [
                         'success' => true,
@@ -910,8 +917,24 @@ class InstagramApiService extends BaseEngine
                         'paging' => $data['paging'] ?? null,
                         'message' => 'Media posts retrieved successfully'
                     ];
+                } else {
+                    // Return empty array if data key doesn't exist
+                    Log::warning('Instagram Media API response missing data key', [
+                        'response' => $data
+                    ]);
+                    return [
+                        'success' => true,
+                        'data' => [],
+                        'paging' => null,
+                        'message' => 'No media posts found'
+                    ];
                 }
             }
+
+            Log::error('Instagram Media Posts API Failed', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
 
             return [
                 'success' => false,
@@ -951,7 +974,7 @@ class InstagramApiService extends BaseEngine
         try {
             $url = "https://graph.instagram.com/{$mediaId}";
             $params = [
-                'fields' => 'comments{username,text,timestamp,id}',
+                'fields' => 'comments{from,text,timestamp,id}',
                 'access_token' => $accessToken
             ];
 
@@ -963,15 +986,43 @@ class InstagramApiService extends BaseEngine
             if ($response->successful()) {
                 $data = $response->json();
 
+                Log::info('Instagram Comments API Response', [
+                    'media_id' => $mediaId,
+                    'has_comments' => isset($data['comments']),
+                    'has_comments_data' => isset($data['comments']['data']),
+                    'comments_count' => isset($data['comments']['data']) ? count($data['comments']['data']) : 0,
+                    'response_keys' => array_keys($data),
+                    'sample_comment' => isset($data['comments']['data'][0]) ? $data['comments']['data'][0] : null
+                ]);
+
                 if (isset($data['comments'])) {
+                    $commentsData = $data['comments']['data'] ?? [];
                     return [
                         'success' => true,
-                        'data' => $data['comments']['data'] ?? [],
+                        'data' => $commentsData,
                         'paging' => $data['comments']['paging'] ?? null,
                         'message' => 'Comments retrieved successfully'
                     ];
+                } else {
+                    // Return empty array if comments key doesn't exist (post might have no comments)
+                    Log::info('Instagram post has no comments', [
+                        'media_id' => $mediaId,
+                        'response' => $data
+                    ]);
+                    return [
+                        'success' => true,
+                        'data' => [],
+                        'paging' => null,
+                        'message' => 'No comments found for this post'
+                    ];
                 }
             }
+
+            Log::error('Instagram Comments API Failed', [
+                'media_id' => $mediaId,
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
 
             return [
                 'success' => false,

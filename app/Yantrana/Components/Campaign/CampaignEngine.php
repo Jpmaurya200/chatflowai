@@ -55,7 +55,10 @@ class CampaignEngine extends BaseEngine implements CampaignEngineInterface
                 return __tr($rowData['__data']['total_contacts'] ?? 0);
             },
             'template_name' => function ($rowData) {
-                return $rowData['template_name'] . ' (' . $rowData['template_language'] . ')';
+                // Use template name from joined whatsapp_templates table, fallback to __data or direct columns
+                $templateName = $rowData['template_name_from_table'] ?? $rowData['__data']['campaign_recreate_payload']['template']['name'] ?? $rowData['template_name'] ?? 'N/A';
+                $templateLanguage = $rowData['template_language_from_table'] ?? $rowData['__data']['campaign_recreate_payload']['template']['language'] ?? $rowData['template_language'] ?? 'N/A';
+                return $templateName . ' (' . $templateLanguage . ')';
             },
             'scheduled_at' => function ($rowData) {
                 return (!$rowData['scheduled_at'] or ($rowData['scheduled_at'] != $rowData['created_at'])) ? '<span>📅 </span>' . formatDateTime($rowData['scheduled_at']) : '<span title="' . __tr('Instant') . '">⚡ </span>' . formatDateTime($rowData['scheduled_at']);

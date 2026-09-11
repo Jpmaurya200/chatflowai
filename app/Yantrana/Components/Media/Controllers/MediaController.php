@@ -54,11 +54,45 @@ class MediaController extends BaseController
      *---------------------------------------------------------------- */
     public function uploadTempMedia(Request $request, $uploadItem = 'all')
     {
+        // Process the upload
         $processReaction = $this->mediaEngine
             ->processUploadTempMedia($request->all(), $uploadItem);
+    
+        // Return JSON response for both success and failure cases
+         // See the raw EngineResponse before wrapping
+    \Log::info('Engine response data:', $processReaction->data());
+    // Or just dump it in browser for debugging
+    // dd($processReaction->data());
 
-        return $this->processResponse($processReaction, [], [], true, $processReaction->success() ? 200 : 406);
-    }
+    return $this->processResponse(
+        $processReaction,
+        $processReaction->data(),
+        [],
+        true,
+        $processReaction->success() ? 200 : 406
+    );  }
+    
+
+/**
+ * Show the template preview with the uploaded file URL
+ */
+public function showTemplatePreview(Request $request)
+{
+    // Get the fileUrl from query parameter
+    $fileUrl = $request->query('fileUrl');
+    
+    // Decode the file URL if it's URL encoded
+    $fileUrl = urldecode($fileUrl);
+    
+    // Log the file URL for debugging
+    \Log::info('showTemplatePreview called with file URL: ' . $fileUrl);
+
+    // Return the Blade view with the fileUrl
+    return view('whatsapp-service.templates.new-template', compact('fileUrl'));
+}
+
+
+
 
     /**
      * Upload Logo.

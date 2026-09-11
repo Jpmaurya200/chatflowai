@@ -275,7 +275,13 @@ class ManualSubscriptionEngine extends BaseEngine implements ManualSubscriptionE
         $planFrequencyKey = $planRequest[1];
         $planDetails = getPaidPlans($planRequest[0]);
         $planCharges = formatAmount($planDetails['charges'][$planFrequencyKey]['charge'], true, true);
-        $endsAt = $planFrequencyKey == 'monthly' ? now()->addMonth() : now()->addYear();
+        if ($planFrequencyKey == '6_months') {
+            $endsAt = now()->addMonths(6);
+        } elseif ($planFrequencyKey == '18_months') {
+            $endsAt = now()->addMonths(18);
+        } else {
+            $endsAt = now()->addYear();
+        }
         updateClientModels([
             'calculated_ends_at' => $endsAt->format('Y-m-d')
         ]);
@@ -300,9 +306,13 @@ class ManualSubscriptionEngine extends BaseEngine implements ManualSubscriptionE
         $endsAt = now();
         $daysForCalculation = 0;
         switch ($planFrequencyKey) {
-            case 'monthly':
-                $endsAt = now()->addMonth();
-                $daysForCalculation = now()->daysInMonth;
+            case '6_months':
+                $endsAt = now()->addMonths(6);
+                $daysForCalculation = now()->copy()->addMonths(6)->diffInDays(now());
+                break;
+            case '18_months':
+                $endsAt = now()->addMonths(18);
+                $daysForCalculation = now()->copy()->addMonths(18)->diffInDays(now());
                 break;
             case 'yearly':
                 $endsAt = now()->addYear();

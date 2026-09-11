@@ -27,7 +27,7 @@ if(isLoggedIn() and (request()->route()->getName() != 'manage.configuration.prod
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @stack('head')
     {!! __yesset([
         'static-assets/packages/fontawesome/css/all.css',
@@ -35,107 +35,49 @@ if(isLoggedIn() and (request()->route()->getName() != 'manage.configuration.prod
         'dist/css/vendorlibs.css',
         'argon/css/argon.min.css',
         'dist/css/app.css',
+        'dist/css/modern-saas.css',
     ]) !!}
+    
     {{-- custom app css --}}
     <link href="{{ route('app.load_custom_style') }}" rel="stylesheet" />
+    <!-- ...other meta and CSS... -->
+    @stack('styles')
     <style>
-        .card {
-            background-color: #ffffff;
-        }
         .circular-icon {
-            background-color: #E2E5E9;
-            width: 30px;
-            height: 30px; 
+            background-color: #F1F5F9;
+            color: #475569;
+            width: 34px;
+            height: 34px; 
             border-radius: 50%; 
             display: inline-flex; 
             align-items: center; 
             justify-content: center; 
-            font-size: 15px !important;
+            font-size: 14px !important;
+            transition: all 0.2s ease;
         }
-        #navbar-main {
-            background-color: #ffffff !important;
-        }
-        .dtr-control::before {
-            background-color: #0081fb !important;
+        .circular-icon:hover {
+            background-color: #E2E8F0;
+            color: #0F172A;
         }
         .switchery {
-            height: 20px !important;
-            width: 40px;
+            height: 22px !important;
+            width: 42px;
         }
         .switchery > small {
-            border-radius: 10px;
-            height: 20px !important;
-            width: 20px;
-        }
-        a.lw-btn {
-            color: #ffffff !important;
-        }
-        
-        .btn-sm.btn-default {
-            background-color:rgb(70, 180, 166) !important; /* Purple */
-            color: white;
-        }
-        .btn-danger.btn-sm {
-            
-        }
-        .btn-warning.btn-sm {
-            background: linear-gradient(135deg, #fcbd00, #ffe207) !important;
-        }
-        .btn-light.btn-sm {
-            background: rgb(44, 119, 46) !important;
-        }
-        .btn-light.btn-sm:hover{
-            background: rgb(27, 73, 28) !important;
-
-        } 
-        .btn-dark.btn-sm {
-            background-color:rgb(69, 56, 173)  !important; /* Dark Gray */
-            color: white;
-        }
-        .btn-dark.btn-sm:hover {
-            background-color:rgb(60, 44, 121)  !important;
-        }
-        th {
-            background-color:rgb(11, 119, 83) !important;
-            color: #ffffff !important;
-        }
-        td {
-            background-color: #F4F6F9;
-            color: #333333;
-        }
-        td a {
-            color: #0066C8 !important;
-        }
-       
-        .empty {
-            
+            border-radius: 11px;
+            height: 22px !important;
+            width: 22px;
         }
         legend {
-            background-color: #EBF5FF !important;
-            font-weight: 500;
+            background-color: #F8FAFC !important;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 4px 10px;
         }
     </style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.redirect-to-setup').forEach(link => {
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                Swal.fire({
-                    icon: 'info',
-                    title: 'WhatsApp Setup Required',
-                    text: 'Please setup WhatsApp to access this feature',
-                    confirmButtonText: 'Go to Setup'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        window.location.href = "{{ route('vendor.settings.read', ['pageType' => 'whatsapp-cloud-api-setup']) }}";
-                    }
-                });
-            });
-        });
-    });
-</script>
+
 
 <body class="@if(hasVendorAccess() or hasVendorUserAccess()) empty @endif pb-5 @if(isLoggedIn()) lw-authenticated-page @else lw-guest-page @endif {{ $class ?? '' }}" x-cloak x-data="{disableSoundForMessageNotification:{{ getVendorSettings('is_disabled_message_sound_notification') ? 1 : 0 }},unreadMessagesCount:null}">
     @auth()
@@ -397,30 +339,6 @@ if(isLoggedIn() and (request()->route()->getName() != 'manage.configuration.prod
     {!! getAppSettings('page_footer_code_logged_user_only') !!}
     @endif
     @push('scripts')
-<script>
-    function alertAndRedirect(event, redirectUrl) {
-    event.preventDefault();
-
-    Swal.fire({
-        title: 'WhatsApp Setup Required',
-        text: 'Please complete your WhatsApp API setup to access this feature.',
-        icon: 'warning',
-        confirmButtonText: 'Go to Setup',
-        confirmButtonColor: '#3085d6',
-        background: '#f7f7f7',
-        customClass: {
-            popup: 'rounded-lg shadow-lg',
-            title: 'text-lg font-semibold',
-            confirmButton: 'btn btn-primary'
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = redirectUrl;
-        }
-    });
-}
-
-</script>
 @endpush
 @stack('scripts')
 </body>

@@ -952,11 +952,13 @@ $appName = getAppSettings('name');
 
         <!-- Pricing Toggle -->
         <div class="row justify-content-center mb-5">
-            <div class="col-lg-6 col-md-8">
+            <div class="col-lg-8 col-md-10">
                 <div class="d-flex justify-content-center align-items-center">
                     <div class="toggle-container">
-                        <button type="button" class="btn btn-toggle active" data-value="monthly" onclick="setActive(this)">Quaterly</button>
-                        <button type="button" class="btn btn-toggle" data-value="yearly" onclick="setActive(this)">Yearly <span class="badge bg-success ms-2">Save 20%</span></button>
+                        <button type="button" class="btn btn-toggle active" data-value="monthly" onclick="setActive(this)">Monthly</button>
+                        <button type="button" class="btn btn-toggle" data-value="6_months" onclick="setActive(this)">6 Months</button>
+                        <button type="button" class="btn btn-toggle" data-value="12_months" onclick="setActive(this)">12 Months</button>
+                        <button type="button" class="btn btn-toggle" data-value="18_months" onclick="setActive(this)">18 Months</button>
                     </div>
                 </div>
             </div>
@@ -984,7 +986,172 @@ $appName = getAppSettings('name');
                                         </div>
                                     </div>
                                     <div class="price-wrapper text-center my-4">
-                                        <span class="h1 fw-bold text-dark amount">{{ formatAmount(0, true, true) }}</span>
+                                        <span class="h1 fw-bold text-dark amount">${{ 4000/80 }}</span>
+                                        <span class="text-black">/month</span>
+                                        <p class="text-primary mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
+                                    </div>
+                                    <ul class="list-unstyled mb-4" style="font-size:0.85em">
+                                        @foreach ($freePlanStructure['features'] as $featureKey => $featureValue)
+                                        @php
+                                        $configFeatureValue = $featureValue;
+                                        $featureValue = $freePlanDetails['features'][$featureKey];
+                                        @endphp
+                                        <li class="mb-3 d-flex align-items-start">
+                                           @if (isset($featureValue['type']) and ($featureValue['type'] == 'switch'))
+                                               @if (isset($featureValue['limit']) and $featureValue['limit'])
+                                                   <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                               @else
+                                                   <i class="fas fa-times-circle fs-4 me-2 mt-1" style="color:rgb(255, 0, 0) !important;"></i>
+
+                                               @endif
+                                           @else
+                                               <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                           @endif
+                                           <span class="mt-2">
+                                               @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
+                                                   {{ $configFeatureValue['description'] }}
+                                               @else
+                                                   <strong class="text-success">
+                                                       @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
+                                                           {{ __tr('Unlimited') }}
+                                                       @elseif(isset($featureValue['limit']))
+                                                           {{ __tr($featureValue['limit']) }}
+                                                       @endif
+                                                   </strong>
+                                                   {{ $configFeatureValue['description'] }}
+                                                   {{ $configFeatureValue['limit_duration_title'] ?? '' }}
+                                               @endif
+                                           </span>
+                                       </li>
+                                       @endforeach
+                                    </ul>
+                                    <div class="mt-auto">
+                                        <a href="{{ route('auth.register') }}" class="btn btn-outline-success w-100 rounded-lg py-2">Get Started Free</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    @foreach ($planStructure as $planKey => $plan)
+                    @php
+                    $planId = $plan['id'];
+                    $features = $plan['features'];
+                    $savedPlan = $paidPlans[$planKey] ?? null;
+                    if (!$savedPlan || !isset($savedPlan['enabled']) || !$savedPlan['enabled']) {
+                        continue;
+                    }
+                    $charges = $savedPlan['charges'] ?? [];
+                    if (empty($charges) || !is_array($charges)) {
+                        continue;
+                    }
+                    $monthlyCharge = null;
+                    // First try exact key match
+                    if (isset($charges['monthly']) && isset($charges['monthly']['enabled']) && $charges['monthly']['enabled']) {
+                        $monthlyCharge = $charges['monthly']['charge'] ?? null;
+                    }
+                    // If not found, try matching by title
+                    if ($monthlyCharge === null) {
+                        foreach ($charges as $itemKey => $itemValue) {
+                            if (!isset($itemValue['enabled']) || !$itemValue['enabled']) {
+                                continue;
+                            }
+                            $chargeTitle = strtolower(Arr::get($plan['charges'], $itemKey.'.title', Arr::get($itemValue, 'title', '')));
+                            if (strpos($chargeTitle, 'month') !== false && strpos($chargeTitle, '6') === false && strpos($chargeTitle, '18') === false && strpos($chargeTitle, '12') === false) {
+                                $monthlyCharge = $itemValue['charge'] ?? null;
+                                break;
+                            }
+                        }
+                    }
+                    if ($monthlyCharge === null || $monthlyCharge == 0) {
+                        continue;
+                    }
+                    @endphp
+                    <div class="col-sm-12 col-md-6 col-lg-4 mb-4">
+                        <div class="card border-0 shadow-lg price-card" style="border-radius:1.25rem;">
+                            <div class="card-body">
+                                <div class="inner">
+                                    <div class="go-corner" href="#">
+                                        <div class="go-arrow">
+                                        {{ $savedPlan['title'] ?? $plan['title'] }}
+                                        </div>
+                                    </div>
+                                  
+                                    <div class="price-wrapper text-center my-4">
+                                        <span class="h1 fw-bold text-dark amount">${{$monthlyCharge/80 }}</span>
+                                        <span class="text-black">/month</span>
+                                        <p class="text-dark mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
+                                    </div>
+                                    
+                                        <ul class="list-unstyled mb-4" style="font-size:0.85em">
+                                        @foreach ($plan['features'] as $featureKey => $featureValue)
+                                        @php
+                                        $configFeatureValue = $featureValue;
+                                        $featureValue = $savedPlan['features'][$featureKey];
+                                        @endphp
+                                        <li class="mb-3 d-flex align-items-start">
+                                           @if (isset($featureValue['type']) and ($featureValue['type'] == 'switch'))
+                                               @if (isset($featureValue['limit']) and $featureValue['limit'])
+                                                   <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                               @else
+                                                   <i class="fas fa-times-circle fs-4 me-2 mt-1" style="color:rgb(255, 0, 0) !important;"></i>
+
+                                               @endif
+                                           @else
+                                               <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                           @endif
+                                           <span class="mt-2">
+                                               @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
+                                                   {{ $configFeatureValue['description'] }}
+                                               @else
+                                                   <strong class="text-success">
+                                                       @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
+                                                           {{ __tr('Unlimited') }}
+                                                       @elseif(isset($featureValue['limit']))
+                                                           {{ __tr($featureValue['limit']) }}
+                                                       @endif
+                                                   </strong>
+                                                   {{ $configFeatureValue['description'] }}
+                                                   {{ $configFeatureValue['limit_duration_title'] ?? '' }}
+                                               @endif
+                                           </span>
+                                       </li>
+                                       @endforeach
+                                    </ul>
+                                    <div class="mt-auto">
+                                        <a href="{{ route('auth.register') }}" class="btn btnn w-100 rounded-lg py-2">Choose Plan</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <!-- 6 Months Plans -->
+            <div class="tab-pane fade" id="6_months" role="tabpanel" aria-labelledby="6_months-tab">
+                <div class="row justify-content-center">
+                    @php
+                    $freePlanDetails = getFreePlan();
+                    $freePlanStructure = getConfigFreePlan();
+                    $paidPlans = getPaidPlans();
+                    $planStructure = getConfigPaidPlans();
+                    @endphp
+
+                    @if ($freePlanDetails['enabled'])
+                    <div class="col-sm-12 col-md-6 col-lg-4 mb-4">
+                        <div class="card border-0 shadow-lg price-card" style="border-radius:1.25rem;">
+                            <div class="card-body">
+                                <div class="inner">
+                                    <div class="go-corner" href="#">
+                                        <div class="go-arrow">
+                                            Free
+                                        </div>
+                                    </div>
+                                    <div class="price-wrapper text-center my-4">
+                                        <span class="h1 fw-bold text-dark amount">{{ formatAmount(4000, true, true) }}</span>
                                         <span class="text-black">/month</span>
                                         <p class="text-primary mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
                                     </div>
@@ -1027,19 +1194,33 @@ $appName = getAppSettings('name');
                     @php
                     $planId = $plan['id'];
                     $features = $plan['features'];
-                    $savedPlan = $paidPlans[$planKey];
-                    $charges = $savedPlan['charges'];
-                    if (!$savedPlan['enabled']) {
+                    $savedPlan = $paidPlans[$planKey] ?? null;
+                    if (!$savedPlan || !isset($savedPlan['enabled']) || !$savedPlan['enabled']) {
                         continue;
                     }
-                    $monthlyCharge = null;
-                    foreach ($charges as $itemKey => $itemValue) {
-                        if ($itemValue['enabled'] && strpos(strtolower(Arr::get($plan['charges'][$itemKey], 'title', '')), 'month') !== false) {
-                            $monthlyCharge = $itemValue['charge'];
-                            break;
+                    $charges = $savedPlan['charges'] ?? [];
+                    if (empty($charges) || !is_array($charges)) {
+                        continue;
+                    }
+                    $charge6Months = null;
+                    // First try exact key match
+                    if (isset($charges['6_months']) && isset($charges['6_months']['enabled']) && $charges['6_months']['enabled']) {
+                        $charge6Months = $charges['6_months']['charge'] ?? null;
+                    }
+                    // If not found, try matching by title
+                    if ($charge6Months === null) {
+                        foreach ($charges as $itemKey => $itemValue) {
+                            if (!isset($itemValue['enabled']) || !$itemValue['enabled']) {
+                                continue;
+                            }
+                            $chargeTitle = strtolower(Arr::get($plan['charges'], $itemKey.'.title', Arr::get($itemValue, 'title', '')));
+                            if (strpos($chargeTitle, '6 month') !== false || strpos($chargeTitle, '6months') !== false) {
+                                $charge6Months = $itemValue['charge'] ?? null;
+                                break;
+                            }
                         }
                     }
-                    if ($monthlyCharge === null) {
+                    if ($charge6Months === null || $charge6Months == 0) {
                         continue;
                     }
                     @endphp
@@ -1054,8 +1235,8 @@ $appName = getAppSettings('name');
                                     </div>
                                   
                                     <div class="price-wrapper text-center my-4">
-                                        <span class="h1 fw-bold text-dark amount">${{$monthlyCharge/80 }}</span>
-                                        <span class="text-black">/month</span>
+                                        <span class="h1 fw-bold text-dark amount">${{$charge6Months/80 }}</span>
+                                        <span class="text-black">/6 months</span>
                                                                                 <p class="text-dark mt-2 mb-0 small ">Billing by Quarterly</p>
 
                                         <p class="text-dark mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
@@ -1097,8 +1278,173 @@ $appName = getAppSettings('name');
                 </div>
             </div>
 
-            <!-- Yearly Plans -->
-            <div class="tab-pane fade" id="yearly" role="tabpanel" aria-labelledby="yearly-tab">
+            <!-- 18 Months Plans -->
+            <div class="tab-pane fade" id="18_months" role="tabpanel" aria-labelledby="18_months-tab">
+                <div class="row justify-content-center">
+                    @php
+                    $freePlanDetails = getFreePlan();
+                    $freePlanStructure = getConfigFreePlan();
+                    $paidPlans = getPaidPlans();
+                    $planStructure = getConfigPaidPlans();
+                    @endphp
+
+                    @if ($freePlanDetails['enabled'])
+                    <div class="col-sm-12 col-md-6 col-lg-4 mb-4">
+                        <div class="card border-0 shadow-lg price-card" style="border-radius:1.25rem;">
+                            <div class="card-body">
+                                <div class="inner">
+                                    <div class="go-corner" href="#">
+                                        <div class="go-arrow">
+                                            Free
+                                        </div>
+                                    </div>
+                                    <div class="price-wrapper text-center my-4">
+                                        <span class="h1 fw-bold text-dark amount">${{ 4000/80 }}</span>
+                                        <span class="text-black">/18 months</span>
+                                        <p class="text-primary mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
+                                    </div>
+                                    <ul class="list-unstyled mb-4" style="font-size:0.85em">
+                                        @foreach ($freePlanStructure['features'] as $featureKey => $featureValue)
+                                        @php
+                                        $configFeatureValue = $featureValue;
+                                        $featureValue = $freePlanDetails['features'][$featureKey];
+                                        @endphp
+                                        <li class="mb-3 d-flex align-items-start">
+                                           @if (isset($featureValue['type']) and ($featureValue['type'] == 'switch'))
+                                               @if (isset($featureValue['limit']) and $featureValue['limit'])
+                                                   <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                               @else
+                                                   <i class="fas fa-times-circle fs-4 me-2 mt-1" style="color:rgb(255, 0, 0) !important;"></i>
+
+                                               @endif
+                                           @else
+                                               <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                           @endif
+                                           <span class="mt-2">
+                                               @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
+                                                   {{ $configFeatureValue['description'] }}
+                                               @else
+                                                   <strong class="text-success">
+                                                       @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
+                                                           {{ __tr('Unlimited') }}
+                                                       @elseif(isset($featureValue['limit']))
+                                                           {{ __tr($featureValue['limit']) }}
+                                                       @endif
+                                                   </strong>
+                                                   {{ $configFeatureValue['description'] }}
+                                                   {{ $configFeatureValue['limit_duration_title'] ?? '' }}
+                                               @endif
+                                           </span>
+                                       </li>
+                                       @endforeach
+                                    </ul>
+                                    <div class="mt-auto">
+                                        <a href="{{ route('auth.register') }}" class="btn btn-outline-success w-100 rounded-lg py-2">Get Started Free</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    @foreach ($planStructure as $planKey => $plan)
+                    @php
+                    $planId = $plan['id'];
+                    $features = $plan['features'];
+                    $savedPlan = $paidPlans[$planKey] ?? null;
+                    if (!$savedPlan || !isset($savedPlan['enabled']) || !$savedPlan['enabled']) {
+                        continue;
+                    }
+                    $charges = $savedPlan['charges'] ?? [];
+                    if (empty($charges) || !is_array($charges)) {
+                        continue;
+                    }
+                    $charge18Months = null;
+                    // First try exact key match
+                    if (isset($charges['18_months']) && isset($charges['18_months']['enabled']) && $charges['18_months']['enabled']) {
+                        $charge18Months = $charges['18_months']['charge'] ?? null;
+                    }
+                    // If not found, try matching by title
+                    if ($charge18Months === null) {
+                        foreach ($charges as $itemKey => $itemValue) {
+                            if (!isset($itemValue['enabled']) || !$itemValue['enabled']) {
+                                continue;
+                            }
+                            $chargeTitle = strtolower(Arr::get($plan['charges'], $itemKey.'.title', Arr::get($itemValue, 'title', '')));
+                            if (strpos($chargeTitle, '18 month') !== false || strpos($chargeTitle, '18months') !== false) {
+                                $charge18Months = $itemValue['charge'] ?? null;
+                                break;
+                            }
+                        }
+                    }
+                    if ($charge18Months === null || $charge18Months == 0) {
+                        continue;
+                    }
+                    @endphp
+                    <div class="col-sm-12 col-md-6 col-lg-4 mb-4">
+                        <div class="card border-0 shadow-lg price-card" style="border-radius:1.25rem;">
+                            <div class="card-body">
+                                <div class="inner">
+                                    <div class="go-corner" href="#">
+                                        <div class="go-arrow">
+                                        {{ $savedPlan['title'] ?? $plan['title'] }}
+                                        </div>
+                                    </div>
+                                  
+                                    <div class="price-wrapper text-center my-4">
+                                        <span class="h1 fw-bold text-dark amount">${{$charge18Months/80 }}</span>
+                                        <span class="text-black">/18 months</span>
+                                        <p class="text-dark mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
+                                    </div>
+                                    
+                                        <ul class="list-unstyled mb-4" style="font-size:0.85em">
+                                        @foreach ($plan['features'] as $featureKey => $featureValue)
+                                        @php
+                                        $configFeatureValue = $featureValue;
+                                        $featureValue = $savedPlan['features'][$featureKey];
+                                        @endphp
+                                        <li class="mb-3 d-flex align-items-start">
+                                           @if (isset($featureValue['type']) and ($featureValue['type'] == 'switch'))
+                                               @if (isset($featureValue['limit']) and $featureValue['limit'])
+                                                   <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                               @else
+                                                   <i class="fas fa-times-circle fs-4 me-2 mt-1" style="color:rgb(255, 0, 0) !important;"></i>
+
+                                               @endif
+                                           @else
+                                               <i class="fas fa-check-circle text-success fs-4 me-2 mt-1"></i>
+                                           @endif
+                                           <span class="mt-2">
+                                               @if (isset($featureValue['type']) and $featureValue['type'] == 'switch')
+                                                   {{ $configFeatureValue['description'] }}
+                                               @else
+                                                   <strong class="text-success">
+                                                       @if (isset($featureValue['limit']) and $featureValue['limit'] < 0)
+                                                           {{ __tr('Unlimited') }}
+                                                       @elseif(isset($featureValue['limit']))
+                                                           {{ __tr($featureValue['limit']) }}
+                                                       @endif
+                                                   </strong>
+                                                   {{ $configFeatureValue['description'] }}
+                                                   {{ $configFeatureValue['limit_duration_title'] ?? '' }}
+                                               @endif
+                                           </span>
+                                       </li>
+                                       @endforeach
+                                    </ul>
+                                    <div class="mt-auto">
+                                        <a href="{{ route('auth.register') }}" class="btn btnn w-100 rounded-lg py-2">Choose Plan</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <!-- 12 Months Plans -->
+            <div class="tab-pane fade" id="12_months" role="tabpanel" aria-labelledby="12_months-tab">
                 <div class="row justify-content-center">
                     @if ($freePlanDetails['enabled'])
                     <div class="col-sm-12 col-md-6 col-lg-4 mb-4">
@@ -1111,8 +1457,8 @@ $appName = getAppSettings('name');
                                         </div>
                                     </div>
                                     <div class="price-wrapper text-center my-4">
-                                        <span class="h1 fw-bold text-dark amount">{{ formatAmount(0, true, true) }}</span>
-                                        <span class="text-black">/year</span>
+                                        <span class="h1 fw-bold text-dark amount">{{ formatAmount(4000, true, true) }}</span>
+                                        <span class="text-black">/12 months</span>
                                         <p class="text-primary mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
                                     </div>
                                     <ul class="list-unstyled mb-4" style="font-size:0.85em">
@@ -1154,19 +1500,33 @@ $appName = getAppSettings('name');
                     @php
                     $planId = $plan['id'];
                     $features = $plan['features'];
-                    $savedPlan = $paidPlans[$planKey];
-                    $charges = $savedPlan['charges'];
-                    if (!$savedPlan['enabled']) {
+                    $savedPlan = $paidPlans[$planKey] ?? null;
+                    if (!$savedPlan || !isset($savedPlan['enabled']) || !$savedPlan['enabled']) {
                         continue;
                     }
-                    $yearlyCharge = null;
-                    foreach ($charges as $itemKey => $itemValue) {
-                        if ($itemValue['enabled'] && strpos(strtolower(Arr::get($plan['charges'][$itemKey], 'title', '')), 'year') !== false) {
-                            $yearlyCharge = $itemValue['charge'];
-                            break;
+                    $charges = $savedPlan['charges'] ?? [];
+                    if (empty($charges) || !is_array($charges)) {
+                        continue;
+                    }
+                    $charge12Months = null;
+                    // First try exact key match
+                    if (isset($charges['12_months']) && isset($charges['12_months']['enabled']) && $charges['12_months']['enabled']) {
+                        $charge12Months = $charges['12_months']['charge'] ?? null;
+                    }
+                    // If not found, try matching by title
+                    if ($charge12Months === null) {
+                        foreach ($charges as $itemKey => $itemValue) {
+                            if (!isset($itemValue['enabled']) || !$itemValue['enabled']) {
+                                continue;
+                            }
+                            $chargeTitle = strtolower(Arr::get($plan['charges'], $itemKey.'.title', Arr::get($itemValue, 'title', '')));
+                            if (strpos($chargeTitle, '12 month') !== false || strpos($chargeTitle, '12months') !== false) {
+                                $charge12Months = $itemValue['charge'] ?? null;
+                                break;
+                            }
                         }
                     }
-                    if ($yearlyCharge === null) {
+                    if ($charge12Months === null || $charge12Months == 0) {
                         continue;
                     }
                     @endphp
@@ -1181,8 +1541,8 @@ $appName = getAppSettings('name');
                                     </div>
                                     <!-- <span class="badge bg-warning text-dark position-absolute top-0 end-0 mt-2 me-2">20% OFF</span> -->
                                     <div class="price-wrapper text-center my-4">
-                                        <span class="h1 fw-bold text-black amount">${{ $yearlyCharge/80 }}</span>
-                                        <span class="text-black">/year</span>
+                                        <span class="h1 fw-bold text-black amount">${{ $charge12Months/80 }}</span>
+                                        <span class="text-black">/12 months</span>
                                         <p class="text-black mt-2 mb-0 small fw-bold">+ WhatsApp Cloud Messaging Charges</p>
                                     </div>
                                     <ul class="list-unstyled mb-4" style="font-size:0.85em">
@@ -1552,12 +1912,21 @@ $appName = getAppSettings('name');
         button.classList.add('active');
         
         const value = button.getAttribute('data-value');
+        // Hide all tabs
+        document.getElementById('monthly').classList.remove('show', 'active');
+        document.getElementById('6_months').classList.remove('show', 'active');
+        document.getElementById('12_months').classList.remove('show', 'active');
+        document.getElementById('18_months').classList.remove('show', 'active');
+        
+        // Show selected tab
         if (value === 'monthly') {
             document.getElementById('monthly').classList.add('show', 'active');
-            document.getElementById('yearly').classList.remove('show', 'active');
-        } else {
-            document.getElementById('yearly').classList.add('show', 'active');
-            document.getElementById('monthly').classList.remove('show', 'active');
+        } else if (value === '6_months') {
+            document.getElementById('6_months').classList.add('show', 'active');
+        } else if (value === '12_months') {
+            document.getElementById('12_months').classList.add('show', 'active');
+        } else if (value === '18_months') {
+            document.getElementById('18_months').classList.add('show', 'active');
         }
     }
         </script>

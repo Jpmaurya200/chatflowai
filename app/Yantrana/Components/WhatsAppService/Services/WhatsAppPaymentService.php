@@ -688,17 +688,17 @@ class WhatsAppPaymentService extends BaseEngine
             // Build items list
             $itemsList = '';
             if ($order->items && is_array($order->items)) {
-                foreach ($order->items as $item) {
-                    $price = $item['price'] ?? 0;
+                foreach ($order->getItemsWithProductNames() as $item) {
+                    $price = $item['item_price'] ?? $item['price'] ?? 0;
                     $quantity = $item['quantity'] ?? 1;
-                    $itemsList .= "• {$item['name']} x{$quantity} - " . 
+                    $itemsList .= "• {$item['display_name']} x{$quantity} - " . 
                         $order->currency . ' ' . 
                         number_format($price, 2) . "\n";
                 }
             }
 
             // Format total amount
-            $totalAmount = $order->formatted_total_amount ?? ($order->currency . ' ' . number_format($order->total_amount, 2));
+            $totalAmount = $order->formatted_final_amount ?? ($order->currency . ' ' . number_format($order->getFinalAmount(), 2));
 
             $message = "🎉 *Payment Successful!*\n\n" .
                       "✅ *Order Confirmed*\n" .

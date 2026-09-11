@@ -33,7 +33,12 @@
                 <div class="list-group list-group-flush lw-whatsapp-buttons">
                     @foreach ($mediaValues['buttons'] as $button)
                     <div class="list-group-item">
-                        <i class="fa fa-reply"></i> {{ $button }}
+                        <i class="fa fa-reply"></i> 
+                        @if(is_array($button))
+                            {{ $button['title'] ?? '' }}
+                        @else
+                            {{ $button }}
+                        @endif
                     </div>
                     @endforeach
                 </div>
@@ -58,7 +63,7 @@
                         <h3 class="mb-1">{{ $section['title'] }}</h3>
                         <dl class="text-dark">
                             @foreach ($section['rows'] as $sectionRow)
-                            <dt><strong>{{ $sectionRow['title'] }}</strong> <small class="text-muted">({{  __tr('ID: ') }}{{ $sectionRow['row_id'] }})</small></dt>
+                            <dt><strong>{{ $sectionRow['title'] }}</strong> <small class="text-muted">({{  __tr('ID: ') }}{{ $sectionRow['row_id'] ?? $sectionRow['id'] ?? '' }})</small></dt>
                             <dd class="mb-4">{{ $sectionRow['description'] ?? '' }}</dd>
                             @endforeach
                         </dl>

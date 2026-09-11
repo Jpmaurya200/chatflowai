@@ -352,12 +352,39 @@ class ContactController extends BaseController
         $request->validate([
             'document_name' => 'required'
         ]);
+        
+        // Use optimized import method for better performance with large datasets
         return $this->processResponse(
-            $this->contactEngine->processImportContacts($request),
+            $this->contactEngine->processImportContactsOptimized($request),
             [],
             [],
             true
         );
+    }
+
+    /**
+     * Get import progress for real-time tracking
+     *
+     * @param Request $request
+     * @return json
+     */
+    public function getImportProgress(Request $request)
+    {
+        $importId = $request->get('import_id');
+        
+        if (!$importId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Import ID is required'
+            ], 400);
+        }
+        
+        $progress = $this->contactEngine->getImportProgress($importId);
+        
+        return response()->json([
+            'status' => 'success',
+            'data' => $progress
+        ]);
     }
 
     /**

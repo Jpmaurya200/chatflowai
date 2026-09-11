@@ -1,16 +1,41 @@
 @extends('layouts.app', ['title' => __tr('Google Sheets App Script')])
 @section('content')
-<div class="container mt-8">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
- <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Generate Google Sheets Integration Script</span>
-                    <a href="https://drive.google.com/file/d/15ZqjRlzqpFoGrD0DOSDd4zZMRDwunRAD/view?usp=sharing" target="_blank" class="btn btn-primary btn-sm">
-                        <i class="fas fa-video"></i> {{ __tr('Watch Instructions') }}
-                    </a>
+<div class="lw-page-content py-4">
+    <div class="container">
+        <!-- Modern Header Banner -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 5px solid #10b981 !important;">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge px-2.5 py-1 rounded-pill fw-semibold" style="background-color: #ecfdf5; color: #059669; font-size: 11px;">
+                                <i class="fas fa-file-excel me-1"></i> {{ __tr('1-Click Integration') }}
+                            </span>
+                            <span class="text-muted small">• {{ __tr('Google Apps Script') }}</span>
+                        </div>
+                        <h2 class="h3 fw-bold mb-1" style="color: #0f172a; letter-spacing: -0.02em;">
+                            {{ __tr('Google Sheets Automation Generator') }}
+                        </h2>
+                        <p class="text-muted mb-0 small">
+                            {{ __tr('Generate instant Google Apps Script to auto-dispatch WhatsApp notifications whenever new rows are submitted via Google Forms or Sheets.') }}
+                        </p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ route('vendor.settings.read', ['pageType' => 'api-access']) }}" class="btn btn-light border rounded-pill px-3 py-2 btn-sm fw-semibold shadow-sm">
+                            <i class="fas fa-arrow-left me-1.5 text-muted"></i> {{ __tr('Developer Portal') }}
+                        </a>
+                    </div>
                 </div>
-                <div class="card-body">
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-9">
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-dark"><i class="fas fa-cog text-primary me-2"></i>{{ __tr('Script Configuration') }}</span>
+                    </div>
+                    <div class="card-body p-4">
                     @if ($errors->any())
                         <div class="alert alert-danger">
                             <ul>

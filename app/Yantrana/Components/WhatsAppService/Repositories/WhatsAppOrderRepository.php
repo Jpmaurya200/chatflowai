@@ -125,8 +125,20 @@ class WhatsAppOrderRepository extends BaseRepository implements WhatsAppOrderRep
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
-        return $query->orderBy('created_at', 'desc')
+        $orders = $query->orderBy('created_at', 'desc')
             ->paginate($filters['per_page'] ?? 20);
+
+        // Add items summary to each order and debug formatted_final_amount
+        $orders->getCollection()->transform(function ($order) {
+            $order->items_summary = $order->getItemsSummary();
+            
+            // Manually add formatted_final_amount to ensure it's included in JSON response
+            $order->formatted_final_amount = $order->formatted_final_amount;
+            
+            return $order;
+        });
+
+        return $orders;
     }
 
     /**

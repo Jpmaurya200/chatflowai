@@ -7,25 +7,37 @@
 @endphp
 @extends('layouts.app', ['title' => __tr('Contact Custom Fields')])
 @section('content')
-@include('users.partials.header', [
-'title' => __tr(''),
-'description' => '',
-'class' => 'col-lg-7'
-])
-<div class="container-fluid mt-lg--6">
-    <div class="row mt-3">
-        <!-- header -->
-        <div class="col-xl-12 mb-3">
-            <div class="d-flex align-items-center justify-content-between flex-nowrap mt-5">
-                <h1 class="mb-0"><i class="fas fa-sliders-h me-2" style="color: #0B7753;"></i> {{ __tr('Input Fields') }}</h1>
-                <div class="d-flex align-items-center">
-                    <button type="button" class="lw-btn btn btn-neo btn-neo-gradient-green" data-toggle="modal" data-target="#lwAddNewCustomField">
-                        <i class="fas fa-plus"></i> {{ __tr('Add New Input Field') }}
-                    </button>
+<div class="lw-page-content py-4">
+    <div class="container-fluid">
+        <!-- Modern SaaS Custom CRM Fields Header -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 5px solid #10b981 !important;">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge px-2.5 py-1 rounded-pill fw-semibold" style="background-color: #ecfdf5; color: #059669; font-size: 11px;">
+                                <i class="fas fa-sliders-h me-1"></i> {{ __tr('Custom Schema') }}
+                            </span>
+                            <span class="text-muted small">• {{ __tr('Customer Properties') }}</span>
+                        </div>
+                        <h2 class="h3 fw-bold mb-1" style="color: #0f172a; letter-spacing: -0.02em;">
+                            {{ __tr('Custom CRM Attributes & Input Fields') }}
+                        </h2>
+                        <p class="text-muted mb-0 small">
+                            {{ __tr('Define custom parameters (e.g. City, Age, Membership Tier, Order Count) to store rich customer data and personalize broadcasts.') }}
+                        </p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ route('vendor.contact.read.list_view') }}" class="btn btn-light border rounded-pill px-3 py-2 btn-sm fw-semibold shadow-sm">
+                            <i class="fas fa-address-book me-1.5 text-muted"></i> {{ __tr('All Contacts') }}
+                        </a>
+                        <button type="button" class="btn rounded-pill px-3 py-2 btn-sm fw-semibold text-white shadow-sm" style="background-color: #10b981; border: none;" data-toggle="modal" data-target="#lwAddNewCustomField">
+                            <i class="fas fa-plus me-1.5"></i> {{ __tr('Add Custom Attribute') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-        <!--/ header -->
         <!-- Add New Custom Field Modal -->
         <x-lw.modal id="lwAddNewCustomField" :header="__tr('Add New Input Field')" :hasForm="true">
             <!--  Add New Custom Field Form -->

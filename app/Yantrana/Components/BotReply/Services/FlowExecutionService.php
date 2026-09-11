@@ -303,6 +303,63 @@ class FlowExecutionService
                 'error' => $inputResult['error']
             ]);
             
+            // If this is an interactive node and input doesn't match, re-send the interactive message
+            $node = $this->flowNodeService->findNodeById($flowData, $nodeId);
+            
+            Log::info('Checking node for re-sending interactive message', [
+                'node_id' => $nodeId,
+                'node_found' => !is_null($node),
+                'node_type' => $node['type'] ?? 'not_found',
+                'is_interactive' => ($node && $node['type'] === 'interactive')
+            ]);
+            
+            if ($node && $node['type'] === 'interactive') {
+                Log::info('Re-sending interactive message due to invalid input', [
+                    'node_id' => $nodeId,
+                    'user_input' => $userInput,
+                    'error' => $inputResult['error']
+                ]);
+                
+                // Re-execute the interactive node to re-send the message
+                $nodeResponse = $this->executeNode($node, $context);
+                
+                Log::info('Re-executed interactive node', [
+                    'node_id' => $nodeId,
+                    'response_type' => $nodeResponse['type'] ?? 'unknown',
+                    'requires_input' => $nodeResponse['requires_input'] ?? false
+                ]);
+                
+                // Add an error message before re-sending the interactive message
+                $responses = [
+                    [
+                        'type' => 'message',
+                        'text' => $inputResult['error'] . ' Please select one of the available options.',
+                        'node_id' => $nodeId
+                    ],
+                    $nodeResponse // Re-send the interactive message
+                ];
+                
+                Log::info('Returning responses with re-sent interactive message', [
+                    'node_id' => $nodeId,
+                    'response_count' => count($responses),
+                    'first_response_type' => $responses[0]['type'] ?? 'unknown',
+                    'second_response_type' => $responses[1]['type'] ?? 'unknown'
+                ]);
+                
+                return [
+                    'responses' => $responses,
+                    'current_node_id' => $nodeId,
+                    'context' => $context,
+                    'is_complete' => false
+                ];
+            }
+            
+            Log::warning('Not re-sending interactive message - node not found or not interactive', [
+                'node_id' => $nodeId,
+                'node_found' => !is_null($node),
+                'node_type' => $node['type'] ?? 'not_found'
+            ]);
+            
             return [
                 'error' => $inputResult['error'],
                 'current_node_id' => $nodeId,

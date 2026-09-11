@@ -1,0 +1,839 @@
+/* ==========================================================================
+   ChatFlowAI Modern SaaS Theme & Design System (AiSensy & WATI Standard)
+   ========================================================================== */
+
+:root {
+  --saas-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --saas-primary: #10B981;
+  --saas-primary-hover: #059669;
+  --saas-primary-dark: #047857;
+  --saas-primary-light: #ECFDF5;
+  --saas-primary-glow: rgba(16, 185, 129, 0.25);
+  
+  --saas-sidebar-bg: #0F172A;
+  --saas-sidebar-surface: #1E293B;
+  --saas-sidebar-border: rgba(255, 255, 255, 0.08);
+  --saas-sidebar-text: #94A3B8;
+  --saas-sidebar-text-hover: #F8FAFC;
+  --saas-sidebar-active: #10B981;
+  
+  --saas-body-bg: #F8FAFC;
+  --saas-card-bg: #FFFFFF;
+  --saas-border: #E2E8F0;
+  --saas-border-light: #F1F5F9;
+  
+  --saas-text-primary: #0F172A;
+  --saas-text-secondary: #475569;
+  --saas-text-muted: #94A3B8;
+  
+  --saas-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --saas-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --saas-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --saas-radius-sm: 8px;
+  --saas-radius-md: 12px;
+  --saas-radius-lg: 16px;
+  --saas-radius-full: 9999px;
+}
+
+/* Base resets & typography */
+body {
+  font-family: var(--saas-font) !important;
+  background-color: var(--saas-body-bg) !important;
+  color: var(--saas-text-primary) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+  font-family: var(--saas-font) !important;
+  font-weight: 700;
+  color: var(--saas-text-primary);
+  letter-spacing: -0.02em;
+}
+
+/* Cards */
+.card {
+  background-color: var(--saas-card-bg) !important;
+  border: 1px solid var(--saas-border) !important;
+  border-radius: var(--saas-radius-md) !important;
+  box-shadow: var(--saas-shadow-sm) !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--saas-shadow-md) !important;
+}
+
+.card-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--saas-border-light) !important;
+  padding: 1.25rem 1.5rem !important;
+  font-weight: 600;
+}
+
+.card-footer {
+  background-color: transparent !important;
+  border-top: 1px solid var(--saas-border-light) !important;
+  padding: 1rem 1.5rem !important;
+}
+
+/* Modern SaaS Tables */
+.table-responsive {
+  border-radius: var(--saas-radius-md);
+  border: 1px solid var(--saas-border);
+  background: #FFFFFF;
+}
+
+table.dataTable,
+.table {
+  color: var(--saas-text-primary) !important;
+  margin-bottom: 0 !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+table.dataTable thead th,
+.table thead th {
+  background-color: #F8FAFC !important;
+  color: var(--saas-text-secondary) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  padding: 12px 18px !important;
+  border-top: none !important;
+  border-bottom: 1px solid var(--saas-border) !important;
+}
+
+table.dataTable tbody td,
+.table tbody td {
+  background-color: #FFFFFF !important;
+  color: var(--saas-text-secondary) !important;
+  font-size: 13.5px !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid var(--saas-border-light) !important;
+  vertical-align: middle !important;
+}
+
+table.dataTable tbody tr:hover td,
+.table tbody tr:hover td {
+  background-color: #F8FAFC !important;
+  color: var(--saas-text-primary) !important;
+}
+
+table.dataTable tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* Modern Badges & Status Chips */
+.badge {
+  font-family: var(--saas-font);
+  font-weight: 600;
+  font-size: 11.5px;
+  padding: 5px 10px;
+  border-radius: var(--saas-radius-full);
+  letter-spacing: 0.02em;
+}
+
+.badge-success, .badge.bg-success {
+  background-color: var(--saas-primary-light) !important;
+  color: var(--saas-primary-dark) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.badge-warning, .badge.bg-warning {
+  background-color: #FEF3C7 !important;
+  color: #92400E !important;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.badge-danger, .badge.bg-danger {
+  background-color: #FEE2E2 !important;
+  color: #991B1B !important;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.badge-primary, .badge.bg-primary {
+  background-color: #EFF6FF !important;
+  color: #1D4ED8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--saas-font) !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  border-radius: var(--saas-radius-sm) !important;
+  padding: 8px 16px !important;
+  transition: all 0.15s ease-in-out !important;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-primary, .lw-btn.btn-primary {
+  background: var(--saas-primary) !important;
+  border-color: var(--saas-primary) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2) !important;
+}
+
+.btn-primary:hover, .lw-btn.btn-primary:hover {
+  background: var(--saas-primary-hover) !important;
+  border-color: var(--saas-primary-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-secondary {
+  background: #F1F5F9 !important;
+  border-color: var(--saas-border) !important;
+  color: var(--saas-text-secondary) !important;
+}
+
+.btn-secondary:hover {
+  background: #E2E8F0 !important;
+  color: var(--saas-text-primary) !important;
+}
+
+.btn-danger {
+  background: #EF4444 !important;
+  border-color: #EF4444 !important;
+  color: #FFFFFF !important;
+}
+
+.btn-danger:hover {
+  background: #DC2626 !important;
+}
+
+/* Inputs & Form Controls */
+.form-control {
+  font-family: var(--saas-font) !important;
+  font-size: 13.5px !important;
+  border: 1px solid var(--saas-border) !important;
+  border-radius: var(--saas-radius-sm) !important;
+  padding: 9px 13px !important;
+  color: var(--saas-text-primary) !important;
+  background-color: #FFFFFF !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.form-control:focus {
+  border-color: var(--saas-primary) !important;
+  box-shadow: 0 0 0 3px var(--saas-primary-glow) !important;
+  outline: none !important;
+}
+
+/* Modern Header Banner */
+.lw-modern-page-header {
+  background: #FFFFFF;
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-md);
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--saas-shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.lw-modern-page-header .lw-title-wrap h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--saas-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lw-modern-page-header .lw-title-wrap p {
+  color: var(--saas-text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 0;
+}
+
+/* DataTables Controls & Pagination */
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  padding: 6px 12px !important;
+  border-radius: var(--saas-radius-sm) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border: 1px solid var(--saas-border) !important;
+  background: #FFFFFF !important;
+  color: var(--saas-text-secondary) !important;
+  margin: 0 2px !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: var(--saas-primary) !important;
+  border-color: var(--saas-primary) !important;
+  color: #FFFFFF !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: #F1F5F9 !important;
+  border-color: var(--saas-border) !important;
+  color: var(--saas-text-primary) !important;
+}
+
+.dataTables_filter input {
+  border: 1px solid var(--saas-border) !important;
+  border-radius: var(--saas-radius-sm) !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  outline: none;
+}
+
+.dataTables_filter input:focus {
+  border-color: var(--saas-primary) !important;
+  box-shadow: 0 0 0 3px var(--saas-primary-glow) !important;
+}
+
+/* ==========================================================================
+   Phase 2: Modern Shared Team Inbox (AiSensy / WATI standard)
+   ========================================================================== */
+
+/* Full layout overhaul & card container */
+.lw-inbox-wrapper {
+  background: #F8FAFC;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.lw-inbox-container {
+  display: flex;
+  height: 82vh;
+  min-height: 600px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Column 1: Left Contact List Panel */
+.lw-inbox-col-contacts {
+  width: 340px;
+  min-width: 300px;
+  max-width: 380px;
+  border-right: 1px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  z-index: 2;
+}
+
+.lw-inbox-contacts-header {
+  padding: 16px;
+  border-bottom: 1px solid #F1F5F9;
+  background: #FFFFFF;
+}
+
+.lw-inbox-search-box {
+  position: relative;
+  margin-top: 10px;
+}
+
+.lw-inbox-search-box i {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  font-size: 13px;
+}
+
+.lw-inbox-search-box input {
+  padding-left: 38px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+}
+
+.lw-inbox-filter-tabs {
+  display: flex;
+  padding: 4px 12px;
+  gap: 4px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.lw-inbox-filter-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: #64748B;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lw-inbox-filter-btn.active, .lw-inbox-filter-btn:hover {
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.lw-inbox-contacts-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.lw-inbox-contact-card {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #F8FAFC;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-decoration: none !important;
+}
+
+.lw-inbox-contact-card:hover {
+  background: #F8FAFC;
+}
+
+.lw-inbox-contact-card.active {
+  background: #ECFDF5;
+  border-left: 3px solid #10B981;
+}
+
+.lw-inbox-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Column 2: Center Active Chat Panel */
+.lw-inbox-col-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #F8FAFC;
+  position: relative;
+  min-width: 0;
+}
+
+/* Modern Header Bar */
+.lw-chat-header-bar {
+  height: 68px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 5;
+}
+
+.lw-chat-header-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lw-chat-user-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lw-session-pill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.lw-session-pill.active {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.lw-session-pill.expired {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+/* Chat Message Canvas */
+.lw-chat-conversation-canvas {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: #ECE5DD url('../../imgs/wa-message-bg-faded.png') repeat;
+  display: flex;
+  flex-direction: column-reverse;
+  scrollbar-width: thin;
+}
+
+/* Modern Message Bubbles */
+.lw-msg-bubble {
+  max-width: 72%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  position: relative;
+  word-wrap: break-word;
+}
+
+.lw-msg-bubble.received {
+  align-self: flex-start;
+  background: #FFFFFF;
+  color: #1E293B;
+  border-bottom-left-radius: 2px;
+}
+
+.lw-msg-bubble.sent {
+  align-self: flex-end;
+  background: #DCF8C6;
+  color: #0F172A;
+  border-bottom-right-radius: 2px;
+}
+
+.lw-msg-bubble.internal-note {
+  align-self: center;
+  max-width: 85%;
+  background: #FEF9C3;
+  color: #713F12;
+  border: 1px dashed #EAB308;
+  border-radius: 10px;
+  font-style: italic;
+}
+
+.lw-msg-meta {
+  font-size: 11px;
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* Modern Dual-mode Composer */
+.lw-chat-composer-area {
+  background: #FFFFFF;
+  border-top: 1px solid #E2E8F0;
+  padding: 10px 16px 14px;
+  position: relative;
+}
+
+.lw-composer-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.lw-mode-tabs {
+  display: inline-flex;
+  background: #F1F5F9;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.lw-mode-tab-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lw-mode-tab-btn.active {
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.lw-mode-tab-btn.active.note-mode {
+  background: #FEF08A;
+  color: #854D0E;
+}
+
+.lw-composer-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 6px 12px;
+  transition: border-color 0.15s ease;
+}
+
+.lw-composer-box:focus-within {
+  border-color: #10B981;
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.lw-composer-box.note-active {
+  border-color: #F59E0B;
+  background: #FFFBEB;
+}
+
+.lw-composer-box textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  resize: none;
+  font-size: 13.5px;
+  line-height: 1.4;
+  max-height: 120px;
+  padding: 4px 0;
+  font-family: var(--saas-font);
+}
+
+.lw-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lw-action-circle-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lw-action-circle-btn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.lw-send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #10B981;
+  color: #FFFFFF;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.lw-send-btn:hover {
+  background: #059669;
+  transform: scale(1.04);
+}
+
+/* Canned Quick Reply Dropdown */
+.lw-canned-quick-picker {
+  position: absolute;
+  bottom: 80px;
+  left: 16px;
+  width: 380px;
+  max-height: 280px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12);
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.lw-canned-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid #F1F5F9;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lw-canned-item:hover {
+  background: #ECFDF5;
+}
+
+.lw-canned-shortcut {
+  font-weight: 700;
+  font-size: 12px;
+  color: #059669;
+  background: #D1FAE5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+/* Column 3: Right Contact 360 CRM Panel */
+.lw-inbox-col-crm {
+  width: 320px;
+  min-width: 280px;
+  max-width: 360px;
+  border-left: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.lw-crm-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.lw-crm-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.lw-crm-section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #64748B;
+  margin-bottom: 10px;
+}
+
+.lw-crm-item {
+  margin-bottom: 8px;
+}
+
+.lw-crm-item label {
+  font-size: 11.5px;
+  color: #94A3B8;
+  margin-bottom: 2px;
+  display: block;
+}
+
+.lw-crm-item value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1E293B;
+  display: block;
+}
+
+/* ==========================================================================
+   Phase 4: Visual Flow & Bot Builder Canvas (AiSensy / WATI standard)
+   ========================================================================== */
+
+.lw-flow-builder-container-holder {
+  background: #F8FAFC !important;
+  border-radius: 12px !important;
+  border: 1px solid #E2E8F0 !important;
+  overflow: hidden;
+  position: relative;
+}
+
+.lw-flow-builder-container {
+  min-height: 720px;
+  height: 80vh;
+  background-color: #F8FAFC;
+  background-image: 
+    radial-gradient(circle, #CBD5E1 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Flowchart Operator Nodes */
+.flowchart-operator {
+  background: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+  padding: 0 !important;
+  min-width: 220px !important;
+}
+
+.flowchart-operator.selected {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25), 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.flowchart-operator .flowchart-operator-title {
+  background: #F1F5F9 !important;
+  color: #0F172A !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  padding: 10px 14px !important;
+  border-top-left-radius: 11px !important;
+  border-top-right-radius: 11px !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+}
+
+.flowchart-operator .flowchart-operator-inputs-outputs {
+  padding: 10px !important;
+}
+
+.flowchart-operator-connector-label {
+  font-size: 11.5px !important;
+  color: #64748B !important;
+  font-weight: 500 !important;
+}
+
+.flowchart-operator-connector-arrow {
+  border-top-color: #10B981 !important;
+}
+
+.flowchart-operator-connector-small-arrow {
+  border-top-color: #10B981 !important;
+}
+
+.flowchart-link path {
+  stroke: #10B981 !important;
+  stroke-width: 3px !important;
+}
+
+.flowchart-link.selected path {
+  stroke: #047857 !important;
+  stroke-width: 4px !important;
+}

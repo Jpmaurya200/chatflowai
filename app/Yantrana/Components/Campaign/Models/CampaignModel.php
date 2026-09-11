@@ -9,8 +9,10 @@ namespace App\Yantrana\Components\Campaign\Models;
 
 use App\Yantrana\Base\BaseModel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Yantrana\Components\WhatsAppService\Models\WhatsAppMessageLogModel;
 use App\Yantrana\Components\WhatsAppService\Models\WhatsAppMessageQueueModel;
+use App\Yantrana\Components\WhatsAppService\Models\WhatsAppTemplateModel;
 
 class CampaignModel extends BaseModel
 {
@@ -44,6 +46,8 @@ class CampaignModel extends BaseModel
             'is_all_contacts' => 'boolean',
             'is_for_template_language_only' => 'boolean',
             'selected_groups' => 'array:extend',
+            // allow saving duplication payload alongside existing data
+            'campaign_recreate_payload' => 'array:extend',
         ],
     ];
 
@@ -79,5 +83,13 @@ class CampaignModel extends BaseModel
         return $this->hasMany(WhatsAppMessageQueueModel::class, 'campaigns__id', '_id')->where([
             'status' => 3 // processing
         ]);
+    }
+
+    /**
+     * Get the WhatsApp template associated with this campaign
+     */
+    public function whatsappTemplate(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppTemplateModel::class, 'whatsapp_templates__id', '_id');
     }
 }

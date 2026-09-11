@@ -1,18 +1,21 @@
-<div class="header pb-0 pt-5 pt-lg-6 d-flex align-items-center">
-    <!-- Mask -->
-    {{-- <span class="mask opacity-8"></span> --}}
-    <!-- Header container -->
-    <div class="container-fluid d-flex align-items-center">
-    <div class="col-12 pl-0">
-        {{-- {{ $class ?? '' }} --}}
-            <div class="mb-4 pl-2 bg-white rounded shadow border-dark">
+<div class="header pt-4 pb-2">
+    <div class="container-fluid">
+        <div class="lw-modern-page-header">
+            <div class="lw-title-wrap">
                 @isset($title)
-                <h1 class="lw-page-title display-4 mt-md-4 text-secondary">{{ $title }}</h1>
+                <h1 class="lw-page-title mb-1">
+                    <span>{{ $title }}</span>
+                </h1>
                 @endisset
                 @if (isset($description) && $description)
-                <p class=" mt-0 mb-3">{{ $description }}</p>
+                <p class="text-muted mb-0">{{ $description }}</p>
                 @endif
             </div>
+            @if(isset($actionBtn) && $actionBtn)
+            <div class="lw-header-actions">
+                {!! $actionBtn !!}
+            </div>
+            @endif
         </div>
     </div>
 </div>

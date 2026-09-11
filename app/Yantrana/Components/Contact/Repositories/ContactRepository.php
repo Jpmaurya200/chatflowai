@@ -30,7 +30,7 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
      *
      * @return mixed
      *---------------------------------------------------------------- */
-    public function fetchContactDataTableSource($groupContactIds = null, $contactGroupUid = null)
+    public function fetchContactDataTableSource($contactGroupId = null, $contactGroupUid = null)
     {
         // basic configurations for dataTables data
         $dataTableConfig = [
@@ -42,15 +42,26 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
                 'wa_id',
                 'email',
             ],
+            // Order by newest first
+            'orderBy' => ['contacts.created_at' => 'desc'],
         ];
 
         // get Model result for dataTables
         $query = $this->primaryModel::where([
             'vendors__id' => getVendorId()
         ]);
-        if ($contactGroupUid) {
-            $query->whereIn('_id', $groupContactIds);
+        
+        // OPTIMIZED: Use JOIN instead of whereIn for large groups
+        // This allows database to paginate BEFORE loading data
+        if ($contactGroupUid && $contactGroupId) {
+            $query->join('group_contacts', function($join) use ($contactGroupId) {
+                $join->on('contacts._id', '=', 'group_contacts.contacts__id')
+                     ->where('group_contacts.contact_groups__id', '=', $contactGroupId);
+            });
+            // Select only contacts table columns to avoid conflicts
+            $query->select('contacts.*');
         }
+        
         return $query->dataTables($dataTableConfig)->toArray();
     }
 

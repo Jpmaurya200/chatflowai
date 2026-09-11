@@ -56,12 +56,6 @@ class WhatsAppOrderController extends BaseController
     {
         validateVendorAccess('manage_whatsapp_orders');
         
-        // Check if WhatsApp is configured
-        if (!isWhatsAppBusinessAccountReady()) {
-            return redirect()->route('vendor.settings.read', ['pageType' => 'whatsapp_cloud_api_setup'])
-                ->with('error', __tr('Please complete your WhatsApp Cloud API Setup first'));
-        }
-
         $orderStatistics = $this->whatsAppOrderRepository->getOrderStatistics();
         
         return $this->loadView('whatsapp-service.orders-list', [
@@ -538,6 +532,95 @@ class WhatsAppOrderController extends BaseController
                 'success' => false,
                 'error' => $e->getMessage(),
                 'message' => 'Failed to test payment gateway',
+            ], 500);
+        }
+    }
+
+    /**
+     * Test order totals calculation (for debugging)
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function testOrderTotals(Request $request): JsonResponse
+    {
+        try {
+            validateVendorAccess('manage_whatsapp_orders');
+            
+            $vendorId = getVendorId();
+            $orderService = app(\App\Yantrana\Components\WhatsAppService\Services\WhatsAppOrderService::class);
+            
+            // Sample items for testing
+            $testItems = [
+                [
+                    'name' => 'Test Product 1',
+                    'item_price' => 100.00,
+                    'quantity' => 2,
+                ],
+                [
+                    'name' => 'Test Product 2',
+                    'item_price' => 50.00,
+                    'quantity' => 1,
+                ],
+            ];
+            
+            // Use provided items if available
+            if ($request->has('items') && is_array($request->get('items'))) {
+                $testItems = $request->get('items');
+            }
+            
+            $result = $orderService->testOrderTotalsCalculation($testItems, $vendorId);
+            
+            return response()->json([
+                'success' => true,
+                'test_data' => $result,
+                'message' => 'Order totals calculation test completed',
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => 'Failed to test order totals calculation',
+            ], 500);
+        }
+    }
+
+    /**
+     * Test product name resolution (for debugging)
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function testProductNameResolution(Request $request): JsonResponse
+    {
+        try {
+            validateVendorAccess('manage_whatsapp_orders');
+            
+            $productRetailerId = $request->get('product_retailer_id');
+            
+            if (!$productRetailerId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product retailer ID is required',
+                ], 400);
+            }
+            
+            $order = new \App\Yantrana\Components\WhatsAppService\Models\WhatsAppOrderModel();
+            $productName = $order->getProductName($productRetailerId);
+            
+            return response()->json([
+                'success' => true,
+                'product_retailer_id' => $productRetailerId,
+                'product_name' => $productName,
+                'message' => 'Product name resolution test completed',
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => 'Failed to resolve product name',
             ], 500);
         }
     }

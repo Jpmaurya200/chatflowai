@@ -465,7 +465,12 @@
                                             data-instant-upload="true"
                                             data-action="<?= route('media.upload_temp_media', 'whatsapp_image') ?>"
                                             data-file-input-element="#lwMediaFileName"
-                                            data-allowed-media='<?= getMediaRestriction('whatsapp_image') ?>' />
+                                            data-allowed-media='<?= getMediaRestriction('whatsapp_image') ?>' 
+                                            style = " transform: translate3d(0px, 0px, 0px); 
+                                                        opacity: 1;
+                                                        background-color: #e3e0df;
+                                                        border-radius: 15px;"/>
+                                            
                                     </div>
 
                                     {{-- video --}}
@@ -1028,17 +1033,23 @@
                     </div>
                     <div class="col-md-1 d-none d-md-block"></div>
                     <div class="col-md-4">
-                        <div class="lw-whatsapp-template-create-preview animate__animated animate__fadeIn animate__delay-3s">
-                            <h3 class="preview-title">{{ __tr('Template Preview') }}</h3>
+                        <div class="lw-whatsapp-template-create-preview animate__animated animate__fadeIn animate__delay-3s " style="position: sticky; top: 80px; z-index: 2;">
+                            <h3 class="preview-title">{{ __tr('New Template Preview') }}</h3>
                             <div class="lw-whatsapp-preview-container">
                                 <img class="lw-whatsapp-preview-bg" src="{{ asset('imgs/wa-message-bg.png') }}" alt="">
                                 <div class="lw-whatsapp-preview">
                                     <!-- Regular Template Preview -->
                                     <div x-show="headerType !== 'carousel'" class="card shadow-lg">
-                                        <div x-show="headerType && (headerType != 'text')" class="lw-whatsapp-header-placeholder">
+                                        <div x-show="headerType && (headerType != 'text')" 
+                                            class="lw-whatsapp-header-placeholder"
+                                            id="whatsappPreview">
+                                            
+                                            {{-- Default icons --}}
                                             <i x-show="headerType == 'video'" class="fa fa-5x fa-play-circle text-white"></i>
-                                            <i x-show="headerType == 'image'" class="fa fa-5x fa-image text-white"></i>
-                                            <i x-show="headerType == 'location'" class="fa fa-5x fa-map-marker-alt text-white"></i>
+                                            <i id="defaultIcon" class="fa fa-5x fa-image text-white"></i>
+
+<!-- Uploaded image placeholder (hidden initially) -->
+<img id="uploadedImage" src="" class="img-fluid rounded" style="max-height:200px; display:none;">                                            <i x-show="headerType == 'location'" class="fa fa-5x fa-map-marker-alt text-white"></i>
                                             <i x-show="headerType == 'document'" class="fa fa-5x fa-file-alt text-white"></i>
                                         </div>
                                         <div x-show="headerType == 'location'" class="lw-whatsapp-location-meta bg-secondary p-2">
@@ -1155,8 +1166,22 @@
                 </div>
             </div>
         </div>
+        
     </div>
 </div>
+<!-- FilePond CSS -->
+<link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet">
+<link href="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css" rel="stylesheet">
+<link href="https://unpkg.com/filepond-plugin-file-poster/dist/filepond-plugin-file-poster.css" rel="stylesheet">
+<link href="https://unpkg.com/filepond-plugin-media-preview/dist/filepond-plugin-media-preview.css" rel="stylesheet">
+
+<!-- FilePond JS -->
+<script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+<script src="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.js"></script>
+<script src="https://unpkg.com/filepond-plugin-file-poster/dist/filepond-plugin-file-poster.js"></script>
+<script src="https://unpkg.com/filepond-plugin-file-validate-type/dist/filepond-plugin-file-validate-type.js"></script>
+<script src="https://unpkg.com/filepond-plugin-media-preview/dist/filepond-plugin-media-preview.js"></script>
+
 @endsection()
 @push('appScripts')
 <?= __yesset(
@@ -1314,6 +1339,29 @@
 </style>
 
 <script>
+// Define the function globally before DOMContentLoaded
+window.showUploadedImage = function(imageUrl) {
+    console.log('Showing uploaded image:', imageUrl);
+    
+    // Get the preview image element
+    const previewImage = document.getElementById('template-preview-image');
+    if (previewImage) {
+        // Set the image source
+        previewImage.src = imageUrl;
+        previewImage.style.display = 'block';
+        
+        // Hide all icons
+        const icons = document.querySelectorAll('.lw-whatsapp-header-placeholder i');
+        icons.forEach(icon => {
+            icon.style.display = 'none';
+        });
+        
+        console.log('✅ Image displayed in preview');
+    } else {
+        console.log('❌ Preview image element not found');
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     // Carousel template formatting buttons
     const carouselBoldBtn = document.getElementById('lwCarouselBoldBtn');
@@ -1650,4 +1698,46 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+const pond = FilePond.create(document.querySelector('#lwImageMediaFilepond'));
+
+pond.on('processfile', (error, file) => {
+    if (error) {
+        console.error('Upload error:', error);
+        return;
+    }
+
+    // Parse backend JSON response
+    const response = JSON.parse(file.serverId);
+    const path = response.data.path; // Make sure your backend sends 'path'
+
+    // Get elements
+    const icon = document.getElementById('defaultIcon');
+    const img = document.getElementById('uploadedImage');
+
+    // Hide the icon and show the uploaded image
+    if (icon) icon.style.display = 'none';
+    if (img) {
+        img.src = path;
+        img.style.display = 'block';
+    }
+
+    console.log('✅ Uploaded image displayed:', path);
+});
+
+
+
 </script>
+
+<style>
+/* Image selector (FilePond) styling for template creation */
+#lwImageMediaFilepond.filepond--root .filepond--drop-label {
+    transform: translate3d(0px, 0px, 0px);
+    opacity: 1;
+    background: #dad5d3;
+    /* height: 53px; */
+    border-radius: 11px;
+}
+#lwImageMediaFilepond.filepond--root .filepond--drop-label {
+    min-height: 2.75em;
+}
+</style>

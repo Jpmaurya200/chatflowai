@@ -234,11 +234,18 @@
                                             </div>
                                         @endforeach
                                         <div class="text-lg mt-4">
-                                            @foreach ($plan['charges'] as $itemKey => $itemValue)
                                             @php
-                                                if(!$itemValue['enabled']) {
-                                                    continue;
+                                                // Define the desired order: monthly, 6_months, 12_months, 18_months
+                                                $chargeOrder = ['monthly', '6_months', '12_months', '18_months'];
+                                                $orderedCharges = [];
+                                                foreach ($chargeOrder as $orderKey) {
+                                                    if (isset($plan['charges'][$orderKey]) && isset($planDetails[$planKey]['charges'][$orderKey]['enabled']) && $planDetails[$planKey]['charges'][$orderKey]['enabled']) {
+                                                        $orderedCharges[$orderKey] = $planDetails[$planKey]['charges'][$orderKey];
+                                                    }
                                                 }
+                                            @endphp
+                                            @foreach ($orderedCharges as $itemKey => $itemValue)
+                                            @php
                                                 $isCurrentPlan = ($planSelectorId === $planId . '___' . $itemKey);
                                             @endphp
                                                 <div class="form-group my-2 {{ $isCurrentPlan ? 'current-plan' : '' }}">
@@ -361,22 +368,32 @@
                                                         @endif
                                                     @endforeach
                                                     <div class="text-lg mt-4">
-                                                        @foreach ($charges as $itemKey => $itemValue)
-                                                            @php
-                                                                if(!$itemValue['enabled']) {
-                                                                    continue;
+                                                        @php
+                                                            // Define the desired order: monthly, 6_months, 12_months, 18_months
+                                                            $chargeOrder = ['monthly', '6_months', '12_months', '18_months'];
+                                                            $orderedCharges = [];
+                                                            foreach ($chargeOrder as $orderKey) {
+                                                                if (isset($charges[$orderKey]) && $charges[$orderKey]['enabled']) {
+                                                                    $orderedCharges[$orderKey] = $charges[$orderKey];
                                                                 }
+                                                            }
+                                                        @endphp
+                                                        @foreach ($orderedCharges as $itemKey => $itemValue)
+                                                            @php
+                                                                $isCurrentPlan = ($planSelectorId === $planId . '___' . $itemKey);
                                                             @endphp
-                                                            @if ($planSelectorId !== $planId . '___' . $itemKey)
-                                                                <div class="my-2 text-primary">
-                                                                    <input x-model="selectedPlanFrequencyNew" type="radio" name="plan"
-                                                                        id="{{ $planId }}{{ $itemKey }}"
-                                                                        value="{{ $planId }}___{{ $itemKey }}">
-                                                                    <label for="{{ $planId }}{{ $itemKey }}">
-                                                                        {{ formatAmount($itemValue['charge'], true) }} /
-                                                                        {{ $itemKey }}</label>
-                                                                </div>
-                                                            @endif
+                                                            <div class="my-2 {{ $isCurrentPlan ? 'current-plan' : 'text-primary' }}">
+                                                                <input x-model="selectedPlanFrequencyNew" type="radio" name="plan"
+                                                                    id="{{ $planId }}{{ $itemKey }}"
+                                                                    value="{{ $planId }}___{{ $itemKey }}" {{ $isCurrentPlan ? 'checked' : '' }}>
+                                                                <label class="{{ $isCurrentPlan ? 'text-success' : '' }}" for="{{ $planId }}{{ $itemKey }}">
+                                                                    {{ formatAmount($itemValue['charge'], true) }} /
+                                                                    {{ $itemKey }}
+                                                                    @if($isCurrentPlan)
+                                                                        <span class="badge badge-success ml-2">{{ __tr('Current') }}</span>
+                                                                    @endif
+                                                                </label>
+                                                            </div>
                                                         @endforeach
                                                     </div>
                                                 </fieldset>

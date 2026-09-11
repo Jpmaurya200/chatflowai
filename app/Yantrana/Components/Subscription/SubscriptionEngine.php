@@ -165,8 +165,10 @@ class SubscriptionEngine extends BaseEngine implements SubscriptionEngineInterfa
             $currentSubscription = $currentPlanDetails['subscription'];
         }
         $planSelectorId = null;
-        if ($currentSubscription and ((Arr::get($currentPlan, 'charges.monthly.price_id') === $currentSubscription->stripe_price) or ($currentSubscription->charges_frequency == 'monthly'))) {
-            $planSelectorId = $currentPlan['id'].'___monthly';
+        if ($currentSubscription and ((Arr::get($currentPlan, 'charges.6_months.price_id') === $currentSubscription->stripe_price) or ($currentSubscription->charges_frequency == '6_months'))) {
+            $planSelectorId = $currentPlan['id'].'___6_months';
+        } elseif ($currentSubscription and ((Arr::get($currentPlan, 'charges.18_months.price_id') === $currentSubscription->stripe_price) or ($currentSubscription->charges_frequency == '18_months'))) {
+            $planSelectorId = $currentPlan['id'].'___18_months';
         } elseif ($currentSubscription and ((Arr::get($currentPlan, 'charges.yearly.price_id') === $currentSubscription->stripe_price) or ($currentSubscription->charges_frequency == 'yearly'))) {
             $planSelectorId = $currentPlan['id'].'___yearly';
         }

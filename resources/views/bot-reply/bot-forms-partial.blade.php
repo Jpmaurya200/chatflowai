@@ -371,14 +371,45 @@
 <!-- Add New Advance Bot Reply Modal -->
 <x-lw.modal id="lwAddNewAdvanceBotReply" modal-dialog-class="modal-lg bot-forms-modern" :header="__tr('Add New Bot Reply')" :hasForm="true">
     <!--  Add New Bot Reply Form -->
-    <x-lw.form x-data="{triggerType:'',headerType:'',interactiveButtonType:'button'}" id="lwAddNewAdvanceBotReplyForm"
+    <x-lw.form x-data="{
+            triggerType:'',
+            headerType:'',
+            interactiveButtonType:'button',
+            selectedFlowId:'',
+            messageType: (typeof isAdvanceBot !== 'undefined' && isAdvanceBot) ? isAdvanceBot : 'simple',
+            flowList: window.__WhatsAppFlows || [],
+            flowFetchError: window.__WhatsAppFlowsError || null,
+            get isAdvanceBot() {
+                return this.messageType;
+            },
+            get publishedFlows() {
+                return (this.flowList || []).filter(flow => String(flow.status || '').toUpperCase() === 'PUBLISHED');
+            },
+            get selectedFlow() {
+                if(!this.selectedFlowId) {
+                    return null;
+                }
+                const publishedMatch = this.publishedFlows.find(flow => String(flow.id) === String(this.selectedFlowId));
+                if (publishedMatch) {
+                    return publishedMatch;
+                }
+                return (this.flowList || []).find(flow => String(flow.id) === String(this.selectedFlowId)) || null;
+            },
+            setMessageType(type) {
+                this.messageType = type || 'simple';
+            }
+        }"
+        @lw-set-message-type.window="setMessageType($event.detail)"
+        id="lwAddNewAdvanceBotReplyForm"
         :action="route('vendor.bot_reply.write.create')"
         :data-callback-params="['modalId' => '#lwAddNewAdvanceBotReply', 'datatableId' => '#lwBotReplyList']"
         data-callback="appFuncs.modelSuccessCallback">
         <!-- form body -->
         <div class="lw-form-modal-body">
             <!-- form fields form fields -->
-            <input type="hidden" name="message_type" :value="isAdvanceBot">
+            <input type="hidden" name="message_type" :value="messageType">
+            <div x-effect="if(messageType !== 'flow'){ selectedFlowId = ''; }"></div>
+            <div x-effect="if(publishedFlows.length && selectedFlowId && !publishedFlows.some(flow => String(flow.id) === String(selectedFlowId))) { selectedFlowId = ''; }"></div>
             <template x-if="botFlowUid">
                 <input type="hidden" name="bot_flow_uid" :value="botFlowUid">
             </template>
@@ -400,6 +431,7 @@
                         <div class="help-text">{{  __tr('You are free to use following dynamic variables for reply text, which will get replaced with contact\'s concerned field value.') }} <div><code>{{ implode(' ', $dynamicFields) }}</code></div></div>
                 </div>
                 <!-- /Reply_Text -->
+
 
                 <!-- Ask Question Fields -->
                 <div x-show="isAdvanceBot == 'question'">
@@ -1012,7 +1044,27 @@
     <!--  Edit Bot Reply Form -->
     <x-lw.form id="lwEditBotReplyForm" :action="route('vendor.bot_reply.write.update')"
         :data-callback-params="['modalId' => '#lwEditBotReply', 'datatableId' => '#lwBotReplyList']"
-        data-callback="appFuncs.modelSuccessCallback" x-data="{headerType:'', triggerType:'', interactiveButtonType:'button'}">
+        data-callback="appFuncs.modelSuccessCallback" x-data="{
+            headerType:'',
+            triggerType:'',
+            interactiveButtonType:'button',
+            selectedFlowId:'',
+            flowList: window.__WhatsAppFlows || [],
+            flowFetchError: window.__WhatsAppFlowsError || null,
+            get publishedFlows() {
+                return (this.flowList || []).filter(flow => String(flow.status || '').toUpperCase() === 'PUBLISHED');
+            },
+            get selectedFlow() {
+                if(!this.selectedFlowId) {
+                    return null;
+                }
+                const publishedMatch = this.publishedFlows.find(flow => String(flow.id) === String(this.selectedFlowId));
+                if (publishedMatch) {
+                    return publishedMatch;
+                }
+                return (this.flowList || []).find(flow => String(flow.id) === String(this.selectedFlowId)) || null;
+            }
+        }">
         <!-- form body -->
         <div id="lwEditBotReplyBody" class="lw-form-modal-body"></div>
         <script type="text/template" id="lwEditBotReplyBody-template">
@@ -1034,11 +1086,13 @@
                 <% if(__tData.trigger_type) { %>
                     triggerType = '<%- __tData.trigger_type %>';
                 <% } %>
+
             ">
+            <div x-effect="if(publishedFlows.length && selectedFlowId && !publishedFlows.some(flow => String(flow.id) === String(selectedFlowId))) { selectedFlowId = ''; }"></div>
             <input type="hidden" name="botReplyIdOrUid" value="<%- __tData._uid %>" />
 
             <!-- Determine message type based on data structure -->
-            <% if(__tData.__data?.question_message) { %>
+            <% } else if(__tData.__data?.question_message) { %>
                 <input type="hidden" name="message_type" value="question">
             <% } else if(__tData.__data?.goto_message) { %>
                 <input type="hidden" name="message_type" value="goto">
@@ -1083,7 +1137,8 @@
                       !__tData.__data?.webhook_message &&
                       !__tData.__data?.custom_field_message &&
                       !__tData.__data?.stay_in_session_message &&
-                      !__tData.__data?.whatsapp_template_message) { %>
+                      !__tData.__data?.whatsapp_template_message &&
+                      !__tData.__data?.flow_message) { %>
                     <div class="form-group">
                         <label for="lwReplyTextEditField">{{ __tr('Reply Text') }}</label>
                         <textarea cols="10" rows="3" id="lwReplyTextEditField" class="lw-form-field form-control"
@@ -1091,6 +1146,7 @@
                         <div class="help-text my-3 border p-3">{{ __tr('You are free to use following dynamic variables for reply text, which will get replaced with contact\'s concerned field value.') }} <div><code>{{ implode(' ', $dynamicFields) }}</code></div></div>
                     </div>
                 <% } %>
+
 
                 <!-- Question Message -->
                 <% if(__tData.__data?.question_message) { %>

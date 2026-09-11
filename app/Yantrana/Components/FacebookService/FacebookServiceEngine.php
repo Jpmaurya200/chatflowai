@@ -31,9 +31,35 @@ class FacebookServiceEngine extends BaseEngine
 
             if (!$response->successful()) {
                 $errorData = $response->json();
-                $errorMessage = $errorData['error']['message'] ?? 'Unknown Facebook API error';
-                Log::error('Facebook conversations API error: ' . $errorMessage);
-                return $this->engineFailedResponse([], __tr('Facebook API Error: ') . $errorMessage);
+                $errorMessage = 'Unknown Facebook API error';
+                
+                if (isset($errorData['error'])) {
+                    $error = $errorData['error'];
+                    $errorCode = $error['code'] ?? null;
+                    $errorSubcode = $error['error_subcode'] ?? null;
+                    $errorMsg = $error['message'] ?? 'Unknown error';
+                    
+                    Log::error('Facebook conversations API error', [
+                        'code' => $errorCode,
+                        'subcode' => $errorSubcode,
+                        'message' => $errorMsg
+                    ]);
+                    
+                    // Check for OAuth token invalidation errors
+                    if ($errorCode == 190) {
+                        if ($errorSubcode == 460) {
+                            $errorMessage = 'Your Facebook access token has been invalidated. This usually happens when you change your Facebook password or Facebook invalidates the session for security reasons. Please reconnect your Facebook account in the settings to generate a new access token.';
+                        } else {
+                            $errorMessage = 'Facebook access token error: ' . $errorMsg . '. Please check your Facebook API configuration and reconnect if necessary.';
+                        }
+                    } else {
+                        $errorMessage = 'Facebook API Error: ' . $errorMsg;
+                    }
+                } else {
+                    $errorMessage = $errorData['error']['message'] ?? 'Unknown Facebook API error';
+                }
+                
+                return $this->engineFailedResponse([], __tr($errorMessage));
             }
 
             $data = $response->json();
@@ -101,9 +127,35 @@ class FacebookServiceEngine extends BaseEngine
 
             if (!$response->successful()) {
                 $errorData = $response->json();
-                $errorMessage = $errorData['error']['message'] ?? 'Unknown Facebook API error';
-                Log::error('Facebook messages API error: ' . $errorMessage);
-                return $this->engineFailedResponse([], __tr('Facebook API Error: ') . $errorMessage);
+                $errorMessage = 'Unknown Facebook API error';
+                
+                if (isset($errorData['error'])) {
+                    $error = $errorData['error'];
+                    $errorCode = $error['code'] ?? null;
+                    $errorSubcode = $error['error_subcode'] ?? null;
+                    $errorMsg = $error['message'] ?? 'Unknown error';
+                    
+                    Log::error('Facebook messages API error', [
+                        'code' => $errorCode,
+                        'subcode' => $errorSubcode,
+                        'message' => $errorMsg
+                    ]);
+                    
+                    // Check for OAuth token invalidation errors
+                    if ($errorCode == 190) {
+                        if ($errorSubcode == 460) {
+                            $errorMessage = 'Your Facebook access token has been invalidated. Please reconnect your Facebook account in the settings.';
+                        } else {
+                            $errorMessage = 'Facebook access token error: ' . $errorMsg;
+                        }
+                    } else {
+                        $errorMessage = 'Facebook API Error: ' . $errorMsg;
+                    }
+                } else {
+                    $errorMessage = $errorData['error']['message'] ?? 'Unknown Facebook API error';
+                }
+                
+                return $this->engineFailedResponse([], __tr($errorMessage));
             }
 
             $data = $response->json();
@@ -264,7 +316,12 @@ class FacebookServiceEngine extends BaseEngine
                 $errorMessage = $error['message'] ?? $errorMessage;
 
                 if ($error['code'] == 190) {
-                    $errorMessage = __tr('Invalid access token. Please check your Facebook Page Access Token.');
+                    $errorSubcode = $error['error_subcode'] ?? null;
+                    if ($errorSubcode == 460) {
+                        $errorMessage = __tr('Your Facebook access token has been invalidated. This usually happens when you change your Facebook password or Facebook invalidates the session for security reasons. Please reconnect your Facebook account in the settings to generate a new access token.');
+                    } else {
+                        $errorMessage = __tr('Invalid access token. Please check your Facebook Page Access Token.');
+                    }
                 } elseif ($error['code'] == 803) {
                     $errorMessage = __tr('Invalid Page ID. Please check your Facebook Page ID.');
                 } elseif ($error['code'] == 100) {

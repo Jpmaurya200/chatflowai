@@ -19,7 +19,8 @@ class FlowNodeService
         'goto' => 'goto',
         'webhook' => 'webhook',
         'custom_field' => 'custom_field',
-        'stay_in_session' => 'stay_in_session'
+        'stay_in_session' => 'stay_in_session',
+        'flow' => 'flow'
     ];
 
     /**
@@ -144,6 +145,11 @@ class FlowNodeService
                     $errors[] = $prefix . 'Question text is required';
                 }
                 break;
+            case 'flow':
+                if (empty($payload['whatsapp_flow_id'])) {
+                    $errors[] = $prefix . 'WhatsApp flow ID is required';
+                }
+                break;
         }
         
         return $errors;
@@ -226,6 +232,9 @@ class FlowNodeService
             case 'goto':
                 return $payload['redirect_to_node'] ?? null;
 
+            case 'flow':
+                return $payload['next_node'] ?? null;
+
             case 'stay_in_session':
                 // Stay in session nodes always return null to prevent flow termination
                 return null;
@@ -294,6 +303,10 @@ class FlowNodeService
             // Check direct next_node references
             if (isset($payload['next_node']) && !empty($payload['next_node'])) {
                 $referencedIds[] = $payload['next_node'];
+            }
+
+            if (isset($payload['failed_next_node']) && !empty($payload['failed_next_node'])) {
+                $referencedIds[] = $payload['failed_next_node'];
             }
 
             // Check redirect_to_node references

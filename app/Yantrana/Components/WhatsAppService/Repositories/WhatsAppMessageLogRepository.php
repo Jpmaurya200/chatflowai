@@ -54,10 +54,29 @@ class WhatsAppMessageLogRepository extends BaseRepository implements WhatsAppMes
         } else  {
             $findTheExistingLogEntry['wamid'] = $messageWamid;
         }
+
+        \Illuminate\Support\Facades\Log::info('Repository: Looking for existing message', [
+            'search_criteria' => $findTheExistingLogEntry,
+            'message_status' => $messageStatus,
+            'prevent_creation' => $preventCreation
+        ]);
+
         $messageLogModel = $this->fetchIt($findTheExistingLogEntry);
+
+        \Illuminate\Support\Facades\Log::info('Repository: Message lookup result', [
+            'found' => !__isEmpty($messageLogModel),
+            'message_id' => $messageLogModel->_id ?? null,
+            'current_status' => $messageLogModel->status ?? null,
+            'new_status' => $messageStatus
+        ]);
+
         // may the message deleted from db but webhook is received for delivery or read receipt
         // in such a case no need to record the action
         if (__isEmpty($messageLogModel) and $preventCreation) {
+            \Illuminate\Support\Facades\Log::warning('Repository: Message not found and preventCreation is true', [
+                'message_wamid' => $messageWamid,
+                'contact_wa_id' => $messageRecipientId
+            ]);
             return false;
         }
         $dataToUpdate = [
@@ -94,19 +113,52 @@ class WhatsAppMessageLogRepository extends BaseRepository implements WhatsAppMes
         if (__isEmpty($messageLogModel)) {
             $dataToUpdate['contacts__id'] = $contactId;
 
-            return $this->storeIt(arrayExtend($findTheExistingLogEntry, $dataToUpdate));
+            \Illuminate\Support\Facades\Log::info('Repository: Creating new message log entry', [
+                'contact_id' => $contactId,
+                'message_wamid' => $messageWamid,
+                'status' => $messageStatus
+            ]);
+
+            $result = $this->storeIt(arrayExtend($findTheExistingLogEntry, $dataToUpdate));
+
+            \Illuminate\Support\Facades\Log::info('Repository: New message log created', [
+                'message_log_id' => $result->_id ?? null,
+                'status' => $result->status ?? null
+            ]);
+
+            return $result;
         }
 
-        if($this->updateIt($findTheExistingLogEntry, arrayExtend($dataToUpdate, [
+        \Illuminate\Support\Facades\Log::info('Repository: Updating existing message log', [
+            'message_log_id' => $messageLogModel->_id,
+            'old_status' => $messageLogModel->status,
+            'new_status' => $messageStatus,
+            'data_to_update' => $dataToUpdate
+        ]);
+
+        $updateResult = $this->updateIt($findTheExistingLogEntry, arrayExtend($dataToUpdate, [
             '__data' => [
                 'options' => $options,
                 'webhook_responses' => [
                     $messageStatus => $messageEntry,
                 ],
             ],
-        ]))) {
-            return $findTheExistingLogEntry;
+        ]));
+
+        if($updateResult) {
+            \Illuminate\Support\Facades\Log::info('Repository: Message status updated successfully', [
+                'message_log_id' => $messageLogModel->_id,
+                'new_status' => $messageStatus
+            ]);
+
+            // Return the updated model instead of search criteria
+            return $this->fetchIt($findTheExistingLogEntry);
         }
+
+        \Illuminate\Support\Facades\Log::error('Repository: Failed to update message status', [
+            'message_log_id' => $messageLogModel->_id,
+            'status' => $messageStatus
+        ]);
 
         return false;
     }
@@ -124,6 +176,15 @@ class WhatsAppMessageLogRepository extends BaseRepository implements WhatsAppMes
         ?string $repliedToMessage = null,
         ?bool $isForwarded = null,
     ) {
+        \Illuminate\Support\Facades\Log::info('Repository: Storing incoming message', [
+            'contact_id' => $contactId,
+            'wa_id' => $messageRecipientId,
+            'message_wamid' => $messageWamid,
+            'message' => $message,
+            'has_media' => !empty($mediaData),
+            'timestamp' => $timestamp
+        ]);
+
         $additionalData = [
             'webhook_responses' => [
                 'incoming' => $messageEntry,
@@ -133,7 +194,7 @@ class WhatsAppMessageLogRepository extends BaseRepository implements WhatsAppMes
             $additionalData['media_values'] = $mediaData;
         }
 
-        return $this->storeIt([
+        $dataToStore = [
             'wab_phone_number_id' => $phoneNumberId,
             'contact_wa_id' => $messageRecipientId,
             'wamid' => $messageWamid,
@@ -146,7 +207,18 @@ class WhatsAppMessageLogRepository extends BaseRepository implements WhatsAppMes
             'messaged_at' => is_numeric($timestamp) ? Carbon::createFromTimestamp($timestamp) : $timestamp,
             'replied_to_whatsapp_message_logs__uid' => $repliedToMessage,
             'is_forwarded' => $isForwarded,
+        ];
+
+        $result = $this->storeIt($dataToStore);
+
+        \Illuminate\Support\Facades\Log::info('Repository: Incoming message stored', [
+            'message_log_id' => $result->_id ?? null,
+            'message_log_uid' => $result->_uid ?? null,
+            'message_wamid' => $messageWamid,
+            'is_incoming' => $result->is_incoming_message ?? null
         ]);
+
+        return $result;
     }
 
     /**

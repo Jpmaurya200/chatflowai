@@ -1,5 +1,3 @@
-@include('layouts.partials.chatsbar')
-
 @extends('layouts.app', ['title' => __tr('Instagram Messages')])
 
 @section('content')
@@ -634,6 +632,7 @@ $(document).ready(function() {
     let mediaPosts = [];
     let selectedMediaPost = null;
     let selectedComment = null;
+    let commentsRefreshInterval = null;
 
     // Initialize
     loadConversations();
@@ -953,6 +952,12 @@ $(document).ready(function() {
         currentMode = mode;
 
         if (mode === 'chat') {
+            // Clear comments refresh interval when switching to chat mode
+            if (commentsRefreshInterval) {
+                clearInterval(commentsRefreshInterval);
+                commentsRefreshInterval = null;
+            }
+
             // Show chat sections, hide comments sections
             $('#conversations-section').show();
             $('#media-section').hide();
@@ -984,6 +989,18 @@ $(document).ready(function() {
             if (mediaPosts.length === 0) {
                 loadMediaPosts();
             }
+
+            // If a media post is already selected, restart the refresh interval
+            if (selectedMediaPost) {
+                if (commentsRefreshInterval) {
+                    clearInterval(commentsRefreshInterval);
+                }
+                commentsRefreshInterval = setInterval(() => {
+                    if (selectedMediaPost && currentMode === 'comments') {
+                        loadMediaComments(selectedMediaPost.id);
+                    }
+                }, 30000);
+            }
         }
     }
 
@@ -993,14 +1010,36 @@ $(document).ready(function() {
         $('.no-media').hide();
 
         fetch('{{ route("vendor.instagram.media") }}')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Media posts API response:', data);
+                
+                if (!data.success) {
+                    console.error('API returned error:', data.message);
+                    showAlert('Failed to load media posts: ' + (data.message || 'Unknown error'), 'danger');
+                    $('.no-media').show();
+                    return;
+                }
+
                 mediaPosts = data.data?.media || [];
+                console.log('Loaded media posts:', mediaPosts.length, mediaPosts);
+                
+                if (mediaPosts.length === 0) {
+                    console.warn('No media posts found');
+                    $('.no-media').show();
+                }
+                
                 updateMediaPostsList();
             })
             .catch(error => {
                 console.error('Error loading media posts:', error);
-                showAlert('Failed to load media posts', 'danger');
+                showAlert('Failed to load media posts: ' + error.message, 'danger');
+                $('.no-media').show();
             })
             .finally(() => {
                 $('.media-loading-state').hide();
@@ -1054,6 +1093,12 @@ $(document).ready(function() {
     function selectMediaPost(mediaPost) {
         selectedMediaPost = mediaPost;
 
+        // Clear any existing refresh interval
+        if (commentsRefreshInterval) {
+            clearInterval(commentsRefreshInterval);
+            commentsRefreshInterval = null;
+        }
+
         // Update header
         const caption = mediaPost.caption || 'No caption';
         const shortCaption = caption.length > 30 ? caption.substring(0, 30) + '...' : caption;
@@ -1065,23 +1110,60 @@ $(document).ready(function() {
 
         // Load comments for this media post
         loadMediaComments(mediaPost.id);
+
+        // Set up auto-refresh every 30 seconds
+        commentsRefreshInterval = setInterval(() => {
+            if (selectedMediaPost && currentMode === 'comments') {
+                loadMediaComments(selectedMediaPost.id);
+            }
+        }, 30000); // Refresh every 30 seconds
     }
 
     // Load comments for a media post
     function loadMediaComments(mediaId) {
         $('#comments-loading').show();
         $('#no-comments').hide();
-        $('#comments-list').empty();
+        
+        // Don't clear the list on refresh - let updateCommentsList handle it
+        if (!$('#comments-list').children().length) {
+            $('#comments-list').empty();
+        }
 
         fetch(`/vendor-console/instagram/media/${mediaId}/comments`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Comments API response:', data);
+                
+                if (!data.success) {
+                    console.error('API returned error:', data.message);
+                    showAlert('Failed to load comments: ' + (data.message || 'Unknown error'), 'danger');
+                    if ($('#comments-list').children().length === 0) {
+                        $('#no-comments').show();
+                    }
+                    return;
+                }
+
                 const comments = data.data?.comments || [];
+                console.log('Loaded comments:', comments.length, comments);
+                
+                if (comments.length === 0 && $('#comments-list').children().length === 0) {
+                    console.warn('No comments found for media:', mediaId);
+                    $('#no-comments').show();
+                }
+                
                 updateCommentsList(comments);
             })
             .catch(error => {
                 console.error('Error loading comments:', error);
-                showAlert('Failed to load comments', 'danger');
+                showAlert('Failed to load comments: ' + error.message, 'danger');
+                if ($('#comments-list').children().length === 0) {
+                    $('#no-comments').show();
+                }
             })
             .finally(() => {
                 $('#comments-loading').hide();
@@ -1091,22 +1173,61 @@ $(document).ready(function() {
     // Update comments list
     function updateCommentsList(comments) {
         const $list = $('#comments-list');
-        $list.empty();
+        
+        // Store existing comment IDs to detect new comments
+        const existingCommentIds = new Set();
+        $list.find('.comment-item').each(function() {
+            existingCommentIds.add($(this).data('comment-id'));
+        });
 
         if (comments.length === 0) {
-            $('#no-comments').show();
+            if ($list.children().length === 0) {
+                $('#no-comments').show();
+            }
             return;
         }
 
         $('#no-comments').hide();
 
-        comments.forEach(comment => {
+        // If this is the first load (no existing comments), clear and show all
+        const isFirstLoad = existingCommentIds.size === 0;
+        
+        if (isFirstLoad) {
+            $list.empty();
+        }
+
+        let hasNewComments = false;
+        const commentIdsInResponse = new Set();
+        
+        // Sort comments by timestamp (newest first) for display
+        const sortedComments = comments.slice().sort((a, b) => {
+            const timeA = new Date(a.timestamp || 0).getTime();
+            const timeB = new Date(b.timestamp || 0).getTime();
+            return timeB - timeA; // Newest first
+        });
+
+        sortedComments.forEach(comment => {
+            commentIdsInResponse.add(comment.id);
+            
+            // Check if this comment already exists
+            if (!isFirstLoad && existingCommentIds.has(comment.id)) {
+                return; // Skip existing comments on refresh
+            }
+
+            hasNewComments = true;
             const username = comment.username || 'Unknown User';
             const text = comment.text || '';
             const timeAgo = comment.time_ago || comment.formatted_date || 'Unknown time';
+            // Ensure comment ID is always a string
+            const commentId = String(comment.id || '');
+
+            if (!commentId) {
+                console.error('Comment missing ID:', comment);
+                return; // Skip comments without IDs
+            }
 
             const $comment = $(`
-                <div class="comment-item mb-3 p-3 border rounded" data-comment-id="${comment.id}">
+                <div class="comment-item mb-3 p-3 border rounded" data-comment-id="${commentId}">
                     <div class="d-flex align-items-start">
                         <div class="avatar bg-secondary text-white text-center me-3" style="width: 40px; height: 40px; line-height: 40px; border-radius: 50%;">
                             <span>${getInitials(username)}</span>
@@ -1117,7 +1238,7 @@ $(document).ready(function() {
                                 <small class="text-muted">${timeAgo}</small>
                             </div>
                             <p class="mb-2">${text}</p>
-                            <button class="btn btn-sm btn-outline-primary reply-comment-btn" data-comment-id="${comment.id}" data-username="${username}">
+                            <button class="btn btn-sm btn-outline-primary reply-comment-btn" data-comment-id="${commentId}" data-username="${username}">
                                 <i class="fas fa-comment me-1"></i>Start Chat
                             </button>
                         </div>
@@ -1125,15 +1246,36 @@ $(document).ready(function() {
                 </div>
             `);
 
+            // Append comments (newest will be at top due to sorting)
             $list.append($comment);
         });
 
-        // Handle reply button clicks
-        $('.reply-comment-btn').on('click', function() {
-            const commentId = $(this).data('comment-id');
-            const username = $(this).data('username');
-            selectCommentForReply(commentId, username);
+        // Remove comments that are no longer in the response (if any)
+        if (!isFirstLoad) {
+            $list.find('.comment-item').each(function() {
+                const commentId = $(this).data('comment-id');
+                if (!commentIdsInResponse.has(commentId)) {
+                    $(this).remove();
+                }
+            });
+        }
+
+        // Reattach click handlers for all reply buttons (including new ones)
+        $('.reply-comment-btn').off('click').on('click', function() {
+            const commentId = String($(this).data('comment-id') || $(this).attr('data-comment-id') || '');
+            const username = $(this).data('username') || $(this).attr('data-username') || 'Unknown User';
+            if (commentId) {
+                selectCommentForReply(commentId, username);
+            } else {
+                console.error('Comment ID not found');
+                showAlert('Error: Comment ID not found', 'danger');
+            }
         });
+
+        // Highlight the selected comment if one is selected
+        if (selectedComment) {
+            $list.find(`.comment-item[data-comment-id="${selectedComment}"]`).addClass('border-primary');
+        }
 
         // Scroll to bottom
         const container = document.getElementById('comments-messages');
@@ -1144,7 +1286,23 @@ $(document).ready(function() {
 
     // Select comment for reply
     function selectCommentForReply(commentId, username) {
+        // Ensure commentId is a string
+        commentId = String(commentId || '');
+        
+        if (!commentId) {
+            console.error('Invalid comment ID provided');
+            showAlert('Error: Invalid comment ID', 'danger');
+            return;
+        }
+        
+        // Remove previous selection highlight
+        $('.comment-item').removeClass('border-primary');
+        
         selectedComment = commentId;
+        
+        // Highlight selected comment
+        $(`.comment-item[data-comment-id="${commentId}"]`).addClass('border-primary');
+        
         $('#comment-reply-input').attr('placeholder', `Send message to ${username}...`);
         $('#comment-reply-input').focus();
         $('#comment-reply-button').prop('disabled', false);
@@ -1165,14 +1323,28 @@ $(document).ready(function() {
         const $input = $('#comment-reply-input');
         const message = $input.val().trim();
 
-        if (!message || !selectedComment) return;
+        if (!message) {
+            showAlert('Please enter a message', 'warning');
+            return;
+        }
+
+        // Ensure selectedComment is a string and exists
+        const commentId = String(selectedComment || '');
+        if (!commentId || commentId === 'null' || commentId === 'undefined') {
+            showAlert('Please select a comment to reply to', 'warning');
+            return;
+        }
 
         // Find the comment details
-        const commentElement = $(`.comment-item[data-comment-id="${selectedComment}"]`);
-        const username = commentElement.find('.reply-comment-btn').data('username');
+        const commentElement = $(`.comment-item[data-comment-id="${commentId}"]`);
+        const username = commentElement.find('.reply-comment-btn').data('username') || 
+                         commentElement.find('.reply-comment-btn').attr('data-username') || 
+                         'user';
 
-        // Clear input and disable button
-        $input.val('');
+        console.log('Sending reply:', { comment_id: commentId, message: message, username: username });
+
+        // Disable input and button while sending
+        $input.prop('disabled', true);
         $('#comment-reply-button').prop('disabled', true);
 
         // Send the initial message via comment reply API
@@ -1183,12 +1355,15 @@ $(document).ready(function() {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
             body: JSON.stringify({
-                comment_id: selectedComment,
+                comment_id: commentId, // Ensure it's always a string
                 message: message
             })
         })
         .then(response => {
             console.log('Comment reply HTTP response:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             return response.json();
         })
         .then(data => {
@@ -1196,15 +1371,27 @@ $(document).ready(function() {
 
             if (data.success) {
                 showAlert(`Message sent to ${username}`, 'success');
+                // Clear input and reset
+                $input.val('');
+                $input.prop('disabled', false);
+                selectedComment = null;
+                $('.comment-item').removeClass('border-primary');
+                $('#comment-reply-input').attr('placeholder', 'Send message to start chat...');
                 redirectToChatMode(username);
             } else {
                 console.error('Send comment reply failed:', data);
                 showAlert('Failed to send reply: ' + (data.message || 'Unknown error'), 'danger');
+                // Re-enable input on error
+                $input.prop('disabled', false);
+                $('#comment-reply-button').prop('disabled', false);
             }
         })
         .catch(error => {
             console.error('Error sending comment reply:', error);
             showAlert('Failed to send reply: Network error', 'danger');
+            // Re-enable input on error
+            $input.prop('disabled', false);
+            $('#comment-reply-button').prop('disabled', false);
         });
     }
 

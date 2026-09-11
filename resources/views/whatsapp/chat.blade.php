@@ -8,8 +8,193 @@
 @push('head')
 {!! __yesset('dist/css/whatsapp-chat.css', true) !!}
 <style>
+    /* Full-width Shared Team Inbox modern layout */
+    .card.lw-whatsapp-chat-block-container {
+        border-radius: 16px !important;
+        border: 1px solid #E2E8F0 !important;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05) !important;
+        background: #FFFFFF !important;
+        overflow: hidden !important;
+    }
+
+    /* Kill 2015 phone mockup constraints so it renders as standard full desktop web app */
+    .marvel-device.nexus5 {
+        padding: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+    .marvel-device.nexus5:before, .marvel-device.nexus5:after {
+        display: none !important;
+    }
+    .marvel-device .screen {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .chat-container {
+        height: 80vh !important;
+        min-height: 600px !important;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .screen-container {
+        height: 100% !important;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #E2E8F0;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .chat {
+        height: 100% !important;
+        display: flex;
+        flex-direction: column;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .user-bar {
+        background: #FFFFFF !important;
+        color: #0F172A !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        min-height: 68px !important;
+        padding: 12px 20px !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .user-bar .avatar {
+        width: 42px !important;
+        height: 42px !important;
+        border-radius: 50% !important;
+        font-weight: 700;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .user-bar .name {
+        color: #0F172A !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        margin-left: 12px !important;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .user-bar .name a {
+        color: #10B981 !important;
+        font-weight: 500;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .conversation {
+        height: calc(80vh - 145px) !important;
+        border-radius: 0 !important;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .conversation .conversation-container {
+        height: 100% !important;
+        box-shadow: none !important;
+    }
+    .card.lw-whatsapp-chat-block-container .lw-whatsapp-chat-window .conversation-compose {
+        background: #FFFFFF !important;
+        border-top: 1px solid #E2E8F0 !important;
+        padding: 8px 16px !important;
+        height: auto !important;
+        min-height: 64px !important;
+        align-items: center;
+    }
+
+    /* 24-Hour Session Pill */
+    .lw-session-status-badge {
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .lw-session-status-badge.active {
+        background: #ECFDF5;
+        color: #065F46;
+        border: 1px solid #A7F3D0;
+    }
+    .lw-session-status-badge.expired {
+        background: #FEF3C7;
+        color: #92400E;
+        border: 1px solid #FDE68A;
+    }
+
+    /* Canned Replies UI */
+    .lw-canned-dropdown {
+        position: absolute;
+        bottom: 70px;
+        left: 20px;
+        width: 360px;
+        max-height: 250px;
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12);
+        overflow-y: auto;
+        z-index: 100;
+    }
+    .lw-canned-item-btn {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 9px 14px;
+        border: none;
+        background: transparent;
+        border-bottom: 1px solid #F1F5F9;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .lw-canned-item-btn:hover {
+        background: #ECFDF5;
+    }
+    .lw-canned-code {
+        font-weight: 700;
+        color: #059669;
+        background: #D1FAE5;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11.5px;
+        margin-right: 6px;
+    }
+
+    /* Composer Tabs */
+    .lw-composer-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 6px 16px 0;
+        background: #FFFFFF;
+        border-top: 1px solid #E2E8F0;
+    }
+    .lw-composer-tab {
+        padding: 4px 12px;
+        border-radius: 6px 6px 0 0;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid transparent;
+        cursor: pointer;
+        background: #F1F5F9;
+        color: #64748B;
+        transition: all 0.15s ease;
+    }
+    .lw-composer-tab.active {
+        background: #FFFFFF;
+        color: #10B981;
+        border-color: #E2E8F0;
+        border-bottom-color: #FFFFFF;
+    }
+    .lw-composer-tab.note.active {
+        background: #FEF9C3;
+        color: #854D0E;
+        border-color: #FDE047;
+    }
+    .lw-note-composer-box {
+        background: #FFFBEB !important;
+        border: 1px dashed #F59E0B !important;
+        border-radius: 8px !important;
+    }
+
     .lw-contact-list {
-        max-height: 70vh;
+        max-height: 72vh;
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-width: thin;
@@ -50,7 +235,6 @@
     .badge-shipped { background: #007bff; color: #fff; }
     .badge-cancelled { background: #dc3545; color: #fff; }
     
-    /* Add a loading indicator for when more contacts are being loaded */
     .lw-contact-list-loading {
         text-align: center;
         padding: 10px;
@@ -205,44 +389,65 @@
                                         {{-- <template x-if="contact"> --}}
                                             <div>
                                                 <template x-if="contact">
-                                                <div class="user-bar">
-                                                    <div class="back d-md-none" @click.prevent="isContactListOpened = true">
-                                                        <i class="fa fa-users"></i>
-                                                    </div>
-                                                    <div class="avatar d-none d-md-inline bg-success text-white text-center align-content-center">
-                                                        <span x-text="contact.name_initials"></span>
-                                                    </div>
-                                                    <div class="name">
-                                                        <span><span x-text="contact.full_name"></span><small> - <a target="_blank" x-bind:href="'https://api.whatsapp.com/send?phone=' + contact.wa_id" x-text="contact.wa_id"></a></small></span>
-                                                        <template x-if="isDirectMessageDeliveryWindowOpened">
-                                                            <span class="status text-success " x-text="directMessageDeliveryWindowOpenedTillMessage"></span>
-                                                        </template>
-                                                            <template x-if="!isDirectMessageDeliveryWindowOpened">
-                                                            <span class="status text-yellow " title="{{ __tr("As you may not received any response in last 24 hours, your direct message may not get delivered. However you can send template messages.") }}">{{  __tr('You can\'t reply, they needs to reply back to start conversion.') }}</span>
-                                                             </template>
+                                                <div class="user-bar d-flex align-items-center justify-content-between">
+                                                    <div class="d-flex align-items-center" style="gap: 12px; min-width: 0;">
+                                                        <div class="back d-md-none" @click.prevent="isContactListOpened = true">
+                                                            <i class="fa fa-users text-dark"></i>
+                                                        </div>
+                                                        <div class="avatar d-none d-md-inline text-white text-center align-content-center">
+                                                            <span x-text="contact.name_initials"></span>
+                                                        </div>
+                                                        <div class="name" style="width: auto; overflow: visible;">
+                                                            <div class="d-flex align-items-center" style="gap: 8px;">
+                                                                <span class="font-weight-bold text-dark" x-text="contact.full_name"></span>
+                                                                <small class="text-muted"><a target="_blank" class="text-success font-weight-600" x-bind:href="'https://api.whatsapp.com/send?phone=' + contact.wa_id"><i class="fab fa-whatsapp"></i> <span x-text="contact.wa_id"></span></a></small>
+                                                            </div>
+                                                            <div class="mt-1">
+                                                                <template x-if="isDirectMessageDeliveryWindowOpened">
+                                                                    <span class="lw-session-status-badge active" :title="'Direct session window open until: ' + directMessageDeliveryWindowOpenedTillMessage">
+                                                                        <i class="fas fa-circle text-success" style="font-size: 8px;"></i>
+                                                                        <span>24h Session Active</span>
+                                                                        <small class="text-muted ml-1" x-text="'(' + directMessageDeliveryWindowOpenedTillMessage + ')'"></small>
+                                                                    </span>
+                                                                </template>
+                                                                <template x-if="!isDirectMessageDeliveryWindowOpened">
+                                                                    <span class="lw-session-status-badge expired" title="{{ __tr("As you may not received any response in last 24 hours, your direct message may not get delivered. However you can send template messages.") }}">
+                                                                        <i class="fas fa-history text-warning"></i>
+                                                                        <span>Session Closed &bull; Template Required</span>
+                                                                    </span>
+                                                                </template>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                     <template x-if="contact">
-                                                    <div class="actions more lw-user-new-actions" x-data="{isAiChatBotEnabled:!contact.disable_ai_bot}" x-cloak>
+                                                    <div class="actions d-flex align-items-center" style="gap: 8px;" x-data="{isAiChatBotEnabled:!contact.disable_ai_bot}" x-cloak>
+                                                        <template x-if="!isDirectMessageDeliveryWindowOpened">
+                                                            <a x-bind:href="__Utils.apiURL('{{ route('vendor.template_message.contact.view', [ 'contactIdOrUid']) }}', {'contactIdOrUid': contact._uid})" class="btn btn-sm btn-primary py-1 px-2 d-none d-sm-inline-flex align-items-center" style="font-size: 12px; gap: 4px;">
+                                                                <i class="fas fa-paper-plane"></i> {{ __tr('Send Template') }}
+                                                            </a>
+                                                        </template>
                                                         @if(isAiBotAvailable())
-                                                        <a :title="isAiChatBotEnabled ? '{{ __tr('Enable AI Bot') }}' : '{{ __tr('Disable AI Bot') }}'" x-bind:href="__Utils.apiURL('{{ route('vendor.contact.write.toggle_ai_bot', [ 'contactIdOrUid']) }}', {'contactIdOrUid': contact._uid})" :class="isAiChatBotEnabled ? 'text-yellow' : 'text-white'" class="lw-whatsapp-bar-icon-btn mr-3 lw-ajax-link-action" data-method="post">
-                                                           <i class="fa fa-robot"></i>
+                                                        <a :title="isAiChatBotEnabled ? '{{ __tr('Disable AI Bot') }}' : '{{ __tr('Enable AI Bot') }}'" x-bind:href="__Utils.apiURL('{{ route('vendor.contact.write.toggle_ai_bot', [ 'contactIdOrUid']) }}', {'contactIdOrUid': contact._uid})" :class="isAiChatBotEnabled ? 'btn-success text-white' : 'btn-outline-secondary'" class="btn btn-sm py-1 px-2 lw-ajax-link-action" data-method="post">
+                                                           <i class="fa fa-robot mr-1"></i> <span class="d-none d-lg-inline" x-text="isAiChatBotEnabled ? 'AI Active' : 'AI Paused'"></span>
                                                         </a>
                                                         @endif
-                                                        <a href="#" class="lw-whatsapp-bar-icon-btn" data-toggle="dropdown" aria-expanded="false">
-                                                            <i class="fas fa-ellipsis-v text-white"></i>
-                                                        </a>
-                                                        <div class="dropdown-menu dropdown-menu-right">
-                                                        <a x-bind:href="__Utils.apiURL('{{ route('vendor.template_message.contact.view', [ 'contactIdOrUid']) }}', {'contactIdOrUid': contact._uid})" class="dropdown-item"><i class="fas fa-paper-plane"></i> {{ __tr('Send Template Message') }}</a>
-                                                        <a x-cloak
-                                                            :class="whatsappMessageLogs.length <= 0 ? 'disabled' : ''"
-                                                            data-method="post" data-confirm="#lwClearChatHistoryWarning" x-bind:href="__Utils.apiURL('{{ route('vendor.chat_message.delete.process', [ 'contactIdOrUid']) }}', {'contactIdOrUid': contact._uid})"
-                                                            class="dropdown-item text-danger lw-ajax-link-action"><i class="fas fa-eraser"></i> {{ __tr('Clear Chat History') }}</a>
-                                                        <script type="text/template" id="lwClearChatHistoryWarning">
-                                                            <h3>{{  __tr('Are you sure you want to clear chat history for this contact?') }}</h3>
-                                                                <p class="text-warning">{{  __tr('Only chat history will be deleted permanently, it won\'t delete campaign messages.') }}</p>
+                                                        <div class="dropdown">
+                                                            <a href="#" class="btn btn-sm btn-light border py-1 px-2" data-toggle="dropdown" aria-expanded="false">
+                                                                <i class="fas fa-ellipsis-v text-muted"></i>
+                                                            </a>
+                                                            <div class="dropdown-menu dropdown-menu-right shadow-sm">
+                                                            <a x-bind:href="__Utils.apiURL('{{ route('vendor.template_message.contact.view', [ 'contactIdOrUid']) }}', {'contactIdOrUid': contact._uid})" class="dropdown-item"><i class="fas fa-paper-plane mr-2 text-primary"></i> {{ __tr('Send Template Message') }}</a>
+                                                            <a x-cloak
+                                                                :class="whatsappMessageLogs.length <= 0 ? 'disabled' : ''"
+                                                                data-method="post" data-confirm="#lwClearChatHistoryWarning" x-bind:href="__Utils.apiURL('{{ route('vendor.chat_message.delete.process', [ 'contactIdOrUid']) }}', {'contactIdOrUid': contact._uid})"
+                                                                class="dropdown-item text-danger lw-ajax-link-action"><i class="fas fa-eraser mr-2"></i> {{ __tr('Clear Chat History') }}</a>
+                                                            <script type="text/template" id="lwClearChatHistoryWarning">
+                                                                <h3>{{  __tr('Are you sure you want to clear chat history for this contact?') }}</h3>
+                                                                    <p class="text-warning">{{  __tr('Only chat history will be deleted permanently, it won\'t delete campaign messages.') }}</p>
                                                             </script>
+                                                            </div>
                                                         </div>
-                                                        <span class="lw-whatsapp-bar-icon-btn ml-3 d-md-none" @click.prevent="isContactCrmBlockOpened = true"><i class="fa fa-user-tie"></i></span>
+                                                        <button type="button" class="btn btn-sm btn-light border d-md-none" @click.prevent="isContactCrmBlockOpened = true"><i class="fa fa-user-tie"></i></button>
                                                     </div>
                                                     </template>
                                                 </div>
@@ -411,16 +616,49 @@
                                                             </template>
                                                             <div class="w-100 px-4" id="lwEndOfChats">&shy; <button x-cloak x-show="messagePaginatePage" class="btn btn-sm btn-block btn-secondary" @click="loadEarlierMessages" ><i class="fa fa-download"></i> {{  __tr('Load earlier messages') }}</button></div>
                                                     </div>
-                                                    <x-lw.form data-event-stream-update="true" data-callback="appFuncs.resetForm" id="whatsAppMessengerForm"
+                                                    <!-- Dual-Mode Composer Tabs (WhatsApp Reply vs Internal Note) -->
+                                                    <div class="lw-composer-tabs d-flex align-items-center justify-content-between" x-data="{isInternalNoteMode: false}">
+                                                        <div class="d-flex align-items-center" style="gap: 4px;">
+                                                            <button type="button" class="lw-composer-tab" :class="{'active': !isInternalNoteMode}" @click.prevent="isInternalNoteMode = false">
+                                                                <i class="fab fa-whatsapp mr-1 text-success"></i> {{ __tr('Customer Reply') }}
+                                                            </button>
+                                                            <button type="button" class="lw-composer-tab note" :class="{'active': isInternalNoteMode}" @click.prevent="isInternalNoteMode = true">
+                                                                <i class="fas fa-lock mr-1 text-warning"></i> {{ __tr('Internal Note') }}
+                                                            </button>
+                                                        </div>
+                                                        <div class="d-flex align-items-center" style="gap: 8px;">
+                                                            <!-- Canned quick replies picker toggle -->
+                                                            <button type="button" @click="showCannedPicker = !showCannedPicker" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 11.5px; height: 26px;" title="{{ __tr('Quick Replies (Shortcut: /)') }}">
+                                                                <i class="fas fa-bolt text-warning mr-1"></i> {{ __tr('Quick Reply (/ )') }}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Canned Quick Reply Dropdown list -->
+                                                    <div x-cloak x-show="showCannedPicker" @click.outside="showCannedPicker = false" class="lw-canned-dropdown shadow-lg">
+                                                        <div class="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
+                                                            <strong class="small text-muted text-uppercase"><i class="fas fa-bolt text-warning"></i> {{ __tr('Quick Replies') }}</strong>
+                                                            <span class="badge badge-light text-muted">{{ __tr('Click to insert') }}</span>
+                                                        </div>
+                                                        <div style="max-height: 200px; overflow-y: auto;">
+                                                            <template x-for="item in cannedReplies" :key="item.shortcut">
+                                                                <button type="button" class="lw-canned-item-btn" @click="insertCannedReply(item.text)">
+                                                                    <span class="lw-canned-code" x-text="'/' + item.shortcut"></span>
+                                                                    <span class="font-weight-600 text-dark small" x-text="item.title"></span>
+                                                                    <div class="text-muted text-truncate" style="font-size: 11.5px;" x-text="item.text"></div>
+                                                                </button>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Customer WhatsApp Reply Form -->
+                                                    <x-lw.form x-show="!isInternalNoteMode" data-event-stream-update="true" data-callback="appFuncs.resetForm" id="whatsAppMessengerForm"
                                                         class="conversation-compose" data-show-processing="false"
                                                         :action="route('vendor.chat_message.send.process')">
                                                         <input type="hidden" name="contact_uid" x-bind:value="contact?._uid">
-                                                        {{-- emoji following blank tag as removing it may break input layout
-                                                        --}}
-                                                        <div class="emoji">
-                                                        </div>
+                                                        <div class="emoji"></div>
                                                         <textarea name="message_body" required class="input-msg lw-input-emoji"
-                                                            name="input" placeholder="{{ __tr(' Type a message') }}" autocomplete="off" autofocus></textarea>
+                                                            name="input" placeholder="{{ __tr('Type a message or press / for quick replies...') }}" autocomplete="off" autofocus></textarea>
                                                             <div class="photo dropup">
                                                                 <!-- Default dropup button -->
                                                                 <a href="#" class="lw-whatsapp-bar-icon-btn" data-toggle="dropdown" aria-expanded="false">
@@ -433,31 +671,31 @@
                                                                 data-target="#lwMediaUploadAndSend"
                                                                 data-callback="appFuncs.prepareUpload" href="{{ route('vendor.chat_message_media.upload.prepare', [
                                                                 'mediaType' => 'document'
-                                                            ]) }}"><i class="fa fa-file text-muted"></i> {{ __tr('Send Document') }}</a>
+                                                            ]) }}"><i class="fa fa-file text-muted mr-2"></i> {{ __tr('Send Document') }}</a>
                                                             <a title="{{ __tr('Send Image') }}" class="lw-ajax-link-action dropdown-item"
                                                             data-toggle="modal"
                                                             data-response-template="#lwWhatsappAttachment"
                                                             data-target="#lwMediaUploadAndSend"
                                                             data-callback="appFuncs.prepareUpload" href="{{ route('vendor.chat_message_media.upload.prepare', [
                                                             'mediaType' => 'image'
-                                                        ]) }}"><i class="fa fa-image text-muted"></i> {{ __tr('Send Image') }}</a>
+                                                        ]) }}"><i class="fa fa-image text-muted mr-2"></i> {{ __tr('Send Image') }}</a>
                                                         <a title="{{ __tr('Send Video') }}" class="lw-ajax-link-action dropdown-item"
                                                         data-toggle="modal"
                                                         data-response-template="#lwWhatsappAttachment"
                                                         data-target="#lwMediaUploadAndSend"
                                                         data-callback="appFuncs.prepareUpload" href="{{ route('vendor.chat_message_media.upload.prepare', [
                                                         'mediaType' => 'video'
-                                                    ]) }}"><i class="fa fa-video text-muted"></i> {{ __tr('Send Video') }}</a>
+                                                    ]) }}"><i class="fa fa-video text-muted mr-2"></i> {{ __tr('Send Video') }}</a>
                                                     <a title="{{ __tr('Send Audio') }}" class="lw-ajax-link-action dropdown-item"
                                                     data-toggle="modal"
                                                     data-response-template="#lwWhatsappAttachment"
                                                     data-target="#lwMediaUploadAndSend"
                                                     data-callback="appFuncs.prepareUpload" href="{{ route('vendor.chat_message_media.upload.prepare', [
                                                     'mediaType' => 'audio'
-                                                ]) }}"><i class="fa fa-headphones text-muted"></i> {{ __tr('Send Audio') }}</a>
+                                                ]) }}"><i class="fa fa-headphones text-muted mr-2"></i> {{ __tr('Send Audio') }}</a>
                                                                 </div>
                                                             </div>
-                                                        <button class="send" type="submit">
+                                                        <button class="send" type="submit" title="{{ __tr('Send Message') }}">
                                                             <div class="circle pl-2">
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="1.5em"
                                                                     height="1.5em" viewBox="0 0 24 24">
@@ -467,6 +705,21 @@
                                                             </div>
                                                         </button>
                                                     </x-lw.form>
+
+                                                    <!-- Team Internal Note Form -->
+                                                    <x-lw.form x-cloak x-show="isInternalNoteMode" id="lwChatInternalNotesComposerForm" :action="route('vendor.chat.update_notes.process')" class="p-2 lw-note-composer-box">
+                                                        <input type="hidden" name="contactIdOrUid" :value="contact?._uid">
+                                                        <div class="d-flex align-items-center justify-content-between mb-1">
+                                                            <span class="small font-weight-bold text-warning"><i class="fas fa-eye-slash mr-1"></i> {{ __tr('Only visible to your team (Customer will not see this)') }}</span>
+                                                        </div>
+                                                        <div class="d-flex" style="gap: 8px;">
+                                                            <textarea name="contact_notes" class="form-control form-control-sm border-0" rows="2" style="background: transparent; resize: none;" placeholder="{{ __tr('Add internal note about this customer or issue...') }}" x-model="tempInternalNote"></textarea>
+                                                            <button type="submit" class="btn btn-warning btn-sm font-weight-bold px-3 align-self-end" @click="if(!contact['__data']) { contact['__data'] = {}} contact['__data']['contact_notes'] = (contact['__data']['contact_notes'] ? contact['__data']['contact_notes'] + '\n' : '') + tempInternalNote; isInternalNoteMode = false; tempInternalNote = '';">
+                                                                {{ __tr('Save Note') }}
+                                                            </button>
+                                                        </div>
+                                                    </x-lw.form>
+
                                                     {{-- error container --}}
                                                     <div data-form-id="#whatsAppMessengerForm"
                                                         class="lw-error-container-message_body p-2">
@@ -769,6 +1022,31 @@
             search: "",
             contacts: {},
             assignedLabelIds: [],
+            // Phase 2: Canned Quick Replies & Internal Notes
+            showCannedPicker: false,
+            tempInternalNote: '',
+            cannedReplies: [
+                { shortcut: 'welcome', title: 'Welcome Greeting', text: 'Hello! Welcome to our store. How can we help you today?' },
+                { shortcut: 'support', title: 'Support Assistance', text: 'Thank you for reaching out to our support team. We are checking this for you right now.' },
+                { shortcut: 'order', title: 'Order Status Query', text: 'Could you please share your Order ID so that I can look up the tracking details for you?' },
+                { shortcut: 'pricing', title: 'Pricing & Plans', text: 'You can check our full pricing and available catalogue anytime. Would you like a brochure?' },
+                { shortcut: 'thankyou', title: 'Thank You Message', text: 'Thank you for chatting with us! Have a wonderful day ahead!' },
+                { shortcut: 'bank', title: 'Payment Details', text: 'Please complete your payment using our secure UPI/payment link or reply with your payment screenshot.' }
+            ],
+            insertCannedReply(text) {
+                this.showCannedPicker = false;
+                const emojiEditor = $('.lw-input-emoji').data('emojioneArea');
+                if (emojiEditor) {
+                    emojiEditor.setText(text);
+                    emojiEditor.setFocus();
+                } else {
+                    const inputEl = document.querySelector('.lw-input-emoji');
+                    if (inputEl) {
+                        inputEl.value = text;
+                        inputEl.focus();
+                    }
+                }
+            },
             unreadContactsCount() {
         return Object.values(this.contacts).filter(contact => contact.unread_messages_count > 0).length;
     },
@@ -992,11 +1270,23 @@
             this.hidePicker();
         },
         keyUp: function (editor, event) {
-            if (event && event.which == 13 && !event.shiftKey && $.trim(this.getText())) { // On Enter
-                $('.lw-input-emoji').val(this.getText());
+            var currentText = $.trim(this.getText());
+            // Show canned replies picker when text starts with /
+            if (currentText.startsWith('/')) {
+                var component = document.querySelector('[x-data]')?.__x?.$data;
+                if (component) {
+                    component.showCannedPicker = true;
+                }
+            }
+            if (event && event.which == 13 && !event.shiftKey && currentText) { // On Enter
+                $('.lw-input-emoji').val(currentText);
                 $('#whatsAppMessengerForm').submit();
                 this.hidePicker();
                 appFuncs.resetForm();
+                var comp = document.querySelector('[x-data]')?.__x?.$data;
+                if (comp) {
+                    comp.showCannedPicker = false;
+                }
             }
         }
     }

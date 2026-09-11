@@ -13,6 +13,11 @@
                         <img src="{{ asset('imgs/processing.svg') }}" alt="{{ __tr('Connecting WhatsApp API ...') }}">
                         <h2 class="text-danger mt-4 mb-2">{{  __tr('Please wait while we connecting you to the WhatsApp Cloud API, Do not refresh or redirect.') }}</h2>
                         <pre class="p-2" x-cloak x-text="lwProgressText"></pre>
+                        <div class="mt-4">
+                            <button type="button" class="btn btn-warning" @click="isSetupInProcess = false">
+                                {{ __tr('Cancel / Reset') }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -27,17 +32,43 @@
                 @if (getAppSettings('enable_embedded_signup') and !getVendorSettings('embedded_setup_done_at') and !getVendorSettings('facebook_app_id'))
                 <fieldset x-show="!isSetupInProcess">
                     <legend>{{ __tr('WhatsApp Setup with Facebook') }}</legend>
+                    @php
+                        $hasAppId = getAppSettings('embedded_signup_app_id');
+                        $hasConfigId = getAppSettings('embedded_signup_config_id');
+                    @endphp
+                    @if (!$hasAppId || !$hasConfigId)
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>{{ __tr('Facebook Embedded Signup Not Configured') }}</strong>
+                            <p class="mb-2">{{ __tr('The super administrator needs to configure Facebook Embedded Signup settings before you can use this method.') }}</p>
+                            <div class="mb-2">
+                                <small>
+                                    App ID: {{ $hasAppId ? '✓ Configured' : '✗ Missing' }}<br>
+                                    Config ID: {{ $hasConfigId ? '✓ Configured' : '✗ Missing' }}
+                                </small>
+                            </div>
+                            <p class="mb-0"><strong>{{ __tr('Please use the "Connect WhatsApp Manually" option below instead.') }}</strong></p>
+                        </div>
+                    @else
                     <div class="text-center">
                         @if (!isWhatsAppBusinessAccountReady())
-                        <button type="button"
+                        <button type="button" id="fbConnectButton"
                             style="background-color: #1877f2; border: 0; border-radius: 4px; color: #fff; cursor: pointer; font-family: Helvetica, Arial, sans-serif; "
                             class="btn btn-lg mb-4" onclick="launchWhatsAppSignup()">
                             <i class="fab fa-facebook"></i><span class="h2 text-white">
                                 {{ __tr('Connect WhatsApp with Facebook') }}
                                 <i class="fa fa-sign-in-alt"></i></span>
                         </button>
+                        <script>
+                            console.log('✓ Facebook Connect button is VISIBLE on the page');
+                        </script>
+                        @else
+                        <script>
+                            console.log('✗ Facebook Connect button is HIDDEN (WhatsApp account already ready)');
+                        </script>
                         @endif
                     </div>
+                    @endif
                 </fieldset>
                 @endif
                 @if (getAppSettings('enable_embedded_signup') and getAppSettings('enable_whatsapp_manual_signup') and !getVendorSettings('embedded_setup_done_at') and !getVendorSettings('facebook_app_id'))
@@ -398,13 +429,28 @@
                                 <dt>{{ __tr('Phone Number ID') }}</dt>
                                 <dd x-text="whatsAppPhoneNumber.id"></dd>
                                 <dt>{{ __tr('Verified Name') }}</dt>
-                                <dd x-text="whatsAppPhoneNumber.verified_name"></dd>
+                                <dd style="display: flex; align-items: center; gap: 10px;">
+                                    <span x-text="whatsAppPhoneNumber.verified_name"></span>
+                                    <button type="button" 
+                                            id="editNameBtn"
+                                            style="background: none; border: none; color: #6c757d; cursor: pointer; padding: 2px; border-radius: 3px;"
+                                            onmouseover="this.style.color='#007bff'; this.style.backgroundColor='#f8f9fa';"
+                                            onmouseout="this.style.color='#6c757d'; this.style.backgroundColor='transparent';">
+                                        <i class="fas fa-edit" style="font-size: 14px;"></i>
+                                    </button>
+                                </dd>
                              {{--    <dt>{{ __tr('Code Verification Status') }}</dt>
                                 <dd x-text="whatsAppPhoneNumber.code_verification_status"></dd> --}}
                                 <dt>{{ __tr('Display Phone Number') }}</dt>
                                 <dd x-text="whatsAppPhoneNumber.display_phone_number"></dd>
                                 <dt>{{ __tr('Quality Rating') }}</dt>
-                                <dd x-bind:class="'text-' + whatsAppPhoneNumber.quality_rating.toLowerCase()" x-text="whatsAppPhoneNumber.quality_rating"></dd>
+                                <dd>
+                                    <span class="badge rounded-pill px-2.5 py-1 small fw-semibold" 
+                                          :class="whatsAppPhoneNumber.quality_rating == 'GREEN' ? 'text-success' : (whatsAppPhoneNumber.quality_rating == 'YELLOW' ? 'text-warning' : 'text-danger')"
+                                          style="font-size: 11px; background-color: #f8fafc; border: 1px solid #e2e8f0;"
+                                          x-text="whatsAppPhoneNumber.quality_rating">
+                                    </span>
+                                </dd>
                                 <dt x-show="whatsAppPhoneNumber?.name_status">{{ __tr('Name Status') }}</dt>
                                 <dd x-show="whatsAppPhoneNumber?.name_status" x-text="whatsAppPhoneNumber?.name_status"></dd>
                                 <dt x-show="whatsAppPhoneNumber?.new_name_status">{{ __tr('New Name Status') }}</dt>
@@ -421,6 +467,12 @@
             data-method="post">{{ __tr('Re-sync Phone Numbers') }}</a>
             <a target="_blank" href="https://business.facebook.com/wa/manage/phone-numbers/?waba_id={{ getVendorSettings('whatsapp_business_account_id') }}"
             class="btn btn-dark btn-sm {{ !getVendorSettings('whatsapp_access_token') ? 'disabled' : '' }}" data-method="post">{{ __tr('Manage Phone Numbers') }} <i class="fas fa-external-link-alt"></i></a>
+            <button type="button" 
+         class="btn btn-warning btn-sm {{ !getVendorSettings('whatsapp_access_token') ? 'disabled' : '' }}"
+         id="openTwoFactorModal"
+         {{ !getVendorSettings('whatsapp_access_token') ? 'disabled' : '' }}>
+     <i class="fas fa-shield-alt"></i> {{ __tr('Two-Factor Authentication') }}
+ </button>
                     </div>
             </fieldset>
             <fieldset>
@@ -466,8 +518,90 @@
                 data-method="post">{{ __tr('Refresh Status') }}</a>
             @endif
         </fieldset>
+    </div> 
+</div>
+<!-- Two-Factor Authentication Modal -->
+<div id="twoFactorModal" style="display: none; position: fixed; top: 10%; left: 0; width: 100%; height: 100%; background-color: rgb(220 220 220 / 50%); z-index: 9999;">
+    <div style="margin-block: -21rem;position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 400px; max-width: 90vw;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #333; font-size: 1.5rem;">
+                <i class="fas fa-shield-alt" style="color: #ffc107; margin-right: 10px;"></i>
+                Two-Factor Authentication
+            </h3>
+        </div>
+        
+        <form method="POST" action="{{ route('vendor.whatsapp.two_factor_auth.verify') }}" style="text-align: center;">
+            @csrf
+            <input type="hidden" name="user_id" value="{{ auth()->id() }}">
+            
+            <div style="margin-bottom: 20px;">
+                <i class="fas fa-key" style="font-size: 3rem; color: #6c757d; margin-bottom: 15px;"></i>
+                <p style="margin: 0 0 15px 0; color: #6c757d; font-size: 1rem;">Enter your 6-digit PIN</p>
+                <input type="text" 
+                       name="two_factor_pin" 
+                       id="twoFactorPin" 
+                       maxlength="6" 
+                       placeholder="000000"
+                       required
+                       style="width: 100%; font-size: 2rem; text-align: center; letter-spacing: 0.5rem; padding: 15px; border-radius: 8px; border: 2px solid #ddd; outline: none; box-sizing: border-box;">
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button type="button" 
+                        id="closeModalBtn"
+                        style="background-color: #6c757d; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 8px; cursor: pointer; flex: 1;">
+                    Close
+                </button>
+                <button type="submit" 
+                        style="background-color: #ffc107; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 8px; cursor: pointer; flex: 1;">
+                    <i class="fas fa-check" style="margin-right: 5px;"></i>
+                    Submit
+                </button>
+            </div>
+        </form>
     </div>
 </div>
+
+<!-- Edit Name Modal -->
+<div id="editNameModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgb(220 220 220 / 50%); z-index: 9999;">
+    <div style="margin-block: -21rem;position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 400px; max-width: 90vw;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #333; font-size: 1.5rem;">
+                <i class="fas fa-edit" style="color: #007bff; margin-right: 10px;"></i>
+                Edit Verified Name
+            </h3>
+        </div>
+        
+        <form method="POST" action="{{ route('vendor.whatsapp.edit_name') }}" style="text-align: center;">
+            @csrf
+            <input type="hidden" name="phone_number_id" id="editPhoneNumberId" value="">
+            
+            <div style="margin-bottom: 20px;">
+                <label for="newVerifiedName" style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">New Verified Name</label>
+                <input type="text" 
+                       name="verified_name" 
+                       id="newVerifiedName" 
+                       required
+                       style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #ddd; outline: none; box-sizing: border-box; font-size: 1rem;">
+            </div>
+            
+            
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button type="button" 
+                        id="closeEditModalBtn"
+                        style="background-color: #6c757d; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 8px; cursor: pointer; flex: 1;">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        style="background-color: #007bff; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 8px; cursor: pointer; flex: 1;">
+                    <i class="fas fa-save" style="margin-right: 5px;"></i>
+                    Submit Name Change
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     (function() {
        'use strict';
@@ -486,18 +620,148 @@
        @endif
    });
 })();
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('twoFactorModal');
+    const openBtn = document.getElementById('openTwoFactorModal');
+    const closeBtn = document.getElementById('closeModalBtn');
+    const pinInput = document.getElementById('twoFactorPin');
+    
+    // Edit Name Modal elements
+    const editModal = document.getElementById('editNameModal');
+    const editBtn = document.getElementById('editNameBtn');
+    const closeEditBtn = document.getElementById('closeEditModalBtn');
+    const newNameInput = document.getElementById('newVerifiedName');
+    const phoneNumberIdInput = document.getElementById('editPhoneNumberId');
+
+    // Open modal
+    if (openBtn) {
+        openBtn.addEventListener('click', function() {
+            modal.style.display = 'block';
+            if (pinInput) {
+                pinInput.focus();
+            }
+        });
+    }
+
+    // Close modal
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            modal.style.display = 'none';
+            if (pinInput) {
+                pinInput.value = '';
+            }
+        });
+    }
+
+    // Close modal when clicking outside
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                if (pinInput) {
+                    pinInput.value = '';
+                }
+            }
+        });
+    }
+
+    // PIN input validation
+    if (pinInput) {
+        pinInput.addEventListener('input', function() {
+            // Only allow numbers and limit to 6 digits
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
+        });
+
+        // Prevent non-numeric input
+        pinInput.addEventListener('keypress', function(e) {
+            if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter'].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+    }
+    
+    // Edit Name Modal functionality
+    if (editBtn) {
+        editBtn.addEventListener('click', function() {
+            // Get the current verified name and phone number ID from the Alpine.js data
+            const phoneNumbers = window.Alpine ? window.Alpine.store('initializedWhatsAppData')?.whatsAppPhoneNumbers : [];
+            if (phoneNumbers && phoneNumbers.length > 0) {
+                const currentPhoneNumber = phoneNumbers[0]; // Get first phone number
+                phoneNumberIdInput.value = currentPhoneNumber.id;
+                newNameInput.value = currentPhoneNumber.verified_name || '';
+            }
+            
+            editModal.style.display = 'block';
+            if (newNameInput) {
+                newNameInput.focus();
+                newNameInput.select();
+            }
+        });
+    }
+    
+    // Close edit modal
+    if (closeEditBtn) {
+        closeEditBtn.addEventListener('click', function() {
+            editModal.style.display = 'none';
+            if (newNameInput) {
+                newNameInput.value = '';
+            }
+        });
+    }
+    
+    // Close edit modal when clicking outside
+    if (editModal) {
+        editModal.addEventListener('click', function(e) {
+            if (e.target === editModal) {
+                editModal.style.display = 'none';
+                if (newNameInput) {
+                    newNameInput.value = '';
+                }
+            }
+        });
+    }
+});
+
+
+</script>
+<script>
+    console.log('=== PAGE LOADED - WhatsApp Cloud API Setup ===');
+    console.log('Enable Embedded Signup: {{ getAppSettings('enable_embedded_signup') ? 'YES' : 'NO' }}');
+    console.log('Enable Manual Signup: {{ getAppSettings('enable_whatsapp_manual_signup') ? 'YES' : 'NO' }}');
 </script>
 @if(getAppSettings('enable_embedded_signup'))
 <script>
     (function() {
        'use strict';
+       console.log('=== Facebook Embedded Signup Configuration ===');
+       console.log('App ID: {{ getAppSettings('embedded_signup_app_id') ? 'SET' : 'NOT SET' }}');
+       console.log('Config ID: {{ getAppSettings('embedded_signup_config_id') ? 'SET' : 'NOT SET' }}');
+       console.log('Current URL Protocol: ' + window.location.protocol);
+       
   window.fbAsyncInit = function() {
-    FB.init({
-      appId            : '{{ getAppSettings('embedded_signup_app_id') }}',
-      autoLogAppEvents : true,
-      xfbml:    true, // parse social plugins on this page
-      version          : 'v21.0'
-    });
+    console.log('fbAsyncInit called - initializing Facebook SDK...');
+    var appId = '{{ getAppSettings('embedded_signup_app_id') }}';
+    var configId = '{{ getAppSettings('embedded_signup_config_id') }}';
+    console.log('App ID being used:', appId || 'EMPTY/NOT SET');
+    console.log('Config ID being used:', configId || 'EMPTY/NOT SET');
+    
+    if (!appId) {
+        console.error('✗ CRITICAL: App ID is empty! Cannot initialize Facebook SDK properly.');
+        return;
+    }
+    
+    try {
+        FB.init({
+          appId            : appId,
+          autoLogAppEvents : true,
+          xfbml:    true, // parse social plugins on this page
+          version          : 'v21.0'
+        });
+        console.log('✓ Facebook SDK initialized successfully with App ID:', appId);
+    } catch(error) {
+        console.error('✗ Error initializing Facebook SDK:', error);
+    }
   };
   })();
 </script>
@@ -506,16 +770,48 @@
 <script>
     (function() {
        'use strict';
-  // Facebook Login with JavaScript SDK
+  // Facebook Login with JavaScript SDK - called AFTER FB.init()
    window.launchWhatsAppSignup = function() {
+    console.log('=== launchWhatsAppSignup called ===');
+    console.log('FB object exists:', typeof FB !== 'undefined');
+    console.log('FB.login exists:', typeof FB !== 'undefined' && typeof FB.login === 'function');
+    console.log('Current protocol:', window.location.protocol);
+    
+    // Check HTTPS requirement
+    if (window.location.protocol !== 'https:') {
+        alert('ERROR: Facebook Login requires HTTPS. Please access this page using https:// instead of http://');
+        console.error('✗ Cannot use FB.login on non-HTTPS page');
+        return;
+    }
+    
+    // Ensure FB SDK is loaded and initialized
+    if (typeof FB === 'undefined' || typeof FB.login !== 'function') {
+        console.log('Facebook SDK not ready yet, retrying in 500ms...');
+        setTimeout(window.launchWhatsAppSignup, 500);
+        return;
+    }
+    
+    console.log('✓ Starting WhatsApp signup process...');
     __DataRequest.updateModels({isSetupInProcess:true});
     // Conversion tracking code
     // fbq && fbq('trackCustom', 'WhatsAppOnboardingStart', {appId: 'your-facebook-app-id', feature: 'whatsapp_embedded_signup'});
     var tempAccessCode = '',
         phoneNumberId = '',
         waBaId = '';
+    
+    var configId = '{{ getAppSettings('embedded_signup_config_id') }}';
+    console.log('Calling FB.login with config_id:', configId || 'EMPTY/NOT SET');
+    
+    if (!configId) {
+        alert('ERROR: Config ID is not set. Please configure Facebook Embedded Signup in Super Admin settings.');
+        __DataRequest.updateModels({isSetupInProcess:false});
+        return;
+    }
+    
     // Launch Facebook login
+    console.log('Attempting to open Facebook login dialog...');
     FB.login(function (response) {
+      console.log('FB.login callback fired, response:', response);
       if (response.authResponse) {
         //Use this token to call the debug_token API and get the shared WABA's ID
         // const accessToken = response.authResponse.accessToken;
@@ -538,7 +834,7 @@
         __DataRequest.updateModels({isSetupInProcess:false});
       }
     }, {
-      config_id: '{{ getAppSettings('embedded_signup_config_id') }}', // configuration ID obtained in the previous step goes here
+      config_id: configId, // configuration ID obtained in the previous step goes here
       response_type: 'code',     // must be set to 'code' for System User access token
       override_default_response_type: true,
       extras: {
@@ -548,6 +844,7 @@
         }
       }
     });
+    console.log('FB.login has been called, waiting for popup/response...');
     const sessionInfoListener = (event) => {
   if (event.origin !== "https://www.facebook.com") return;
   try {
@@ -565,7 +862,7 @@
       }
     }
   } catch {
-    // Don’t parse info that’s not a JSON
+    // Don't parse info that's not a JSON
     // console.log('Non JSON Response', event.data);
   }
 };

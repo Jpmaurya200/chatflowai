@@ -289,10 +289,19 @@ class FacebookChatServiceController extends BaseController
 
             if ($commentsResult->success()) {
                 $data = $commentsResult->data();
+                
+                Log::info('Facebook Post Comments Controller Response', [
+                    'post_id' => $postId,
+                    'has_comments' => isset($data['comments']),
+                    'comments_count' => isset($data['comments']) ? count($data['comments']) : 0,
+                    'data_structure' => array_keys($data)
+                ]);
+                
                 return response()->json([
                     'success' => true,
                     'data' => $data['comments'] ?? [],
-                    'paging' => $data['paging'] ?? null
+                    'paging' => $data['paging'] ?? null,
+                    'message' => $commentsResult->message()
                 ]);
             }
 

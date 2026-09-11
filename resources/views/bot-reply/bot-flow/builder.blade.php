@@ -10,7 +10,17 @@
 ]) !!}
 <!-- enhanced old code with new functionality -->
 <div class="container-fluid mt-lg--6">
-    <div class="row mt-3" x-data="{isAdvanceBot:'interactive',botFlowUid:'{{ $botFlowUid }}'}">
+    <div class="row mt-3" x-data="{
+        isAdvanceBot:'interactive',
+        botFlowUid:'{{ $botFlowUid }}',
+        init() {
+            window.dispatchEvent(new CustomEvent('lw-set-message-type', { detail: this.isAdvanceBot }));
+        },
+        setMessageType(type) {
+            this.isAdvanceBot = type;
+            window.dispatchEvent(new CustomEvent('lw-set-message-type', { detail: type }));
+        }
+    }">
         <!-- button -->
         <div class="col-xl-12 mb-3">
             <div class="mt-5">
@@ -22,56 +32,61 @@
         <div class="col-xl-12" x-data="initialAlpineData">
            <div class="row">
             <div class="card col-12">
-                <div class="card-header">
-                    <span class="h2">{{ $botFlow->title }}</span>
-                    <div class="float-right">
-                        <span class="form-group m-0 mr-3">
-                            <label for="lwUpdateStatusSwitch">
+                <div class="card-header bg-white d-flex align-items-center justify-content-between p-3 border-bottom flex-wrap" style="gap: 12px;">
+                    <div>
+                        <span class="h3 font-weight-bold mb-0 text-dark d-flex align-items-center" style="gap: 8px;">
+                            <i class="fas fa-project-diagram text-success"></i> {{ $botFlow->title }}
+                        </span>
+                        <small class="text-muted d-block mt-1">{{ __tr('Visual interactive automation canvas for Meta WhatsApp bot flows') }}</small>
+                    </div>
+                    <div class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+                        <span class="form-group m-0 d-flex align-items-center" style="gap: 6px;">
+                            <label for="lwUpdateStatusSwitch" class="mb-0 font-weight-600 text-dark small">
                                 <input data-lw-plugin="lwSwitchery" @click="function() {
                                     __DataRequest.post('{{ route('vendor.bot_reply.bot_flow_data.write.update') }}', {
                                         'botFlowUid' : '{{ $botFlowUid }}',
                                         'bot_flow_status' : (!botFlowStatusValue ? 1 : 0)
                                         }, function() {});
                                 }" {{ ($botFlow->status == 1) ? 'checked' : '' }} x-model="botFlowStatusValue" value="1" class="custom-checkbox" id="lwUpdateStatusSwitch" type="checkbox" name="bot_flow_status">
-                                {{  __tr('Status') }}
+                                {{  __tr('Live Active') }}
                             </label>
                         </span>
                         <template x-if="isUnsavedContent">
                             <div class="btn-group">
-                            <button @click="window.unsavedAlert()" type="button" class="btn btn-primary dropdown-toggle" aria-expanded="false">
-                            {{ __tr('Add New Bot Reply') }}
-                        </button>
+                            <button @click="window.unsavedAlert()" type="button" class="btn btn-primary" aria-expanded="false">
+                                <i class="fas fa-plus mr-1"></i> {{ __tr('Add Node') }}
+                            </button>
                             </div>
                         </template>
                         <template x-if="!isUnsavedContent">
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown"
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-primary dropdown-toggle shadow-sm" data-toggle="dropdown"
                                     aria-expanded="false">
-                                    {{ __tr('Add New Bot Reply') }}
+                                    <i class="fas fa-plus mr-1"></i> {{ __tr('Add Node') }}
                                 </button>
-                                <div class="dropdown-menu dropdown-menu-right">
-                                    <button type="button" @click="isAdvanceBot = 'simple'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Simple Bot Reply')
-                                        }}</button>
-                                    <button type="button" @click="isAdvanceBot = 'media'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Media Bot Reply')
-                                        }}</button>
-                                    <button type="button" @click="isAdvanceBot = 'interactive'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Advance Interactive Bot Reply') }}</button>
-                                    <button type="button" @click="isAdvanceBot = 'question'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Ask Question') }}</button>
-                                    <button type="button" @click="isAdvanceBot = 'goto'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Goto Node') }}</button>
-                                    <!-- <button type="button" @click="isAdvanceBot = 'team_assignment'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Team Assignment Node') }}</button>
-                                    <button type="button" @click="isAdvanceBot = 'webhook'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Webhook Node') }}</button>
-                                    <button type="button" @click="isAdvanceBot = 'stay_in_session'" class="dropdown-item btn"
-                                        data-toggle="modal" data-target="#lwAddNewAdvanceBotReply"> {{ __tr('Stay in Session Node') }}</button> -->
+                                <div class="dropdown-menu dropdown-menu-right shadow-lg border-0 py-2" style="border-radius: 12px; min-width: 240px;">
+                                    <h6 class="dropdown-header text-uppercase text-muted font-weight-bold" style="font-size: 11px;">{{ __tr('Messaging Nodes') }}</h6>
+                                    <button type="button" @click="setMessageType('simple')" class="dropdown-item py-2 px-3">
+                                        <i class="fas fa-comment-alt text-primary mr-2"></i> {{ __tr('Simple Text Reply') }}
+                                    </button>
+                                    <button type="button" @click="setMessageType('media')" class="dropdown-item py-2 px-3">
+                                        <i class="fas fa-photo-video text-info mr-2"></i> {{ __tr('Media Attachment') }}
+                                    </button>
+                                    <button type="button" @click="setMessageType('interactive')" class="dropdown-item py-2 px-3">
+                                        <i class="fas fa-hand-pointer text-success mr-2"></i> {{ __tr('Interactive Buttons') }}
+                                    </button>
+                                    <div class="dropdown-divider my-1"></div>
+                                    <h6 class="dropdown-header text-uppercase text-muted font-weight-bold" style="font-size: 11px;">{{ __tr('Logic & Flow Routing') }}</h6>
+                                    <button type="button" @click="setMessageType('question')" class="dropdown-item py-2 px-3">
+                                        <i class="fas fa-question-circle text-warning mr-2"></i> {{ __tr('Ask User Question') }}
+                                    </button>
+                                    <button type="button" @click="setMessageType('goto')" class="dropdown-item py-2 px-3">
+                                        <i class="fas fa-directions text-secondary mr-2"></i> {{ __tr('Goto Jump Node') }}
+                                    </button>
                                 </div>
                             </div>
                         </template>
-                        <button class="btn btn-warning" @click="saveData"><i class="fa fa-save"></i> {{  __tr('Save') }}</button>
+                        <button class="btn btn-warning shadow-sm font-weight-bold" @click="saveData"><i class="fa fa-save mr-1"></i> {{  __tr('Save Canvas') }}</button>
                     </div>
                 </div>
                 {{-- added just to initialize --}}
@@ -82,6 +97,10 @@
             </div>
            </div>
         </div>
+        <script>
+            window.__WhatsAppFlows = @json($whatsAppFlows);
+            window.__WhatsAppFlowsError = @json($whatsAppFlowsError);
+        </script>
         @include('bot-reply.bot-forms-partial')
     </div>
 </div>
@@ -232,6 +251,8 @@
                 return {};
             },
             flowBots: @json($flowBots),
+            whatsAppFlows: @json($whatsAppFlows),
+            whatsAppFlowsError: @json($whatsAppFlowsError),
             botFlowData: @json($botFlow->__data['flow_builder_data'] ?? []),
             processedFlowBots: function () {
                 var xyz = this.tempClick;
@@ -269,6 +290,16 @@
                             nodeType = 'team_assignment';
                         } else if(_.get(element.__data, 'webhook_message')) {
                             nodeType = 'webhook';
+                        } else if(_.get(element.__data, 'flow_message')) {
+                            nodeType = 'flow';
+                            _.set(data, ['operators', element._uid, 'properties', 'outputs'], {
+                                'next': {
+                                    label: '{{ __tr("Next") }}'
+                                },
+                                'delivery_failed': {
+                                    label: '{{ __tr("Delivery Failed") }}'
+                                }
+                            });
                         } else if(_.get(element.__data, 'custom_field_message')) {
                             nodeType = 'custom_field';
                         } else if(_.get(element.__data, 'stay_in_session_message')) {
@@ -402,6 +433,31 @@
                             <div style="padding: 8px; font-style: italic; color: #666; font-size: 12px;">
                                 <i class="fas fa-hand-stop"></i> Keeps Session Active
                             </div>`;
+                        } else if (nodeType === 'flow' && element.__data?.flow_message) {
+                            const flowData = element.__data.flow_message;
+                            const flowName = flowData.flow_name || element.name || 'WhatsApp Flow';
+                            const flowStatus = flowData.flow_status || 'UNKNOWN';
+                            const headerText = flowData.header_text || "{{ __tr('Header not configured') }}";
+                            const bodyText = flowData.body_text || "{{ __tr('Body not configured') }}";
+                            const footerText = flowData.footer_text || "{{ __tr('Footer not configured') }}";
+
+                            enhancedBody = `<div style="padding: 8px; background: #f0fdfa; border-left: 3px solid #0ea5e9; margin-bottom: 8px;">
+                                <strong style="color: #0ea5e9; font-size: 12px;">FLOW:</strong><br>
+                                <span style="color: #0f172a; font-size: 13px; font-weight: 600;">${flowName}</span><br>
+                                <span style="color: #1d4ed8; font-size: 11px; text-transform: uppercase; letter-spacing: .08em;">${flowStatus}</span>
+                            </div>
+                            <div style="padding: 8px;">
+                                <strong style="color: #666; font-size: 12px;">{{ __tr('Header') }}:</strong><br>
+                                <span style="color: #0f172a; font-size: 13px; line-height: 1.4;">${headerText}</span>
+                            </div>
+                            <div style="padding: 8px;">
+                                <strong style="color: #666; font-size: 12px;">{{ __tr('Body') }}:</strong><br>
+                                <span style="color: #0f172a; font-size: 13px; line-height: 1.4;">${bodyText}</span>
+                            </div>
+                            <div style="padding: 8px;">
+                                <strong style="color: #666; font-size: 12px;">{{ __tr('Footer') }}:</strong><br>
+                                <span style="color: #0f172a; font-size: 13px; line-height: 1.4;">${footerText}</span>
+                            </div>`;
                         } else if (nodeType === 'goto') {
                             // Goto node
                             const messageText = element.reply || 'Redirect message';
@@ -453,7 +509,7 @@
                             <a style="display:none;" x-show="isUnsavedContent" @click.prevent="window.unsavedAlert()" title="{{  __tr('Delete') }}" class="btn btn-danger btn-sm" href="#"><i class="fa fa-trash"></i> {{  __tr('Delete') }} </a>
                             <a x-show="!isUnsavedContent" data-method="post" href="`+ __Utils.apiURL("{{ route('vendor.bot_reply.write.delete', [ 'botReplyIdOrUid']) }}", {'botReplyIdOrUid': element._uid}) +`" class="btn btn-danger lw-ajax-link-action" data-confirm="#lwDeleteBotReply-template" title="{{ __tr('Delete') }}" data-callback="onBotReplyDeleted"><i class="fa fa-trash"></i> {{  __tr('Delete') }}</a> 
                             <a style="display:none;" x-show="isUnsavedContent" @click.prevent="window.unsavedAlert()" title="{{  __tr('Duplicate') }}" class="btn btn-light btn-sm" href="#"><i class="fa fa-copy"></i></a> 
-                            <a x-show="!isUnsavedContent" data-method="post" href="`+ __Utils.apiURL("{{ route('vendor.bot_reply.write.duplicate', [ 'botReplyIdOrUid']) }}", {'botReplyIdOrUid': element._uid}) +`" class="btn btn-light lw-ajax-link-action" data-confirm="#lwDuplicateBotReply-template" title="{{ __tr('Duplicate') }}"><i class="fa fa-copy"></i></a>
+                           <a x-show="!isUnsavedContent" data-method="post" href="`+ __Utils.apiURL("{{ route('vendor.bot_reply.write.duplicate', [ 'botReplyIdOrUid']) }}", {'botReplyIdOrUid': element._uid}) +`" class="btn btn-light lw-ajax-link-action" data-confirm="#lwDuplicateBotReply-template" data-post-data='{"context_flow_uid": "{{ $botFlow->_uid }}"}' title="{{ __tr('Duplicate') }}"><i class="fa fa-copy"></i></a>
                             <a class="btn btn-light" style="padding: 1px;"></a>
                         </div>
                         <button style="display:none;" class="lw-delete-link-btn lw-operator-link-`+element._uid+` btn btn-warning btn-block btn-sm" @click="window.$flowBuilderInstance.flowchart('deleteSelected');"><i class="fas fa-unlink"></i> {{  __tr('Delete Link') }}</button>`;

@@ -144,8 +144,24 @@ $planDetails = vendorPlanDetails(null, null, $vendorInfo['id']);
                             <option value="">{{  __tr('Select Plan') }}</option>
                             @foreach (getPaidPlans() as $paidPlanKey => $paidPlan)
                             <optgroup label="{{ $paidPlan['title'] }} @if(!$paidPlan['enabled']) ({{ __tr('Disabled') }}) @endif">
-                                @foreach ($paidPlan['charges'] as $planChargeKey => $planCharge)
-                                 <option value="{{ $paidPlanKey }}___{{ $planChargeKey }}">{{ $paidPlan['title'] }} - {{ formatAmount($planCharge['charge'], true) }} {{ $planCharge['title'] }}</option>
+                                            @php
+                                                // Define the desired order: monthly, 6_months, 12_months, 18_months
+                                                $chargeOrder = ['monthly', '6_months', '12_months', '18_months'];
+                                                $orderedCharges = [];
+                                                foreach ($chargeOrder as $orderKey) {
+                                                    if (isset($paidPlan['charges'][$orderKey]) && $paidPlan['charges'][$orderKey]['enabled']) {
+                                                        $orderedCharges[$orderKey] = $paidPlan['charges'][$orderKey];
+                                                    }
+                                                }
+                                                // Add any remaining charges that weren't in the order list
+                                                foreach ($paidPlan['charges'] as $planChargeKey => $planCharge) {
+                                                    if (!in_array($planChargeKey, $chargeOrder) && $planCharge['enabled']) {
+                                                        $orderedCharges[$planChargeKey] = $planCharge;
+                                                    }
+                                                }
+                                            @endphp
+                                @foreach ($orderedCharges as $planChargeKey => $planCharge)
+                                    <option value="{{ $paidPlanKey }}___{{ $planChargeKey }}">{{ $paidPlan['title'] }} - {{ formatAmount($planCharge['charge'], true) }} {{ $planCharge['title'] }}</option>
                                 @endforeach
                             </optgroup>
                             @endforeach

@@ -314,7 +314,7 @@ class WhatsAppTemplateEngine extends BaseEngine implements WhatsAppTemplateEngin
                 }
                 
                 $bodyComponent['example'] = [
-                    "body_text" => $exampleValues
+                    "body_text" => [$exampleValues]
                 ];
                 
                 // Debug logging for example field conversion

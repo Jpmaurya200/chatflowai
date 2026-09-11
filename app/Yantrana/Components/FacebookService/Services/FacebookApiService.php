@@ -159,9 +159,43 @@ class FacebookApiService extends BaseEngine
                 }
             }
 
+            // Parse error response to provide better error messages
+            $errorData = $response->json();
+            $errorMessage = 'Failed to retrieve conversations';
+            
+            if (isset($errorData['error'])) {
+                $error = $errorData['error'];
+                $errorCode = $error['code'] ?? null;
+                $errorSubcode = $error['error_subcode'] ?? null;
+                $errorMsg = $error['message'] ?? 'Unknown error';
+                
+                Log::error('Facebook Conversations API Error', [
+                    'code' => $errorCode,
+                    'subcode' => $errorSubcode,
+                    'message' => $errorMsg,
+                    'type' => $error['type'] ?? null
+                ]);
+                
+                // Check for OAuth token invalidation errors
+                if ($errorCode == 190) {
+                    if ($errorSubcode == 460) {
+                        $errorMessage = 'Your Facebook access token has been invalidated. This usually happens when you change your Facebook password or Facebook invalidates the session for security reasons. Please reconnect your Facebook account in the settings to generate a new access token.';
+                    } else {
+                        $errorMessage = 'Facebook access token error: ' . $errorMsg . '. Please check your Facebook API configuration and reconnect if necessary.';
+                    }
+                } else {
+                    $errorMessage = 'Facebook API Error: ' . $errorMsg . ' (Code: ' . $errorCode . ')';
+                }
+            } else {
+                $errorMessage = 'Failed to retrieve conversations. Status: ' . $response->status() . '. Response: ' . $response->body();
+            }
+
             return [
                 'success' => false,
-                'message' => 'Failed to retrieve conversations. Status: ' . $response->status() . '. Response: ' . $response->body()
+                'message' => $errorMessage,
+                'error_code' => $errorCode ?? null,
+                'error_subcode' => $errorSubcode ?? null,
+                'requires_reconnect' => isset($errorCode) && $errorCode == 190
             ];
 
         } catch (\Exception $e) {

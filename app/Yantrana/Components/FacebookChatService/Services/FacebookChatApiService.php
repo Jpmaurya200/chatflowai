@@ -91,9 +91,35 @@ class FacebookChatApiService extends BaseEngine
                 ];
             }
 
+            // Parse error response to provide better error messages
+            $errorData = $response->json();
+            $errorMessage = 'Failed to connect to Facebook API';
+            
+            if (isset($errorData['error'])) {
+                $error = $errorData['error'];
+                $errorCode = $error['code'] ?? null;
+                $errorSubcode = $error['error_subcode'] ?? null;
+                $errorMsg = $error['message'] ?? 'Unknown error';
+                
+                if ($errorCode == 190) {
+                    if ($errorSubcode == 460) {
+                        $errorMessage = 'Your Facebook access token has been invalidated. This usually happens when you change your Facebook password or Facebook invalidates the session for security reasons. Please reconnect your Facebook account in the settings to generate a new access token.';
+                    } else {
+                        $errorMessage = 'Facebook access token error: ' . $errorMsg . '. Please check your Facebook API configuration and reconnect if necessary.';
+                    }
+                } else {
+                    $errorMessage = 'Facebook API Error: ' . $errorMsg . ' (Code: ' . $errorCode . ')';
+                }
+            } else {
+                $errorMessage = 'Failed to connect to Facebook API. Status: ' . $response->status() . '. Response: ' . $response->body();
+            }
+
             return [
                 'success' => false,
-                'message' => 'Failed to connect to Facebook API. Status: ' . $response->status() . '. Response: ' . $response->body()
+                'message' => $errorMessage,
+                'error_code' => $errorCode ?? null,
+                'error_subcode' => $errorSubcode ?? null,
+                'requires_reconnect' => isset($errorCode) && $errorCode == 190
             ];
 
         } catch (\Exception $e) {
@@ -128,7 +154,8 @@ class FacebookChatApiService extends BaseEngine
         try {
             $url = "https://graph.facebook.com/v18.0/{$pageId}/conversations";
             $params = [
-                'access_token' => $accessToken
+                'access_token' => $accessToken,
+                'fields' => 'id,updated_time,participants{name,id},can_reply,is_supported,message_count,snippet'
             ];
 
             Log::info('Facebook Chat Conversations API Request', [
@@ -149,6 +176,12 @@ class FacebookChatApiService extends BaseEngine
             if ($response->successful()) {
                 $data = $response->json();
 
+                Log::info('Facebook Conversations API Response Data', [
+                    'has_data' => isset($data['data']),
+                    'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                    'sample_conversation' => isset($data['data'][0]) ? $data['data'][0] : null
+                ]);
+
                 if (isset($data['data'])) {
                     return [
                         'success' => true,
@@ -156,12 +189,57 @@ class FacebookChatApiService extends BaseEngine
                         'paging' => $data['paging'] ?? null,
                         'message' => 'Conversations retrieved successfully'
                     ];
+                } else {
+                    // Return empty array if data key doesn't exist
+                    Log::warning('Facebook Conversations API response missing data key', [
+                        'response' => $data
+                    ]);
+                    return [
+                        'success' => true,
+                        'data' => [],
+                        'paging' => null,
+                        'message' => 'No conversations found'
+                    ];
                 }
+            }
+
+            // Parse error response to provide better error messages
+            $errorData = $response->json();
+            $errorMessage = 'Failed to retrieve conversations';
+            
+            if (isset($errorData['error'])) {
+                $error = $errorData['error'];
+                $errorCode = $error['code'] ?? null;
+                $errorSubcode = $error['error_subcode'] ?? null;
+                $errorMsg = $error['message'] ?? 'Unknown error';
+                
+                Log::error('Facebook Conversations API Error', [
+                    'code' => $errorCode,
+                    'subcode' => $errorSubcode,
+                    'message' => $errorMsg,
+                    'type' => $error['type'] ?? null
+                ]);
+                
+                // Check for OAuth token invalidation errors
+                if ($errorCode == 190) {
+                    if ($errorSubcode == 460) {
+                        $errorMessage = 'Your Facebook access token has been invalidated. This usually happens when you change your Facebook password or Facebook invalidates the session for security reasons. Please reconnect your Facebook account in the settings to generate a new access token.';
+                    } else {
+                        $errorMessage = 'Facebook access token error: ' . $errorMsg . '. Please check your Facebook API configuration and reconnect if necessary.';
+                    }
+                } else {
+                    $errorMessage = 'Facebook API Error: ' . $errorMsg . ' (Code: ' . $errorCode . ')';
+                }
+            } else {
+                $errorMessage = 'Failed to retrieve conversations. Status: ' . $response->status() . '. Response: ' . $response->body();
             }
 
             return [
                 'success' => false,
-                'message' => 'Failed to retrieve conversations. Status: ' . $response->status() . '. Response: ' . $response->body()
+                'message' => $errorMessage,
+                'error_code' => $errorCode ?? null,
+                'error_subcode' => $errorSubcode ?? null,
+                'requires_reconnect' => isset($errorCode) && $errorCode == 190
             ];
 
         } catch (\Exception $e) {
@@ -198,7 +276,7 @@ class FacebookChatApiService extends BaseEngine
             $url = "https://graph.facebook.com/v18.0/{$conversationId}/messages";
             $params = [
                 'access_token' => $accessToken,
-                'fields' => 'id,message,from,created_time'
+                'fields' => 'id,message,from{name,id},created_time'
             ];
 
             Log::info('Facebook Chat Conversation Messages API Request', [
@@ -230,9 +308,29 @@ class FacebookChatApiService extends BaseEngine
                 }
             }
 
+            // Parse error response to provide better error messages
+            $errorData = $response->json();
+            $errorMessage = 'Failed to retrieve messages';
+            
+            if (isset($errorData['error'])) {
+                $error = $errorData['error'];
+                $errorCode = $error['code'] ?? null;
+                $errorSubcode = $error['error_subcode'] ?? null;
+                $errorMsg = $error['message'] ?? 'Unknown error';
+                
+                if ($errorCode == 190 && $errorSubcode == 460) {
+                    $errorMessage = 'Your Facebook access token has been invalidated. Please reconnect your Facebook account in the settings.';
+                } else {
+                    $errorMessage = 'Facebook API Error: ' . $errorMsg;
+                }
+            } else {
+                $errorMessage = 'Failed to retrieve messages. Status: ' . $response->status() . '. Response: ' . $response->body();
+            }
+
             return [
                 'success' => false,
-                'message' => 'Failed to retrieve messages. Status: ' . $response->status() . '. Response: ' . $response->body()
+                'message' => $errorMessage,
+                'requires_reconnect' => isset($errorCode) && $errorCode == 190
             ];
 
         } catch (\Exception $e) {
@@ -421,7 +519,8 @@ class FacebookChatApiService extends BaseEngine
             $url = "https://graph.facebook.com/v18.0/{$pageId}/posts";
             $params = [
                 'access_token' => $accessToken,
-                'fields' => 'id,message,story,created_time'
+                'fields' => 'id,message,story,created_time',
+                'limit' => 100 // Request more posts per page
             ];
 
             Log::info('Facebook Chat Posts API Request', [
@@ -442,12 +541,81 @@ class FacebookChatApiService extends BaseEngine
             if ($response->successful()) {
                 $data = $response->json();
 
+                Log::info('Facebook Posts API Response Data', [
+                    'has_data' => isset($data['data']),
+                    'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                    'sample_post' => isset($data['data'][0]) ? $data['data'][0] : null
+                ]);
+
                 if (isset($data['data'])) {
+                    $allPosts = $data['data'];
+                    
+                    // Handle pagination to get all posts
+                    $paging = $data['paging'] ?? null;
+                    $nextUrl = $paging['next'] ?? null;
+                    
+                    // Fetch additional pages if available (limit to prevent infinite loops)
+                    $maxPages = 10; // Limit to 10 pages = 1000 posts max
+                    $currentPage = 1;
+                    
+                    while ($nextUrl && $currentPage < $maxPages) {
+                        try {
+                            Log::info('Fetching next page of Facebook posts', [
+                                'page' => $currentPage + 1,
+                                'current_count' => count($allPosts)
+                            ]);
+                            
+                            $nextResponse = Http::withOptions([
+                                'verify' => false,
+                                'timeout' => 30,
+                            ])->get($nextUrl);
+                            
+                            if ($nextResponse->successful()) {
+                                $nextData = $nextResponse->json();
+                                if (isset($nextData['data']) && is_array($nextData['data'])) {
+                                    $allPosts = array_merge($allPosts, $nextData['data']);
+                                    $paging = $nextData['paging'] ?? null;
+                                    $nextUrl = $paging['next'] ?? null;
+                                    $currentPage++;
+                                } else {
+                                    break;
+                                }
+                            } else {
+                                Log::warning('Failed to fetch next page of posts', [
+                                    'status' => $nextResponse->status()
+                                ]);
+                                break;
+                            }
+                        } catch (\Exception $e) {
+                            Log::error('Error fetching next page of posts', [
+                                'error' => $e->getMessage(),
+                                'page' => $currentPage + 1
+                            ]);
+                            break;
+                        }
+                    }
+                    
+                    Log::info('Facebook Posts fetched', [
+                        'total_posts' => count($allPosts),
+                        'pages_fetched' => $currentPage
+                    ]);
+                    
                     return [
                         'success' => true,
-                        'data' => $data['data'],
-                        'paging' => $data['paging'] ?? null,
+                        'data' => $allPosts,
+                        'paging' => $paging,
                         'message' => 'Posts retrieved successfully'
+                    ];
+                } else {
+                    // Return empty array if data key doesn't exist
+                    Log::warning('Facebook Posts API response missing data key', [
+                        'response' => $data
+                    ]);
+                    return [
+                        'success' => true,
+                        'data' => [],
+                        'paging' => null,
+                        'message' => 'No posts found'
                     ];
                 }
             }
@@ -490,7 +658,7 @@ class FacebookChatApiService extends BaseEngine
             $url = "https://graph.facebook.com/v18.0/{$postId}/comments";
             $params = [
                 'access_token' => $accessToken,
-                'fields' => 'message,from,created_time,comments{message,from,created_time}'
+                'fields' => 'message,from{name,id},created_time,comments{message,from{name,id},created_time}'
             ];
 
             Log::info('Facebook Chat Post Comments API Request', [
@@ -512,12 +680,31 @@ class FacebookChatApiService extends BaseEngine
             if ($response->successful()) {
                 $data = $response->json();
 
+                Log::info('Facebook Post Comments API Response Data', [
+                    'post_id' => $postId,
+                    'has_data' => isset($data['data']),
+                    'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                    'sample_comment' => isset($data['data'][0]) ? $data['data'][0] : null
+                ]);
+
                 if (isset($data['data'])) {
                     return [
                         'success' => true,
                         'data' => $data['data'],
                         'paging' => $data['paging'] ?? null,
                         'message' => 'Comments with replies retrieved successfully'
+                    ];
+                } else {
+                    // Return empty array if data key doesn't exist (post might have no comments)
+                    Log::info('Facebook post has no comments', [
+                        'post_id' => $postId,
+                        'response' => $data
+                    ]);
+                    return [
+                        'success' => true,
+                        'data' => [],
+                        'paging' => null,
+                        'message' => 'No comments found for this post'
                     ];
                 }
             }

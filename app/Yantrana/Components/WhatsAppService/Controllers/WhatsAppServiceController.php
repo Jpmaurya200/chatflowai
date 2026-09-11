@@ -17,6 +17,9 @@ use App\Yantrana\Components\WhatsAppService\WhatsAppServiceEngine;
 use App\Yantrana\Components\WhatsAppService\WhatsAppTemplateEngine;
 use XLSXWriter;
 use App\Yantrana\Components\WhatsAppService\Models\WhatsAppMessageLogModel;
+use Illuminate\Support\Facades\Http;
+use App\Jobs\VerifyTwoFactorAuthJob;
+
 
 class WhatsAppServiceController extends BaseController
 {
@@ -109,26 +112,42 @@ class WhatsAppServiceController extends BaseController
         validateVendorAccess('manage_campaigns');
         $request->validate([
             'template_uid' => 'required',
-            'contact_group' => 'required',
+           
             'timezone' => 'required',
             'title' => 'required',
         ]);
-        $processReaction = $this->whatsAppServiceEngine->processCampaignCreate($request);
+        
+        try {
+            $processReaction = $this->whatsAppServiceEngine->processCampaignCreate($request);
 
-        // get back with response
-        if ($processReaction->failed()) {
-            return $this->processResponse($processReaction);
+            // get back with response
+            if ($processReaction->failed()) {
+                return $this->processResponse($processReaction);
+            }
+
+            return $this->responseAction(
+                $this->processResponse($processReaction),
+                $this->redirectTo('vendor.campaign.status.view', [
+                    'campaignUid' => $processReaction->data('campaignUid'),
+                ], [
+                    $processReaction->message(),
+                    'success',
+                ])
+            );
+        } catch (\Exception $e) {
+            // Log the error for debugging
+            \Log::error('Campaign creation failed: ' . $e->getMessage(), [
+                'request_data' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Also log the specific error details
+            \Log::error('Campaign creation error details: ' . $e->getFile() . ':' . $e->getLine() . ' - ' . $e->getMessage());
+            
+            return $this->processResponse(22, [
+                22 => __tr('Campaign creation failed: ') . $e->getMessage()
+            ], [], true);
         }
-
-        return $this->responseAction(
-            $this->processResponse($processReaction),
-            $this->redirectTo('vendor.campaign.status.view', [
-                'campaignUid' => $processReaction->data('campaignUid'),
-            ], [
-                $processReaction->message(),
-                'success',
-            ])
-        );
     }
 
     /**
@@ -510,6 +529,13 @@ class WhatsAppServiceController extends BaseController
      */
     public function webhook(BaseRequestTwo $request, $vendorUid)
     {
+        \Illuminate\Support\Facades\Log::info('=== WhatsApp Webhook Controller ===', [
+            'vendor_uid' => $vendorUid,
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'has_entry' => $request->has('entry')
+        ]);
+
         // webhook verification process
         if ($request->isMethod('get')) {
             if ($request->has('hub_challenge') and $request->has('hub_verify_token')) {
@@ -536,7 +562,25 @@ class WhatsAppServiceController extends BaseController
             return response('Invalid request', 403);
         }
         // process the other update requests
-        $this->whatsAppServiceEngine->processWebhook($request, $vendorUid);
+        \Illuminate\Support\Facades\Log::info('Webhook Controller: Processing incoming webhook', [
+            'vendor_uid' => $vendorUid
+        ]);
+
+        if (config('queue.default') !== 'sync' || env('WHATSAPP_QUEUE_WEBHOOKS', false)) {
+            \App\Jobs\ProcessIncomingWhatsAppWebhookJob::dispatch($request->all(), $vendorUid);
+            \Illuminate\Support\Facades\Log::info('Webhook Controller: Dispatched to ProcessIncomingWhatsAppWebhookJob queue', [
+                'vendor_uid' => $vendorUid
+            ]);
+            return response('done', 200);
+        }
+
+        $result = $this->whatsAppServiceEngine->processWebhook($request, $vendorUid);
+
+        \Illuminate\Support\Facades\Log::info('Webhook Controller: processWebhook completed', [
+            'vendor_uid' => $vendorUid,
+            'result' => $result
+        ]);
+
         return response('done', 200);
     }
 
@@ -997,5 +1041,408 @@ class WhatsAppServiceController extends BaseController
     ])->deleteFileAfterSend();
 }
 
+    /**
+     * Verify Two-Factor Authentication PIN
+     *
+     * @return json
+     */
+    public function verifyTwoFactorAuth()
+    {
+        \Log::info('=== verifyTwoFactorAuth() method started ===');
+        
+        // Step 1: Validate vendor access
+        \Log::info('Step 1: Validating vendor access');
+        validateVendorAccess('administrative');
+        \Log::info('Step 1: Vendor access validated successfully');
+        
+        // Step 2: Check WhatsApp Business Account readiness
+        \Log::info('Step 2: Checking WhatsApp Business Account readiness');
+        if(!isWhatsAppBusinessAccountReady()) {
+            \Log::warning('Step 2: WhatsApp Business Account not ready');
+            return $this->processResponse(22, [
+                22 => __tr('Please complete your WhatsApp Cloud API Setup first')
+            ], [], true);
+        }
+        \Log::info('Step 2: WhatsApp Business Account is ready');
+
+        // Step 3: Get request data
+        \Log::info('Step 3: Getting request data');
+        $request = request();
+        \Log::info('Step 3: Request data retrieved', [
+            'all_input' => $request->all(),
+            'method' => $request->method(),
+            'url' => $request->fullUrl()
+        ]);
+        
+        // Step 4: Validate the PIN
+        \Log::info('Step 4: Starting PIN validation');
+        $request->validate([
+            'two_factor_pin' => 'required|string|size:6|regex:/^[0-9]{6}$/',
+            'user_id' => 'required|integer'
+        ], [
+            'two_factor_pin.required' => __tr('PIN is required'),
+            'two_factor_pin.size' => __tr('PIN must be exactly 6 digits'),
+            'two_factor_pin.regex' => __tr('PIN must contain only numbers'),
+            'user_id.required' => __tr('User ID is required')
+        ]);
+        \Log::info('Step 4: PIN validation passed');
+
+        // Step 5: Extract validated data
+        \Log::info('Step 5: Extracting validated data');
+        $pin = $request->input('two_factor_pin');
+        $userId = $request->input('user_id');
+        \Log::info('Step 5: Data extracted', [
+            'pin_length' => strlen($pin),
+            'pin_preview' => substr($pin, 0, 2) . '****',
+            'user_id' => $userId
+        ]);
+        
+        // Step 6: Get phone number ID
+        \Log::info('Step 6: Getting phone number ID');
+        $phoneNumberId = getVendorSettings('current_phone_number_id');
+        \Log::info('Step 6: Phone number ID retrieved', [
+            'phone_number_id' => $phoneNumberId,
+            'phone_number_id_source' => $phoneNumberId ? 'found' : 'null'
+        ]);
+        
+        // Check if phone number ID is available
+        if (empty($phoneNumberId)) {
+            \Log::error('Step 6: Phone number ID is null or empty', [
+                'available_settings' => array_keys(getVendorSettings()),
+                'request_input' => $request->all()
+            ]);
+            return $this->processResponse(22, [
+                22 => __tr('Phone number ID not found. Please check your WhatsApp setup.')
+            ], [], true);
+        }
+
+        // Step 7: Get access token
+        \Log::info('Step 7: Getting WhatsApp access token');
+        $accessToken = getVendorSettings('whatsapp_access_token');
+        \Log::info('Step 7: Access token retrieved', [
+            'token_length' => strlen($accessToken),
+            'token_preview' => substr($accessToken, 0, 10) . '...'
+        ]);
+        
+        // Check if access token is available
+        if (empty($accessToken)) {
+            \Log::error('Step 7: Access token is null or empty');
+            return $this->processResponse(22, [
+                22 => __tr('WhatsApp access token not found. Please check your setup.')
+            ], [], true);
+        }
+
+        // Step 8: Build first API URL
+        \Log::info('Step 8: Building first API URL');
+        $url = 'https://graph.facebook.com/v23.0/' . $phoneNumberId;
+        \Log::info('Step 8: First API URL built', [
+            'url' => $url,
+            'phone_number_id' => $phoneNumberId
+        ]);
+
+        // Step 9: Prepare first API request headers
+        \Log::info('Step 9: Preparing first API request headers');
+        $headers = [
+            'Authorization' => 'Bearer ' . $accessToken,
+            'Content-Type' => 'application/json'
+        ];
+        \Log::info('Step 9: First API headers prepared', [
+            'headers' => $headers
+        ]);
+        
+        // Step 10: Prepare first API request body
+        \Log::info('Step 10: Preparing first API request body');
+        $requestBody = [
+            'pin' => $pin
+        ];
+        \Log::info('Step 10: First API request body prepared', [
+            'body' => $requestBody
+        ]);
+
+        // Step 11: Make first API call
+        \Log::info('Step 11: Making first API call to WhatsApp');
+        \Log::info('Step 11: First API call details', [
+            'url' => $url,
+            'method' => 'POST',
+            'headers' => $headers,
+            'body' => $requestBody
+        ]);
+        
+        $response = Http::withHeaders($headers)->post($url, $requestBody);
+        
+        // Step 12: Log first API response
+        \Log::info('Step 12: First API call completed', [
+            'status_code' => $response->status(),
+            'successful' => $response->successful(),
+            'response_body' => $response->body(),
+            'response_headers' => $response->headers(),
+            'response_time' => $response->transferStats ? $response->transferStats->getTransferTime() : 'N/A'
+        ]);
+
+        // Step 13: Process first API response
+        \Log::info('Step 13: Processing first API response');
+        if ($response->successful()) {
+            \Log::info('Step 13: First API call successful - PIN verification completed');
+            \Log::info('First API call - SUCCESS', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'successful' => $response->successful()
+            ]);
+
+            // Step 14: Build second API URL
+            \Log::info('Step 14: Building second API URL');
+            $registerUrl = 'https://graph.facebook.com/v17.0/' . $phoneNumberId . '/register';
+            \Log::info('Step 14: Second API URL built', [
+                'url' => $registerUrl,
+                'phone_number_id' => $phoneNumberId
+            ]);
+            
+            // Step 15: Prepare second API request headers
+            \Log::info('Step 15: Preparing second API request headers');
+            $registerHeaders = [
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Content-Type' => 'application/json'
+            ];
+            \Log::info('Step 15: Second API headers prepared', [
+                'headers' => $registerHeaders
+            ]);
+            
+            // Step 16: Prepare second API request body
+            \Log::info('Step 16: Preparing second API request body');
+            $registerRequestBody = [
+                'method' => 'sms',
+                'messaging_product' => 'whatsapp',
+                'pin' => $pin
+            ];
+            \Log::info('Step 16: Second API request body prepared', [
+                'body' => $registerRequestBody
+            ]);
+
+            // Step 17: Make second API call
+            \Log::info('Step 17: Making second API call to WhatsApp');
+            \Log::info('Step 17: Second API call details', [
+                'url' => $registerUrl,
+                'method' => 'POST',
+                'headers' => $registerHeaders,
+                'body' => $registerRequestBody
+            ]);
+            
+            $registerResponse = Http::withHeaders($registerHeaders)->post($registerUrl, $registerRequestBody);
+
+            // Step 18: Log second API response
+            \Log::info('Step 18: Second API call completed', [
+                'status_code' => $registerResponse->status(),
+                'successful' => $registerResponse->successful(),
+                'response_body' => $registerResponse->body(),
+                'response_headers' => $registerResponse->headers(),
+                'response_time' => $registerResponse->transferStats ? $registerResponse->transferStats->getTransferTime() : 'N/A'
+            ]);
+            
+            // Step 19: Process second API response
+            \Log::info('Step 19: Processing second API response');
+            if ($registerResponse->successful()) {
+                \Log::info('Step 19: Second API call successful - PIN registration completed');
+                \Log::info('Second API call - SUCCESS', [
+                    'url' => $registerUrl,
+                    'status' => $registerResponse->status(),
+                    'body' => $registerResponse->body(),
+                    'successful' => $registerResponse->successful()
+                ]);
+                
+                \Log::info('=== Two-Factor Authentication completed successfully ===');
+                return redirect()->back()->with('success', 'Two-Factor Authentication verified successfully');
+            } else {
+                \Log::error('Step 19: Second API call failed - PIN registration failed');
+                \Log::error('Second API call - FAILED', [
+                    'url' => $registerUrl,
+                    'status' => $registerResponse->status(),
+                    'body' => $registerResponse->body(),
+                    'successful' => $registerResponse->successful(),
+                    'error_details' => $registerResponse->json() ?? 'No JSON response'
+                ]);
+                return $this->processResponse(22, [
+                    22 => __tr('Failed to register PIN: ') . $registerResponse->body()
+                ], [], true);
+            }
+        } else {
+            \Log::error('Step 13: First API call failed - PIN verification failed');
+            \Log::error('First API call - FAILED', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'successful' => $response->successful(),
+                'error_details' => $response->json() ?? 'No JSON response'
+            ]);
+            return $this->processResponse(22, [
+                22 => __tr('Failed to send PIN: ') . $response->body()
+            ], [], true);
+        }
+        
+        \Log::info('=== verifyTwoFactorAuth() method completed ===');
+    }
+
+    /**
+     * Edit WhatsApp Verified Name
+     *
+     * @return json
+     */
+    public function editVerifiedName()
+    {
+        \Log::info('=== editVerifiedName() method started ===');
+        
+        // Step 1: Validate vendor access
+        \Log::info('Step 1: Validating vendor access');
+        validateVendorAccess('administrative');
+        \Log::info('Step 1: Vendor access validated successfully');
+        
+        // Step 2: Check WhatsApp Business Account readiness
+        \Log::info('Step 2: Checking WhatsApp Business Account readiness');
+        if(!isWhatsAppBusinessAccountReady()) {
+            \Log::warning('Step 2: WhatsApp Business Account not ready');
+            return $this->processResponse(22, [
+                22 => __tr('Please complete your WhatsApp Cloud API Setup first')
+            ], [], true);
+        }
+        \Log::info('Step 2: WhatsApp Business Account is ready');
+
+        // Step 3: Get request data
+        \Log::info('Step 3: Getting request data');
+        $request = request();
+        \Log::info('Step 3: Request data retrieved', [
+            'all_input' => $request->all(),
+            'method' => $request->method(),
+            'url' => $request->fullUrl()
+        ]);
+        
+        // Step 4: Validate the request
+        \Log::info('Step 4: Starting request validation');
+        $request->validate([
+            'verified_name' => 'required|string|max:255'
+        ], [
+            'verified_name.required' => __tr('Verified name is required'),
+            'verified_name.max' => __tr('Verified name must not exceed 255 characters')
+        ]);
+        \Log::info('Step 4: Request validation passed');
+
+        // Step 5: Extract validated data
+        \Log::info('Step 5: Extracting validated data');
+        $verifiedName = $request->input('verified_name');
+        
+        // Try multiple possible keys for phone number ID
+        $phoneNumberId = getVendorSettings('current_phone_number_id') 
+                        ?? getVendorSettings('whatsapp_phone_number_id') 
+                        ?? getVendorSettings('phone_number_id')
+                        ?? $request->input('phone_number_id'); // Fallback to request input
+        
+        \Log::info('Step 5: Data extracted', [
+            'verified_name' => $verifiedName,
+            'phone_number_id' => $phoneNumberId,
+            'phone_number_id_source' => $phoneNumberId ? 'found' : 'null'
+        ]);
+        
+        // Check if phone number ID is still null
+        if (empty($phoneNumberId)) {
+            \Log::error('Step 5: Phone number ID is null or empty', [
+                'available_settings' => array_keys(getVendorSettings()),
+                'request_input' => $request->all()
+            ]);
+            return redirect()->back()->with('error', 'Phone number ID not found. Please check your WhatsApp setup.');
+        }
+
+        // Step 6: Get access token
+        \Log::info('Step 6: Getting WhatsApp access token');
+        $accessToken = getVendorSettings('whatsapp_access_token');
+        \Log::info('Step 6: Access token retrieved', [
+            'token_length' => strlen($accessToken),
+            'token_preview' => substr($accessToken, 0, 10) . '...'
+        ]);
+        
+        // Step 7: Build API URL
+        \Log::info('Step 7: Building API URL');
+
+
+        $url = 'https://graph.facebook.com/v23.0/' . $phoneNumberId . '?new_display_name=' . urlencode($verifiedName);
+      
+      
+        \Log::info('Step 7: API URL built', [
+            'url' => $url,
+            'encoded_name' => urlencode($verifiedName)
+        ]);
+        
+        // Step 8: Prepare headers
+        \Log::info('Step 8: Preparing request headers');
+        $headers = [
+            'Authorization' => 'Bearer ' . $accessToken,
+            'Content-Type' => 'application/json'
+        ];
+        \Log::info('Step 8: Headers prepared', [
+            'headers' => $headers
+        ]);
+        
+        // Step 9: Make API call
+        \Log::info('Step 9: Making API call to WhatsApp');
+        \Log::info('Step 9: API call details', [
+            'url' => $url,
+            'method' => 'POST',
+            'headers' => $headers
+        ]);
+        
+        $response = Http::withHeaders($headers)->post($url);
+        
+        // Step 10: Log API response
+        \Log::info('Step 10: API call completed', [
+            'status_code' => $response->status(),
+            'successful' => $response->successful(),
+            'response_body' => $response->body(),
+            'response_headers' => $response->headers(),
+            'response_time' => $response->transferStats ? $response->transferStats->getTransferTime() : 'N/A'
+        ]);
+        
+        // Step 11: Process response
+        \Log::info('Step 11: Processing API response');
+        if ($response->successful()) {
+            \Log::info('Step 11: API call successful - name change completed');
+            \Log::info('Update verified name API call - SUCCESS', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'successful' => $response->successful()
+            ]);
+
+
+
+
+
+            // Return success - name change completed successfully
+            return $this->processResponse(21, [
+                'messageType' => 'success',
+                'reloadPage' => true,
+            ], [], true);
+        } else {
+            \Log::error('Step 11: API call failed - returning error response');
+            \Log::error('Update verified name API call - FAILED', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'successful' => $response->successful(),
+                'error_details' => $response->json() ?? 'No JSON response'
+            ]);
+            // Parse error message for user-friendly feedback
+            $errorMessage = 'Unknown error occurred';
+            $responseBody = $response->json();
+            if ($responseBody && isset($responseBody['error']['message'])) {
+                $errorMessage = $responseBody['error']['message'];
+            } elseif ($responseBody && isset($responseBody['error'])) {
+                $errorMessage = is_string($responseBody['error']) ? $responseBody['error'] : 'API error occurred';
+            }
+            
+            return $this->processResponse(22, [
+                22 => 'Failed to update name: ' . $errorMessage
+            ], [], true);
+        }
+        
+        \Log::info('=== editVerifiedName() method completed ===');
+    }
  
 }

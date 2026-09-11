@@ -1,4 +1,3 @@
-@include('layouts.partials.chatsbar')
 @extends('layouts.app', ['title' => __tr('Facebook Messages')])
 
 @section('content')
@@ -709,6 +708,7 @@ $(document).ready(function() {
     let selectedPost = null;
     let selectedComment = null;
     let selectedReplyType = 'private'; // 'private' or 'public'
+    let commentsRefreshInterval = null;
 
     // Initialize
     loadConversations();
@@ -751,15 +751,37 @@ $(document).ready(function() {
         $('.no-conversations').hide();
 
         return fetch('{{ route("vendor.facebook_chat.conversations") }}')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Facebook Conversations API response:', data);
+                
+                if (!data.success) {
+                    console.error('API returned error:', data.message);
+                    showAlert('Failed to load conversations: ' + (data.message || 'Unknown error'), 'danger');
+                    $('.no-conversations').show();
+                    return [];
+                }
+
                 contacts = data.data || [];
+                console.log('Loaded conversations:', contacts.length, contacts);
+                
+                if (contacts.length === 0) {
+                    console.warn('No conversations found');
+                    $('.no-conversations').show();
+                }
+                
                 updateConversationsList();
                 return contacts; // Return the contacts for chaining
             })
             .catch(error => {
                 console.error('Error loading conversations:', error);
-                showAlert('Failed to load conversations', 'danger');
+                showAlert('Failed to load conversations: ' + error.message, 'danger');
+                $('.no-conversations').show();
                 return []; // Return empty array on error
             })
             .finally(() => {
@@ -781,11 +803,37 @@ $(document).ready(function() {
             try {
                 // Handle both data structures (direct and nested)
                 const participants = conversation.participants?.data || conversation.participants || [];
-                const instagramUsername = '{{ getVendorSettings('instagram_account_name') }}';
-                const otherParticipant = participants.find(p => p.username !== instagramUsername) || {};
+                const pageId = '{{ getVendorSettings('facebook_page_id') }}';
                 
-                // Use fallback values if data is missing
-                const username = otherParticipant.username || conversation.instagram_username || 'Unknown User';
+                // Find the other participant (not the page)
+                let otherParticipant = {};
+                if (Array.isArray(participants) && participants.length > 0) {
+                    otherParticipant = participants.find(p => p.id !== pageId) || participants[0] || {};
+                }
+                
+                // Extract username from conversation data - similar to Instagram
+                // Prioritize full_name, then sender_name, then facebook_username, then participant name
+                let username = 'Facebook User';
+                if (conversation.full_name) {
+                    username = conversation.full_name;
+                } else if (conversation.sender_name) {
+                    username = conversation.sender_name;
+                } else if (conversation.facebook_username) {
+                    username = conversation.facebook_username;
+                } else if (otherParticipant.name) {
+                    username = otherParticipant.name;
+                } else if (otherParticipant.username) {
+                    username = otherParticipant.username;
+                } else if (conversation.name) {
+                    username = conversation.name;
+                } else if (conversation.last_message_preview) {
+                    // Try to extract name from snippet if available
+                    const snippet = conversation.last_message_preview;
+                    if (snippet && typeof snippet === 'string' && snippet.includes(':')) {
+                        username = snippet.split(':')[0].trim();
+                    }
+                }
+                
                 const conversationId = conversation.id || conversation.conversation_id;
                 
                 if (!conversationId) {
@@ -799,9 +847,8 @@ $(document).ready(function() {
                             <div class="lw-contact-avatar bg-danger text-white text-center me-3">
                                 <span>${getInitials(username)}</span>
                             </div>
-                            <div class="flex-grow-1">
+                            <div class="">
                                 <h4 class="mb-1 ml-2">${username}</h4>
-
                             </div>
                         </div>
                     </a>
@@ -843,11 +890,25 @@ $(document).ready(function() {
             
             // Handle both data structures (direct and nested)
             const participants = conversation.participants?.data || conversation.participants || [];
-            const instagramUsername = '{{ getVendorSettings('instagram_account_name') }}';
-            const otherParticipant = participants.find(p => p.username !== instagramUsername) || {};
+            const pageId = '{{ getVendorSettings('facebook_page_id') }}';
+            const otherParticipant = participants.find(p => p.id !== pageId) || {};
             
-            // Use fallback values if data is missing
-            const username = otherParticipant.username || conversation.instagram_username || 'Unknown User';
+            // Extract username - same logic as in updateConversationsList
+            let username = 'Facebook User';
+            if (conversation.full_name) {
+                username = conversation.full_name;
+            } else if (conversation.sender_name) {
+                username = conversation.sender_name;
+            } else if (conversation.facebook_username) {
+                username = conversation.facebook_username;
+            } else if (otherParticipant.name) {
+                username = otherParticipant.name;
+            } else if (otherParticipant.username) {
+                username = otherParticipant.username;
+            } else if (conversation.name) {
+                username = conversation.name;
+            }
+            
             const conversationId = conversation.id || conversation.conversation_id;
             
             if (!conversationId) {
@@ -1047,6 +1108,12 @@ $(document).ready(function() {
         currentMode = mode;
 
         if (mode === 'chat') {
+            // Clear comments refresh interval when switching to chat mode
+            if (commentsRefreshInterval) {
+                clearInterval(commentsRefreshInterval);
+                commentsRefreshInterval = null;
+            }
+
             // Show chat sections, hide comments sections
             $('#conversations-section').show();
             $('#posts-section').hide();
@@ -1080,6 +1147,18 @@ $(document).ready(function() {
             if (posts.length === 0) {
                 loadPosts();
             }
+
+            // If a post is already selected, restart the refresh interval
+            if (selectedPost) {
+                if (commentsRefreshInterval) {
+                    clearInterval(commentsRefreshInterval);
+                }
+                commentsRefreshInterval = setInterval(() => {
+                    if (selectedPost && currentMode === 'comments') {
+                        loadPostComments(selectedPost.id);
+                    }
+                }, 30000);
+            }
         }
     }
 
@@ -1089,14 +1168,36 @@ $(document).ready(function() {
         $('.no-posts').hide();
 
         fetch('{{ route("vendor.facebook_chat.posts") }}')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
-                posts = data.data || [];
+                console.log('Facebook Posts API response:', data);
+                
+                if (!data.success) {
+                    console.error('API returned error:', data.message);
+                    showAlert('Failed to load posts: ' + (data.message || 'Unknown error'), 'danger');
+                    $('.no-posts').show();
+                    return;
+                }
+
+                posts = data.data?.posts || data.data || [];
+                console.log('Loaded posts:', posts.length, posts);
+                
+                if (posts.length === 0) {
+                    console.warn('No posts found');
+                    $('.no-posts').show();
+                }
+                
                 updatePostsList();
             })
             .catch(error => {
                 console.error('Error loading posts:', error);
-                showAlert('Failed to load posts', 'danger');
+                showAlert('Failed to load posts: ' + error.message, 'danger');
+                $('.no-posts').show();
             })
             .finally(() => {
                 $('.posts-loading-state').hide();
@@ -1109,14 +1210,30 @@ $(document).ready(function() {
         $list.empty();
 
         if (!posts || posts.length === 0) {
+            console.warn('No posts to display');
             $('.no-posts').show();
             return;
         }
 
-        posts.forEach(post => {
+        console.log('Displaying posts:', posts.length);
+        
+        // Sort posts by created_time (newest first) if not already sorted
+        const sortedPosts = posts.slice().sort((a, b) => {
+            const timeA = new Date(a.created_time || 0).getTime();
+            const timeB = new Date(b.created_time || 0).getTime();
+            return timeB - timeA;
+        });
+
+        sortedPosts.forEach((post, index) => {
             const message = post.message || post.story || 'No content';
             const shortMessage = message.length > 50 ? message.substring(0, 50) + '...' : message;
-            const timeAgo = post.formatted_time || 'Unknown time';
+            const timeAgo = post.formatted_time || post.created_time || 'Unknown time';
+            
+            // Ensure post has an ID
+            if (!post.id) {
+                console.warn('Post missing ID:', post);
+                return;
+            }
 
             const $item = $(`
                 <a href="#" class="list-group-item list-group-item-action post-item" data-id="${post.id}">
@@ -1134,6 +1251,8 @@ $(document).ready(function() {
 
             $list.append($item);
         });
+        
+        console.log('Posts displayed:', $list.children().length);
 
         // Handle post selection
         $('.post-item').on('click', function(e) {
@@ -1151,6 +1270,12 @@ $(document).ready(function() {
     function selectPost(post) {
         selectedPost = post;
 
+        // Clear any existing refresh interval
+        if (commentsRefreshInterval) {
+            clearInterval(commentsRefreshInterval);
+            commentsRefreshInterval = null;
+        }
+
         // Update header
         const message = post.message || post.story || 'No content';
         const shortMessage = message.length > 30 ? message.substring(0, 30) + '...' : message;
@@ -1162,23 +1287,61 @@ $(document).ready(function() {
 
         // Load comments for this post
         loadPostComments(post.id);
+
+        // Set up auto-refresh every 30 seconds
+        commentsRefreshInterval = setInterval(() => {
+            if (selectedPost && currentMode === 'comments') {
+                loadPostComments(selectedPost.id);
+            }
+        }, 30000); // Refresh every 30 seconds
     }
 
     // Load comments for a post
     function loadPostComments(postId) {
         $('#comments-loading').show();
         $('#no-comments').hide();
-        $('#comments-list').empty();
+        
+        // Don't clear the list on refresh - let updateCommentsList handle it
+        if (!$('#comments-list').children().length) {
+            $('#comments-list').empty();
+        }
 
         fetch(`/vendor-console/facebook-chat/post/${postId}/comments`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Facebook Comments API response:', data);
+                
+                if (!data.success) {
+                    console.error('API returned error:', data.message);
+                    showAlert('Failed to load comments: ' + (data.message || 'Unknown error'), 'danger');
+                    if ($('#comments-list').children().length === 0) {
+                        $('#no-comments').show();
+                    }
+                    return;
+                }
+
+                // The controller returns data directly, not nested in data.data
                 const comments = data.data || [];
+                console.log('Loaded comments:', comments.length, comments);
+                
+                if (comments.length === 0 && $('#comments-list').children().length === 0) {
+                    console.warn('No comments found for post:', postId);
+                    $('#no-comments').show();
+                }
+                
                 updateCommentsList(comments);
             })
             .catch(error => {
                 console.error('Error loading comments:', error);
-                showAlert('Failed to load comments', 'danger');
+                showAlert('Failed to load comments: ' + error.message, 'danger');
+                if ($('#comments-list').children().length === 0) {
+                    $('#no-comments').show();
+                }
             })
             .finally(() => {
                 $('#comments-loading').hide();
@@ -1188,23 +1351,54 @@ $(document).ready(function() {
     // Update comments list with nested replies
     function updateCommentsList(comments) {
         const $list = $('#comments-list');
-        $list.empty();
+        
+        // Store existing comment IDs to detect new comments
+        const existingCommentIds = new Set();
+        $list.find('.comment-thread').each(function() {
+            existingCommentIds.add($(this).data('comment-id'));
+        });
 
         if (comments.length === 0) {
-            $('#no-comments').show();
+            if ($list.children().length === 0) {
+                $('#no-comments').show();
+            }
             return;
         }
 
         $('#no-comments').hide();
 
+        // If this is the first load (no existing comments), clear and show all
+        const isFirstLoad = existingCommentIds.size === 0;
+        
+        if (isFirstLoad) {
+            $list.empty();
+        }
+
+        const commentIdsInResponse = new Set();
+
         comments.forEach(comment => {
-            const username = comment.commenter_name || 'Unknown User';
+            // Ensure comment ID is always a string
+            const commentId = String(comment.id || '');
+            
+            if (!commentId) {
+                console.error('Comment missing ID:', comment);
+                return; // Skip comments without IDs
+            }
+
+            commentIdsInResponse.add(commentId);
+            
+            // Check if this comment already exists
+            if (!isFirstLoad && existingCommentIds.has(commentId)) {
+                return; // Skip existing comments on refresh
+            }
+
+            const username = comment.commenter_name || 'Facebook User';
             const text = comment.message || '';
             const timeAgo = comment.formatted_time || 'Unknown time';
 
             // Create main comment
             const $comment = $(`
-                <div class="comment-thread mb-4" data-comment-id="${comment.id}">
+                <div class="comment-thread mb-4" data-comment-id="${commentId}">
                     <div class="main-comment p-3 border rounded">
                         <div class="d-flex align-items-start">
                             <div class="avatar bg-secondary text-white text-center me-3" style="width: 40px; height: 40px; line-height: 40px; border-radius: 50%;">
@@ -1217,10 +1411,10 @@ $(document).ready(function() {
                                 </div>
                                 <p class="mb-2">${text}</p>
                                 <div class="btn-group" role="group">
-                                    <button class="btn btn-sm btn-outline-primary reply-comment-btn" data-comment-id="${comment.id}" data-username="${username}" data-reply-type="private">
+                                    <button class="btn btn-sm btn-outline-primary reply-comment-btn" data-comment-id="${commentId}" data-username="${username}" data-reply-type="private">
                                         <i class="fas fa-envelope me-1"></i>Private Reply
                                     </button>
-                                    <button class="btn btn-sm btn-outline-secondary reply-comment-btn" data-comment-id="${comment.id}" data-username="${username}" data-reply-type="public">
+                                    <button class="btn btn-sm btn-outline-secondary reply-comment-btn" data-comment-id="${commentId}" data-username="${username}" data-reply-type="public">
                                         <i class="fas fa-reply me-1"></i>Public Reply
                                     </button>
                                 </div>
@@ -1236,7 +1430,7 @@ $(document).ready(function() {
                 const $repliesContainer = $comment.find('.replies-container');
 
                 comment.replies.forEach(reply => {
-                    const replyUsername = reply.commenter_name || 'Unknown User';
+                    const replyUsername = reply.commenter_name || 'Facebook User';
                     const replyText = reply.message || '';
                     const replyTimeAgo = reply.formatted_time || 'Unknown time';
                     const isPageReply = reply.commenter_id === '{{ getVendorSettings('facebook_page_id') }}';
@@ -1265,12 +1459,27 @@ $(document).ready(function() {
             $list.append($comment);
         });
 
-        // Handle reply button clicks
-        $('.reply-comment-btn').on('click', function() {
-            const commentId = $(this).data('comment-id');
-            const username = $(this).data('username');
-            const replyType = $(this).data('reply-type');
-            selectCommentForReply(commentId, username, replyType);
+        // Remove comments that are no longer in the response (if any)
+        if (!isFirstLoad) {
+            $list.find('.comment-thread').each(function() {
+                const commentId = String($(this).data('comment-id') || '');
+                if (!commentIdsInResponse.has(commentId)) {
+                    $(this).remove();
+                }
+            });
+        }
+
+        // Reattach click handlers for all reply buttons (including new ones)
+        $('.reply-comment-btn').off('click').on('click', function() {
+            const commentId = String($(this).data('comment-id') || $(this).attr('data-comment-id') || '');
+            const username = $(this).data('username') || $(this).attr('data-username') || 'Facebook User';
+            const replyType = $(this).data('reply-type') || $(this).attr('data-reply-type') || 'private';
+            if (commentId) {
+                selectCommentForReply(commentId, username, replyType);
+            } else {
+                console.error('Comment ID not found');
+                showAlert('Error: Comment ID not found', 'danger');
+            }
         });
 
         // Scroll to bottom
@@ -1282,8 +1491,23 @@ $(document).ready(function() {
 
     // Select comment for reply
     function selectCommentForReply(commentId, username, replyType = 'private') {
+        // Ensure commentId is a string
+        commentId = String(commentId || '');
+        
+        if (!commentId) {
+            console.error('Invalid comment ID provided');
+            showAlert('Error: Invalid comment ID', 'danger');
+            return;
+        }
+        
+        // Remove previous selection highlight
+        $('.comment-thread').removeClass('border-primary');
+        
         selectedComment = commentId;
         selectedReplyType = replyType;
+        
+        // Highlight selected comment
+        $(`.comment-thread[data-comment-id="${commentId}"]`).addClass('border-primary');
 
         if (replyType === 'private') {
             $('#comment-reply-input').attr('placeholder', `Send private message to ${username}...`);
@@ -1312,12 +1536,27 @@ $(document).ready(function() {
         const $input = $('#comment-reply-input');
         const message = $input.val().trim();
 
-        if (!message || !selectedComment) return;
+        if (!message) {
+            showAlert('Please enter a message', 'warning');
+            return;
+        }
 
-        const commentElement = $(`.comment-item[data-comment-id="${selectedComment}"]`);
-        const username = commentElement.find('.reply-comment-btn').data('username');
+        // Ensure selectedComment is a string and exists
+        const commentId = String(selectedComment || '');
+        if (!commentId || commentId === 'null' || commentId === 'undefined') {
+            showAlert('Please select a comment to reply to', 'warning');
+            return;
+        }
 
-        $input.val('');
+        const commentElement = $(`.comment-thread[data-comment-id="${commentId}"]`);
+        const username = commentElement.find('.reply-comment-btn').data('username') || 
+                         commentElement.find('.reply-comment-btn').attr('data-username') || 
+                         'Facebook User';
+
+        console.log('Sending Facebook reply:', { comment_id: commentId, message: message, username: username, reply_type: selectedReplyType });
+
+        // Disable input and button while sending
+        $input.prop('disabled', true);
         $('#comment-reply-button').prop('disabled', true);
 
         // Determine which API endpoint to use based on reply type
@@ -1332,37 +1571,58 @@ $(document).ready(function() {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
             body: JSON.stringify({
-                comment_id: selectedComment,
+                comment_id: commentId, // Ensure it's always a string
                 message: message
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 if (selectedReplyType === 'private') {
                     showAlert(`Private message sent to ${username}`, 'success');
+                    // Clear input and reset
+                    $input.val('');
+                    $input.prop('disabled', false);
+                    selectedComment = null;
+                    selectedReplyType = 'private';
+                    $('.comment-thread').removeClass('border-primary');
+                    $('#comment-reply-input').attr('placeholder', 'Send message to start chat...');
+                    $('#comment-reply-button').html('<i class="fas fa-paper-plane"></i>');
                     redirectToChatMode(username);
                 } else {
                     showAlert(`Public reply posted to ${username}'s comment`, 'success');
+                    // Clear input and reset
+                    $input.val('');
+                    $input.prop('disabled', false);
+                    selectedComment = null;
+                    selectedReplyType = 'private';
+                    $('.comment-thread').removeClass('border-primary');
+                    $('#comment-reply-input').attr('placeholder', 'Send message to start chat...');
+                    $('#comment-reply-button').html('<i class="fas fa-paper-plane"></i>');
                     // Reload comments to show the new public reply
                     if (selectedPost) {
                         loadPostComments(selectedPost.id);
                     }
                 }
             } else {
+                console.error('Send comment reply failed:', data);
                 showAlert('Failed to send reply: ' + (data.message || 'Unknown error'), 'danger');
+                // Re-enable input on error
+                $input.prop('disabled', false);
+                $('#comment-reply-button').prop('disabled', false);
             }
         })
         .catch(error => {
             console.error('Error sending comment reply:', error);
             showAlert('Failed to send reply: Network error', 'danger');
-        })
-        .finally(() => {
-            // Reset reply state
-            selectedComment = null;
-            selectedReplyType = 'private';
-            $('#comment-reply-input').attr('placeholder', 'Send message to start chat...');
-            $('#comment-reply-button').html('<i class="fas fa-paper-plane"></i>');
+            // Re-enable input on error
+            $input.prop('disabled', false);
+            $('#comment-reply-button').prop('disabled', false);
         });
     }
 
@@ -1417,7 +1677,7 @@ $(document).ready(function() {
                     const otherParticipant = participants.find(p => p.name !== facebookPageName) || {};
 
                     // Use fallback values if data is missing
-                    const username = otherParticipant.name || conversation.facebook_username || 'Unknown User';
+                    const username = otherParticipant.name || conversation.facebook_username || 'Facebook User';
                     const conversationId = conversation.id || conversation.conversation_id;
 
                     if (!conversationId) {

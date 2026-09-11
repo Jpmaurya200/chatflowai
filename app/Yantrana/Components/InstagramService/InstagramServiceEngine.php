@@ -770,11 +770,20 @@ class InstagramServiceEngine extends BaseEngine
         $processedComments = [];
 
         foreach ($comments as $comment) {
+            // Extract username from 'from' object (Instagram API structure)
+            $username = 'Unknown User';
+            if (isset($comment['from']['username'])) {
+                $username = $comment['from']['username'];
+            } elseif (isset($comment['username'])) {
+                // Fallback for direct username field if present
+                $username = $comment['username'];
+            }
+
             $processedComments[] = [
                 '_uid' => $comment['id'],
                 'id' => $comment['id'],
                 'text' => $comment['text'] ?? '',
-                'username' => $comment['username'] ?? 'Unknown User',
+                'username' => $username,
                 'timestamp' => $comment['timestamp'] ?? '',
                 'formatted_date' => isset($comment['timestamp']) ?
                     date('M j, Y g:i A', strtotime($comment['timestamp'])) :

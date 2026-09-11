@@ -17,35 +17,41 @@
 <?php $status = request()->status ?? 'active'; ?>
 <div class="container-fluid mt-lg--6">
     <div class="row mt-5">
-        <!-- header actions (match templates-list UI) -->
-        <div class="col-xl-12 mb-3">
-            <div class="d-flex align-items-center justify-content-between flex-nowrap mt-3">
-                <h1 class="mb-0"><i class="fa fa-bullhorn me-2" style="color: #0B7753;"></i> {{ __tr('Campaigns') }}</h1>
-                <div class="d-flex align-items-center">
-                    <a class="lw-btn btn btn-neo btn-neo-gradient-green" href="{{ route('vendor.campaign.new.view') }}">
-                        <i class="fas fa-plus"></i> {{ __tr('Create New Campaign') }}
+        <!-- modern header actions (AiSensy / WATI standard) -->
+        <div class="col-xl-12 mb-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap p-4 bg-white rounded-lg shadow-sm border" style="gap: 16px;">
+                <div>
+                    <h2 class="font-weight-bold mb-1 text-dark d-flex align-items-center" style="gap: 10px;">
+                        <i class="fas fa-bullhorn text-success"></i> {{ __tr('WhatsApp Broadcast & Campaigns') }}
+                    </h2>
+                    <p class="text-muted mb-0 small">{{ __tr('Launch targeted template broadcasts, analyze delivery rates, and scale customer engagement.') }}</p>
+                </div>
+                <div class="d-flex align-items-center" style="gap: 10px;">
+                    <a class="btn btn-outline-secondary" href="{{ route('vendor.whatsapp_service.templates.read.list_view') }}">
+                        <i class="fas fa-layer-group mr-1"></i> {{ __tr('Templates') }}
+                    </a>
+                    <a class="btn btn-primary shadow-sm" href="{{ route('vendor.campaign.new.view') }}">
+                        <i class="fas fa-plus mr-1"></i> {{ __tr('Create Campaign') }}
                     </a>
                 </div>
             </div>
         </div>
-        <!--/ header actions -->
-        <ul class="nav nav-tabs mt-2">
-        <!-- Active tab -->
-					<li class="nav-item">
-						<a class="nav-link <?= $status == 'active' ? 'active' : '' ?>" data-title="{{ __tr('Active ') }}" href="<?= route('vendor.campaign.read.list_view', ['status' => 'active']) ?>">
-							<?= __tr('Active') ?>
-						</a>
-					</li>
-					<!-- /Active tab -->
+        <!--/ modern header actions -->
 
-					<!-- Archive tab -->
-					<li class="nav-item">
-						<a class="nav-link <?= $status == 'archived' ? 'active' : '' ?>  " data-title="{{ __tr('Archive') }}" href="<?= route('vendor.campaign.read.list_view', ['status' => 'archived']) ?>">
-							<?= __tr('Archive') ?>
-						</a>
-					</li>
-					<!-- /Archive tab -->
-				</ul>
+        <div class="col-12 mb-3">
+            <ul class="nav nav-pills" style="gap: 8px;">
+                <li class="nav-item">
+                    <a class="nav-link py-2 px-3 font-weight-bold <?= $status == 'active' ? 'active bg-success text-white' : 'bg-white text-dark border' ?>" href="<?= route('vendor.campaign.read.list_view', ['status' => 'active']) ?>">
+                        <i class="fas fa-chart-line mr-1"></i> <?= __tr('Active Campaigns') ?>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link py-2 px-3 font-weight-bold <?= $status == 'archived' ? 'active bg-success text-white' : 'bg-white text-dark border' ?>" href="<?= route('vendor.campaign.read.list_view', ['status' => 'archived']) ?>">
+                        <i class="fas fa-archive mr-1"></i> <?= __tr('Archived') ?>
+                    </a>
+                </li>
+            </ul>
+        </div>
 
         <div class="col-xl-12">
             <div class="modern-table-container">
@@ -89,7 +95,10 @@
                 </button>
                 <div class="dropdown-menu dropdown-menu-right shadow-sm">
                     <a class="dropdown-item" href="<%= __Utils.apiURL("{{ route('vendor.campaign.status.view', ['campaignUid' => 'campaignUid',]) }}", {'campaignUid': __tData._uid}) %>">
-                        <i class="fa fa-tachometer mr-2 text-info"></i>{{  __tr('Campaign Dashboard') }}
+                        <i class="fa fa-tachometer-alt mr-2 "></i>{{  __tr('Campaign Dashboard') }}
+                    </a>
+                    <a class="dropdown-item lw-ajax-link-action-via-confirm" data-method="post" href="<%= __Utils.apiURL("{{ route('vendor.campaign.write.duplicate', [ 'campaignIdOrUid']) }}", {'campaignIdOrUid': __tData._uid}) %>" data-confirm="#lwDuplicateCampaign-template" title="{{ __tr('Duplicate Campaign') }}" data-callback="appFuncs.modelSuccessCallback">
+                        <i class="fa fa-clone mr-2 "></i>{{ __tr('Duplicate Campaign') }}
                     </a>
                     <% if(__tData.delete_allowed) { %>
                         <a class="dropdown-item text-danger lw-ajax-link-action-via-confirm" data-method="post" href="<%= __Utils.apiURL("{{ route('vendor.campaign.write.delete', [ 'campaignIdOrUid']) }}", {'campaignIdOrUid': __tData._uid}) %>" data-confirm="#lwDeleteCampaign-template" title="{{ __tr('Delete') }}" data-callback-params="{{ json_encode(['datatableId' => '#lwCampaignList']) }}" data-callback="appFuncs.modelSuccessCallback">
@@ -98,7 +107,7 @@
                     <% } else { %>
                         <% if(__tData.status != 5) { %>
                             <a class="dropdown-item lw-ajax-link-action" data-method="post" href="<%= __Utils.apiURL("{{ route('vendor.campaign.write.archive', [ 'campaignIdOrUid']) }}", {'campaignIdOrUid': __tData._uid}) %>" title="{{ __tr('Archive') }}" data-callback-params="{{ json_encode(['datatableId' => '#lwCampaignList']) }}" data-callback="appFuncs.modelSuccessCallback">
-                                <i class="fa fa-archive mr-2"></i>{{  __tr('Archive') }}
+                                <i class="fa fa-archive mr-2 "></i>{{  __tr('Archive') }}
                             </a>
                         <% } else { %>
                             <a class="dropdown-item text-warning lw-ajax-link-action" data-method="post" href="<%= __Utils.apiURL("{{ route('vendor.campaign.write.unarchive', [ 'campaignIdOrUid']) }}", {'campaignIdOrUid': __tData._uid}) %>" title="{{ __tr('Unarchive') }}" data-callback-params="{{ json_encode(['datatableId' => '#lwCampaignList']) }}" data-callback="appFuncs.modelSuccessCallback">
@@ -126,6 +135,12 @@
             <p>{{ __tr('You want to delete this Campaign?') }}</p>
     </script>
         <!-- /Campaign delete template -->
+        <!-- Campaign duplicate template -->
+        <script type="text/template" id="lwDuplicateCampaign-template">
+            <h2>{{ __tr('Are You Sure!') }}</h2>
+            <p>{{ __tr('You want to duplicate this Campaign?') }}</p>
+    </script>
+        <!-- /Campaign duplicate template -->
     </div>
 </div>
 

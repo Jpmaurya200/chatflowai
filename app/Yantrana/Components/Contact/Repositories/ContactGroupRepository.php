@@ -124,4 +124,26 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
          return $query->get();
     }
 
+    /**
+     * Get active groups with contact counts
+     *
+     * @param int|null $vendorId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    function getActiveGroupsWithContactCounts($vendorId = null) {
+        $status = 1;
+        $vendorId = $vendorId ?: getVendorId();
+        
+        return $this->primaryModel::where([
+            'vendors__id' => $vendorId
+         ])->where(function (Builder $query) use (&$status) {
+             $query->where('status', $status);
+             if($status == 1) {
+                 $query->orWhereNull('status');
+             }
+         })
+         ->withCount('contacts')
+         ->get();
+    }
+
 }

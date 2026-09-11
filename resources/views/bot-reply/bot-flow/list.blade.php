@@ -7,16 +7,27 @@
 ])
 <div class="container-fluid mt-lg--6">
     <div class="row mt-3">
-        <!-- Header Section -->
-        <div class="col-xl-12 mb-3">
-            <div class="d-flex align-items-center justify-content-between flex-nowrap mt-5">
-                <h1 class="mb-0"><i class="fas fa-robot me-2" style="color: #0B7753;"></i> {{ __tr('Bot Flows') }}</h1>
-                <div class="d-flex align-items-center">
+        <!-- Modern Header Section (AiSensy / WATI standard) -->
+        <div class="col-xl-12 mb-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap p-4 bg-white rounded-lg shadow-sm border" style="gap: 16px;">
+                <div>
+                    <h2 class="font-weight-bold mb-1 text-dark d-flex align-items-center" style="gap: 10px;">
+                        <i class="fas fa-sitemap text-success"></i> {{ __tr('WhatsApp Chatbot Flows') }}
+                    </h2>
+                    <p class="text-muted mb-0 small">{{ __tr('Design automated conversational funnels, lead qualification journeys, and interactive menus.') }}</p>
+                </div>
+                <div class="d-flex align-items-center flex-wrap" style="gap: 10px;">
                     <button type="button"
-                            class="lw-btn btn btn-neo btn-neo-gradient-green"
+                            class="btn btn-outline-secondary"
+                            data-toggle="modal"
+                            data-target="#lwImportBotFlow">
+                        <i class="fas fa-upload mr-1"></i> {{ __tr('Import Flow') }}
+                    </button>
+                    <button type="button"
+                            class="btn btn-primary shadow-sm"
                             data-toggle="modal"
                             data-target="#lwAddNewBotFlow">
-                        <i class="fas fa-plus"></i> {{ __tr('Add New Bot Flow') }}
+                        <i class="fas fa-plus mr-1"></i> {{ __tr('Create New Flow') }}
                     </button>
                 </div>
             </div>
@@ -70,6 +81,66 @@
             <!--/  Add New Bot Flow Form -->
         </x-lw.modal>
         <!--/ Add New Bot Flow Modal -->
+        
+
+
+
+
+
+
+
+        <!-- Import Bot Flow Modal -->
+        <div class="modal fade" id="lwImportBotFlow" tabindex="-1" role="dialog" aria-labelledby="lwImportBotFlowLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="lwImportBotFlowLabel">{{ __tr('Import Bot Flow') }}</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <form id="lwImportBotFlowForm" action="{{ route('vendor.bot_reply.bot_flow.write.import') }}" method="POST" enctype="multipart/form-data" >
+                        @csrf
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="lwImportFile">{{ __tr('Select Bot Flow JSON File') }}</label>
+                                <input type="file"
+                                       class="form-control-file"
+                                       id="lwImportFile"
+                                       name="import_file"
+                                       accept=".json"
+                                       required>
+                                <small class="form-text text-muted">
+                                    {{ __tr('Please select a valid bot flow JSON file exported from this system.') }}
+                                </small>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                {{ __tr('The imported bot flow will be created as inactive. You can activate it after reviewing the configuration.') }}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> {{ __tr('Import') }}
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __tr('Close') }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!--/ Import Bot Flow Modal -->
+
+
+
+
+
+
+
+
+
+        
+
         <!-- Edit Bot Flow Modal -->
         <x-lw.modal id="lwEditBotFlow" :header="__tr('Edit Bot Flow')" :hasForm="true">
             <!--  Edit Bot Flow Form -->
@@ -209,6 +280,27 @@
                        href="<%= __Utils.apiURL('{{ route('vendor.bot_reply.bot_flow.builder.read.view', ['botFlowIdOrUid']) }}', {'botFlowIdOrUid': __tData._uid}) %>">
                         <i class="fas fa-project-diagram mr-2"></i>{{ __tr('Flow Builder') }}
                     </a>
+                    
+
+
+                    <a class="dropdown-item lw-ajax-link-action-via-confirm"
+                       data-method="post"
+                       data-confirm="#lwCloneBotFlow-template"
+                       data-callback-params="{{ json_encode(['datatableId' => '#lwBotFlowList']) }}"
+                       data-callback="appFuncs.modelSuccessCallback"
+                       href="<%= __Utils.apiURL('{{ route('vendor.bot_reply.bot_flow.write.clone', ['botFlowIdOrUid']) }}', {'botFlowIdOrUid': __tData._uid}) %>">
+                        <i class="fa fa-copy mr-2"></i>{{ __tr('Clone') }}
+                    </a>
+                  
+                    <a class="dropdown-item"
+                       href="<%= __Utils.apiURL('{{ route('vendor.bot_reply.bot_flow.read.export', ['botFlowIdOrUid']) }}', {'botFlowIdOrUid': __tData._uid}) %>"
+                       download>
+                        <i class="fa fa-download mr-2"></i>{{ __tr('Export') }}
+                    </a>
+
+
+        
+                    
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item text-danger lw-ajax-link-action-via-confirm"
                        data-method="post"
@@ -230,6 +322,17 @@
             <p>{{ __tr('You want to delete this Bot Flow?') }}</p>
     </script>
         <!-- /Bot Flow delete template -->
+        
+        
+
+
+        <!-- Bot Flow clone template -->
+        <script type="text/template" id="lwCloneBotFlow-template">
+            <h2>{{ __tr('Clone Bot Flow') }}</h2>
+            <p>{{ __tr('Are you sure you want to clone this Bot Flow? A copy will be created with all associated bot replies.') }}</p>
+    </script>
+        <!-- /Bot Flow clone template -->
+
     </div>
 </div>
 
@@ -336,6 +439,58 @@
                 }
             }, 250);
         }
+
+         // Handle import form submission
+        $('#lwImportBotFlowForm').on('submit', function(e) {
+            e.preventDefault();
+
+            var formData = new FormData(this);
+            var $form = $(this);
+            var $submitBtn = $form.find('button[type="submit"]');
+            var originalText = $submitBtn.html();
+
+            // Disable submit button and show loading
+            $submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> {{ __tr("Importing...") }}');
+
+            $.ajax({
+                url: $form.attr('action'),
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function(response) {
+                    if (response.reaction_code === 1) {
+                        // Success
+                        $('#lwImportBotFlow').modal('hide');
+                        $('#lwImportFile').val('');
+                        if ($.fn.dataTable.isDataTable('#lwBotFlowList')) {
+                            $('#lwBotFlowList').DataTable().ajax.reload();
+                        }
+                        __Utils.showNotification(response.data.message || '{{ __tr("Bot Flow imported successfully") }}', 'success');
+                    } else {
+                        // Error
+                        __Utils.showNotification(response.data.message || '{{ __tr("Failed to import bot flow") }}', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    var errorMessage = '{{ __tr("An error occurred while importing") }}';
+                    if (xhr.responseJSON && xhr.responseJSON.errors) {
+                        var errors = xhr.responseJSON.errors;
+                        if (errors.import_file) {
+                            errorMessage = errors.import_file[0];
+                        }
+                    } else if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                        errorMessage = xhr.responseJSON.data.message;
+                    }
+                    __Utils.showNotification(errorMessage, 'error');
+                },
+                complete: function() {
+                    // Re-enable submit button
+                    $submitBtn.prop('disabled', false).html(originalText);
+                }
+            });
+        });
 
         ensureInitializedThenBind();
     });

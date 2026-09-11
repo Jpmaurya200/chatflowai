@@ -7,27 +7,38 @@
 @endphp
 @extends('layouts.app', ['title' => __tr('Contact Groups')])
 @section('content')
-@include('users.partials.header', [
-'title' => __tr(''),
-'description' => '',
-'class' => 'col-lg-7'
-])
 <?php $status = request()->status ?? 'active'; ?>
-
-<div class="container-fluid mt-lg--6">
-    <div class="row mt-3">
-        <!-- header -->
-        <div class="col-xl-12 mb-3">
-            <div class="d-flex align-items-center justify-content-between flex-nowrap mt-5">
-                <h1 class="mb-0"><i class="fas fa-layer-group me-2" style="color: #0B7753;"></i> {{ __tr('Contact Groups') }}</h1>
-                <div class="d-flex align-items-center">
-                    <button type="button" class="lw-btn btn btn-neo btn-neo-gradient-green" data-toggle="modal" data-target="#lwAddNewGroup">
-                        <i class="fas fa-plus"></i> {{ __tr('Add New Group') }}
-                    </button>
+<div class="lw-page-content py-4">
+    <div class="container-fluid">
+        <!-- Modern SaaS Contact Groups Header -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 5px solid #10b981 !important;">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge px-2.5 py-1 rounded-pill fw-semibold" style="background-color: #ecfdf5; color: #059669; font-size: 11px;">
+                                <i class="fas fa-layer-group me-1"></i> {{ __tr('Audience Segmentation') }}
+                            </span>
+                            <span class="text-muted small">• {{ __tr('Targeting Lists') }}</span>
+                        </div>
+                        <h2 class="h3 fw-bold mb-1" style="color: #0f172a; letter-spacing: -0.02em;">
+                            {{ __tr('Contact Groups & Segments') }}
+                        </h2>
+                        <p class="text-muted mb-0 small">
+                            {{ __tr('Organize your subscribers and customers into targeted groups for broadcast campaigns and automated bots.') }}
+                        </p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ route('vendor.contact.read.list_view') }}" class="btn btn-light border rounded-pill px-3 py-2 btn-sm fw-semibold shadow-sm">
+                            <i class="fas fa-address-book me-1.5 text-muted"></i> {{ __tr('All Contacts') }}
+                        </a>
+                        <button type="button" class="btn rounded-pill px-3 py-2 btn-sm fw-semibold text-white shadow-sm" style="background-color: #10b981; border: none;" data-toggle="modal" data-target="#lwAddNewGroup">
+                            <i class="fas fa-plus me-1.5"></i> {{ __tr('Add New Group') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-        <!--/ header -->
         <div class="col-xl-12" x-cloak x-data="{isSelectedAll:false,selectedContacts: [],selectedGroupsForSelectedContacts:[],
         toggle(id) {
             if (this.selectedContacts.includes(id)) {
@@ -89,26 +100,18 @@
             $('.dataTables_wrapper table>tbody input[type=checkbox].lw-checkboxes:checked').trigger('click');
             isSelectedAll = false;
         } );">
-            <ul class="nav nav-tabs mt-1 ml-1">
-                <!-- Active tab -->
-                <li class="nav-item">
-                    <a class="nav-link <?= $status == 'active' ? 'active' : '' ?>" data-title="{{ __tr('Active ') }}"
-                        href="<?= route('vendor.contact.group.read.list_view', ['status' => 'active']) ?>">
-                        <?= __tr('Active') ?>
-                    </a>
-                </li>
-                <!-- /Active tab -->
-
-                <!-- Archive tab -->
-                <li class="nav-item">
-                    <a class="nav-link  <?= $status == 'archived' ? 'active' : '' ?>  "
-                        data-title="{{ __tr('Archive') }}"
-                        href="<?= route('vendor.contact.group.read.list_view', ['status' => 'archived']) ?>">
-                        <?= __tr('Archive') ?>
-                    </a>
-                </li>
-                <!-- /Archive tab -->
-            </ul>
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <a class="btn btn-sm rounded-pill px-3 py-1.5 fw-semibold <?= $status == 'active' ? 'btn-primary text-white shadow-sm' : 'btn-light border text-muted' ?>" 
+                   style="<?= $status == 'active' ? 'background-color: #0f172a; border-color: #0f172a;' : '' ?>"
+                   href="<?= route('vendor.contact.group.read.list_view', ['status' => 'active']) ?>">
+                    <i class="fas fa-check-circle me-1"></i> <?= __tr('Active Groups') ?>
+                </a>
+                <a class="btn btn-sm rounded-pill px-3 py-1.5 fw-semibold <?= $status == 'archived' ? 'btn-primary text-white shadow-sm' : 'btn-light border text-muted' ?>" 
+                   style="<?= $status == 'archived' ? 'background-color: #0f172a; border-color: #0f172a;' : '' ?>"
+                   href="<?= route('vendor.contact.group.read.list_view', ['status' => 'archived']) ?>">
+                    <i class="fas fa-archive me-1"></i> <?= __tr('Archived Groups') ?>
+                </a>
+            </div>
             <!-- Add New Group Modal -->
             <x-lw.modal id="lwAddNewGroup" :header="__tr('Add New Group')" :hasForm="true">
                 <!--  Add New Group Form -->
@@ -195,21 +198,33 @@
                     </div>
                 </div>
 
-                <!-- Toolbar: Select All / Bulk Actions -->
-                <div class="px-3 pt-3">
-                    <button x-show="!isSelectedAll" class="btn btn-dark btn-sm mb-2" @click="toggleAll">{{ __tr('Select All') }}</button>
-                    <button x-show="isSelectedAll" class="btn btn-dark btn-sm mb-2" @click="toggleAll">{{ __tr('Unselect All') }}</button>
-                    <div class="btn-group mb-2">
-                        <button :class="!selectedContacts.length ? 'disabled' : ''" class="btn btn-danger mt-1 btn-sm dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">
-                            {{ __tr('Bulk Actions') }}
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" @click.prevent="deleteSelectedContactGroups" href="#">{{ __tr('Delete Selected Groups') }}</a>
+                <!-- Toolbar: Select All / Bulk Actions (Modern SaaS) -->
+                <div class="px-3 pt-3" x-show="selectedContacts.length > 0 || isSelectedAll">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 py-2 px-3 bg-light rounded-3 border mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge rounded-pill px-2.5 py-1 fw-semibold text-white" style="background-color: #0f172a; font-size: 11px;">
+                                <span x-text="selectedContacts.length"></span> {{ __tr('selected') }}
+                            </span>
+                            <button x-show="!isSelectedAll" class="btn btn-sm btn-light border rounded-pill px-3" @click="toggleAll">
+                                <i class="far fa-check-square me-1"></i> {{ __tr('Select All') }}
+                            </button>
+                            <button x-show="isSelectedAll" class="btn btn-sm btn-light border rounded-pill px-3" @click="toggleAll">
+                                <i class="far fa-square me-1"></i> {{ __tr('Unselect All') }}
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
                             @if($status == 'active')
-                                <a class="dropdown-item" @click.prevent="archiveSelectedContactGroups" href="#">{{ __tr('Archive Selected Groups') }}</a>
+                                <button class="btn btn-sm btn-outline-warning rounded-pill px-3 shadow-sm" @click.prevent="archiveSelectedContactGroups">
+                                    <i class="fas fa-archive me-1"></i> {{ __tr('Archive Selected') }}
+                                </button>
                             @else
-                                <a class="dropdown-item" @click.prevent="unarchiveSelectedContactGroups" href="#">{{ __tr('Unarchive Selected Groups') }}</a>
+                                <button class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-sm" @click.prevent="unarchiveSelectedContactGroups">
+                                    <i class="fas fa-box-open me-1"></i> {{ __tr('Unarchive Selected') }}
+                                </button>
                             @endif
+                            <button class="btn btn-sm btn-outline-danger rounded-pill px-3 shadow-sm" @click.prevent="deleteSelectedContactGroups">
+                                <i class="fas fa-trash me-1"></i> {{ __tr('Delete Selected') }}
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -5,7 +5,7 @@ $onlyTemplatePreview = request()->has('only-preview');
     @if(!$onlyTemplatePreview)
     <div class="col-sm-12 col-md-8 col-lg-6 lw-template-structure-form">
         <input type="hidden" name="template_uid" value="{{ $template->_uid }}">
-        <fieldset 
+          <fieldset 
             class="p-4 rounded mb-4"
             style="border: 1px solid #22A755; background-color: #f3fff5; max-width: 600px; margin: auto;">
 

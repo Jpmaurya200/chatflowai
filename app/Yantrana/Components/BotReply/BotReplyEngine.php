@@ -21,6 +21,7 @@ use App\Yantrana\Components\BotReply\Interfaces\BotReplyEngineInterface;
 use App\Yantrana\Components\Contact\Repositories\ContactCustomFieldRepository;
 use App\Yantrana\Components\User\Repositories\UserRepository;
 use App\Yantrana\Components\WhatsAppService\Repositories\WhatsAppTemplateRepository;
+use App\Yantrana\Components\Flows\Services\WhatsAppFlowService;
 
 class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
 {
@@ -158,7 +159,7 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                 if($key['status'] === null) {
                     $key['status'] = 1; // active
                 }
-                return Arr::get($orderStatuses, $key['status']);
+                return $key['status'];
             },
             'bot_type' => function ($rowData) {
                 $botReplyType = __tr('Simple');
@@ -185,44 +186,42 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
       * @return  EngineResponse
       *---------------------------------------------------------------- */
 
-    public function processBotReplyDelete($botReplyIdOrUid)
-    {
-        $vendorId = getVendorId();
-        // fetch the record
-        $botReply = $this->botReplyRepository->fetchIt([
-            '_uid' => $botReplyIdOrUid,
-            'vendors__id' => $vendorId,
-        ]);
-        // check if the record found
-        if (__isEmpty($botReply)) {
-            // if not found
-            return $this->engineResponse(18, [
-                'botReplyUid' => $botReplyIdOrUid
-            ], __tr('Bot Reply not found'));
-        }
-
-        // demo bot delete protection
-        if(isDemo() and in_array($botReply->_id, explode(',', config('__tech.demo_protected_bots')))) {
-            return $this->engineResponse(2, null, __tr('Your are not allowed to delete this bot in DEMO.'));
-        }
-        // ask to delete the record
-        if ($this->botReplyRepository->deleteIt($botReply)) {
-            // delete the links
-            $this->botReplyRepository->updateItAll([
-                'bot_replies__id' => $botReply->_id
-            ], [
-                'reply_trigger' => null
-            ]);
-            // if successful
-            return $this->engineResponse(1, [
-                'botReplyUid' => $botReply->_uid
-            ], __tr('Bot Reply deleted successfully'));
-        }
-        // if failed to delete
-        return $this->engineResponse(2, [
-            'botReplyUid' => $botReplyIdOrUid
-        ], __tr('Failed to delete BotReply'));
-    }
+    public function processBotReplyDelete($botReplyIdOrUid, $botFlowId = null)
+      {
+          // fetch the record by UID and flow instead of vendor
+          $conditions = ['_uid' => $botReplyIdOrUid];
+          if ($botFlowId) {
+              $conditions['bot_flows__id'] = $botFlowId;
+          }
+      
+          $botReply = $this->botReplyRepository->fetchIt($conditions);
+      
+          if (__isEmpty($botReply)) {
+              return $this->engineResponse(18, [
+                  'botReplyUid' => $botReplyIdOrUid
+              ], __tr('Bot Reply not found in this flow'));
+          }
+      
+          if (isDemo() and in_array($botReply->_id, explode(',', config('__tech.demo_protected_bots')))) {
+              return $this->engineResponse(2, null, __tr('You are not allowed to delete this bot in DEMO.'));
+          }
+      
+          if ($this->botReplyRepository->deleteIt($botReply)) {
+              $this->botReplyRepository->updateItAll(
+                  ['bot_replies__id' => $botReply->_id],
+                  ['reply_trigger' => null]
+              );
+      
+              return $this->engineResponse(1, [
+                  'botReplyUid' => $botReply->_uid
+              ], __tr('Bot Reply deleted successfully from this flow'));
+          }
+      
+          return $this->engineResponse(2, [
+              'botReplyUid' => $botReplyIdOrUid
+          ], __tr('Failed to delete Bot Reply'));
+      }
+     
     /**
       * BotReply duplicate process
       *
@@ -230,72 +229,122 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
       *
       * @return  EngineResponse
       *---------------------------------------------------------------- */
+ public function processBotReplyDuplicate($botReplyIdOrUid, $contextFlowUid = null)
+      {
+          $vendorId = getVendorId();
 
-    public function processBotReplyDuplicate($botReplyIdOrUid)
-    {
-        $vendorId = getVendorId();
-        // fetch the record
-        $botReply = $this->botReplyRepository->fetchIt([
-            '_uid' => $botReplyIdOrUid,
-            'vendors__id' => $vendorId,
-        ]);
-        // check if the record found
-        if (__isEmpty($botReply)) {
-            // if not found
-            return $this->engineResponse(18, [
-                'botReplyUid' => $botReplyIdOrUid
-            ], __tr('Bot Reply not found'));
-        }
-        // do not apply plan restriction if bot is getting added for bot flow
-        // as there no limit for flows
-        if(!$botReply->bot_flows__id) {
-            // check the feature limit
-            $vendorPlanDetails = vendorPlanDetails('bot_replies', $this->botReplyRepository->countIt([
-                'vendors__id' => $vendorId,
-                'bot_flows__id' => null,
-            ]), $vendorId);
-            if (!$vendorPlanDetails['is_limit_available']) {
-                return $this->engineResponse(22, null, $vendorPlanDetails['message']);
-            }
-        }
-        // ask to duplicate the record
-        $newBotUid = Str::uuid();
-        $newBotReply = $botReply->replicate();
-        $newBotReply->name = $botReply->name . '-' . uniqid();
-        $newBotReply->_uid = $newBotUid;
-        $botData = $botReply->__data;
-        // unset buttons
-        if(isset($botData['interaction_message']['buttons'])) {
-            $botData['interaction_message']['buttons'] = [];
-        }
-        // unset list data
-        if(isset($botData['interaction_message']['list_data'])) {
-            $botData['interaction_message']['list_data'] = [
-                'button_text' => $botData['interaction_message']['list_data']['button_text'],
-            ];
-        }
-        if($botReply->bot_flows__id) {
-            $newBotReply->reply_trigger = null;
-            $newBotReply->status = 2; // it always be inactive for bot flow
-            $newBotReply->__data = $botData;
-        }
-        if ($newBotReply->save()) {
-            if($botReply->bot_flows__id) {
-                return $this->engineResponse(21, [
-                    'reloadPage' => true,
-                    'messageType' => 'success',
-                ], __tr('Bot Reply duplicated'));
-            }
-            // if successful
-            return $this->engineResponse(1, [
-                'botReplyUid' => $newBotUid
-            ], __tr('Bot Reply duplicated'));
-        }
-        // if failed to delete
-        return $this->engineResponse(2, [
-            'botReplyUid' => $botReplyIdOrUid
-        ], __tr('Failed to duplicate Bot Reply'));
-    }
+          // fetch the record only by UID (no vendor restriction)
+          $botReply = $this->botReplyRepository->fetchIt([
+              '_uid' => $botReplyIdOrUid,
+          ]);
+
+          if (__isEmpty($botReply)) {
+              return $this->engineResponse(18, [
+                  'botReplyUid' => $botReplyIdOrUid
+              ], __tr('Bot Reply not found'));
+          }
+
+          // Determine the target flow for duplication
+          $currentBotFlowId = null;
+
+          // First, try to use context flow if provided (from flow builder)
+          if ($contextFlowUid) {
+              $contextFlow = $this->botFlowRepository->fetchIt([
+                  '_uid' => $contextFlowUid,
+                  'vendors__id' => $vendorId,
+              ]);
+
+              if (!__isEmpty($contextFlow)) {
+                  $currentBotFlowId = $contextFlow->_id;
+              }
+          }
+
+          // If no context flow or context flow not found, try original flow
+          if (!$currentBotFlowId && $botReply->bot_flows__id) {
+              $originalFlow = $this->botFlowRepository->fetchIt([
+                  '_id' => $botReply->bot_flows__id,
+                  'vendors__id' => $vendorId,
+              ]);
+
+              if (!__isEmpty($originalFlow)) {
+                  $currentBotFlowId = $originalFlow->_id;
+              }
+          }
+      
+          // if reply is outside any flow, check vendor plan limits
+          if (!$currentBotFlowId) {
+              $vendorPlanDetails = vendorPlanDetails(
+                  'bot_replies',
+                  $this->botReplyRepository->countIt([
+                      'vendors__id' => $vendorId,
+                      'bot_flows__id' => null,
+                  ]),
+                  $vendorId
+              );
+      
+              if (!$vendorPlanDetails['is_limit_available']) {
+                  return $this->engineResponse(22, null, $vendorPlanDetails['message']);
+              }
+          }
+      
+          // duplicate the record
+          $newBotUid = Str::uuid();
+          $newBotReply = $botReply->replicate();
+      
+          // enforce vendor + flow ownership
+          $newBotReply->_uid = $newBotUid;
+          $newBotReply->vendors__id = $vendorId;            // always current vendor
+          $newBotReply->bot_flows__id = $currentBotFlowId;  // flow under current vendor
+          $newBotReply->setAttribute('vendors__id', $vendorId);
+          $newBotReply->setAttribute('bot_flows__id', $currentBotFlowId);
+      
+          // give it a new name
+          $newBotReply->name = $botReply->name . '-' . uniqid();
+      
+          // clean up bot data
+          $botData = $botReply->__data;
+          if (is_array($botData)) {
+              unset($botData['vendor_id'], $botData['original_vendor_id'], $botData['original_flow_id']);
+      
+              // clear buttons
+              if (isset($botData['interaction_message']['buttons'])) {
+                  $botData['interaction_message']['buttons'] = [];
+              }
+      
+              // clear list data
+              if (isset($botData['interaction_message']['list_data'])) {
+                  $botData['interaction_message']['list_data'] = [
+                      'button_text' => $botData['interaction_message']['list_data']['button_text'] ?? '',
+                  ];
+              }
+          }
+      
+          if ($currentBotFlowId) {
+              $newBotReply->reply_trigger = null;
+              $newBotReply->status = 2; // inactive in flows
+              $newBotReply->__data = $botData;
+          }
+      
+          // save and return response
+          if ($newBotReply->save()) {
+              if ($currentBotFlowId) {
+                  return $this->engineResponse(21, [
+                      'reloadPage' => true,
+                      'messageType' => 'success',
+                  ], __tr('Bot Reply duplicated in this flow'));
+              }
+      
+              return $this->engineResponse(1, [
+                  'botReplyUid' => $newBotUid
+              ], __tr('Bot Reply duplicated'));
+          }
+      
+          return $this->engineResponse(2, [
+              'botReplyUid' => $botReplyIdOrUid
+          ], __tr('Failed to duplicate Bot Reply'));
+      }
+      
+      
 
     /**
       * BotReply create
@@ -332,6 +381,9 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
             $inputData['status'] = 2;
         }
         $messageType = $inputData['message_type'] ?? 'simple';
+        if (!empty($inputData['whatsapp_flow_id'])) {
+            $messageType = 'flow';
+        }
         // do not apply plan restriction if bot is getting added for bot flow
         // as there no limit for flows
         if(!isset($inputData['bot_flow_uid']) or !$inputData['bot_flow_uid']) {
@@ -399,6 +451,41 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                     'file_name' => $isProcessed->data('fileName'),
                 ]
             ];
+        } elseif($messageType == 'flow') {
+            $request->validate([
+                'whatsapp_flow_id' => 'required|string',
+            ]);
+
+            $flowId = $inputData['whatsapp_flow_id'];
+            $flowService = app(WhatsAppFlowService::class);
+            $flowDetails = $flowService->getFlowDetails($flowId, $vendorId) ?? [];
+
+            $flowName = $inputData['flow_name'] ?? ($flowDetails['name'] ?? '');
+            $flowStatus = $inputData['flow_status'] ?? ($flowDetails['status'] ?? 'UNKNOWN');
+            $flowCategories = $flowDetails['categories'] ?? ($inputData['flow_categories'] ?? []);
+
+            $inputData['reply_text'] = $inputData['flow_body_text'] ?? '';
+            $inputData['__data'] = [
+                'flow_message' => [
+                    'whatsapp_flow_id' => $flowId,
+                    'flow_name' => $flowName,
+                    'flow_status' => $flowStatus,
+                    'flow_categories' => $flowCategories,
+                    'header_text' => $inputData['flow_header_text'] ?? '',
+                    'body_text' => $inputData['flow_body_text'] ?? '',
+                    'footer_text' => $inputData['flow_footer_text'] ?? '',
+                ]
+            ];
+
+            unset(
+                $inputData['whatsapp_flow_id'],
+                $inputData['flow_header_text'],
+                $inputData['flow_body_text'],
+                $inputData['flow_footer_text'],
+                $inputData['flow_name'],
+                $inputData['flow_status'],
+                $inputData['flow_categories']
+            );
         } elseif($messageType == 'goto') {
             // Validate that target node exists
             if (empty($inputData['goto_target_node'])) {
@@ -754,6 +841,9 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
         }
 
         $messageType = $inputData['message_type'] ?? 'simple';
+        if (!empty($inputData['whatsapp_flow_id'])) {
+            $messageType = 'flow';
+        }
         $updateData = [
             'name' => $inputData['name'],
             'reply_text' => $inputData['reply_text'] ?? '',
@@ -770,6 +860,41 @@ class BotReplyEngine extends BaseEngine implements BotReplyEngineInterface
                     'caption' => $inputData['caption'] ?? '',
                 ]
             ];
+        } elseif($messageType == 'flow') {
+            $request->validate([
+                'whatsapp_flow_id' => 'required|string',
+            ]);
+
+            $flowId = $inputData['whatsapp_flow_id'];
+            $flowService = app(WhatsAppFlowService::class);
+            $flowDetails = $flowService->getFlowDetails($flowId, $vendorId) ?? [];
+
+            $flowName = $inputData['flow_name'] ?? ($flowDetails['name'] ?? '');
+            $flowStatus = $inputData['flow_status'] ?? ($flowDetails['status'] ?? 'UNKNOWN');
+            $flowCategories = $flowDetails['categories'] ?? ($inputData['flow_categories'] ?? []);
+
+            $updateData['reply_text'] = $inputData['flow_body_text'] ?? '';
+            $updateData['__data'] = [
+                'flow_message' => [
+                    'whatsapp_flow_id' => $flowId,
+                    'flow_name' => $flowName,
+                    'flow_status' => $flowStatus,
+                    'flow_categories' => $flowCategories,
+                    'header_text' => $inputData['flow_header_text'] ?? '',
+                    'body_text' => $inputData['flow_body_text'] ?? '',
+                    'footer_text' => $inputData['flow_footer_text'] ?? '',
+                ]
+            ];
+
+            unset(
+                $inputData['whatsapp_flow_id'],
+                $inputData['flow_header_text'],
+                $inputData['flow_body_text'],
+                $inputData['flow_footer_text'],
+                $inputData['flow_name'],
+                $inputData['flow_status'],
+                $inputData['flow_categories']
+            );
         } elseif($messageType == 'goto') {
             // Validate that target node exists
             if (empty($inputData['goto_target_node'])) {

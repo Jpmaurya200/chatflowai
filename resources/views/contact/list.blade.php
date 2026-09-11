@@ -8,41 +8,49 @@ $currentGroup = $groupUid ? $vendorContactGroups->where('_uid', $groupUid)->firs
 @endphp
 @extends('layouts.app', ['title' => __tr('Contacts')])
 @section('content')
-@include('users.partials.header', [
-'title' => $groupUid ? __tr('__groupName__ group contacts', [
-'__groupName__' => $currentGroup->title
-]) : __tr(''),
-// 'description' => $groupUid ? $currentGroup->description : '',
-'class' => 'col-lg-7'
-])
 @php
 $groupDescription = $groupUid ? $currentGroup->description : '';
 @endphp
-<div class="container-fluid mt-lg--6">
-    <div class="row">
-        <!-- button -->
-        <div class="col-xl-12 mt-3">
-            <div class="d-flex align-items-center justify-content-between flex-nowrap mt-5">
-                <h1 class="mb-0"><i class="fas fa-layer-group me-2" style="color: #0B7753;"></i> Contacts</h1>
-                <div class="d-flex align-items-center">
-                    @if ($groupUid)
-                    <a class="lw-btn btn btn-neo btn-neo-gradient-green" href="{{ route('vendor.contact.group.read.list_view') }}">
-                        <i class="fas fa-arrow-left"></i> {{ __tr('Back to Contact Groups') }}
-                    </a>
-                    @endif
-                    <button type="button" class="lw-btn btn btn-neo btn-neo-gradient-green ml-2" data-toggle="modal" data-target="#lwAddNewContact">
-                        <i class="fas fa-plus"></i> {{ __tr('Create New Contact') }}
-                    </button>
-                    <button type="button" class="lw-btn btn btn-neo btn-neo-gradient-green ml-2" data-toggle="modal" data-target="#lwExportDialog">
-                        <i class="fas fa-file-export"></i> {{ __tr('Export Contacts') }}
-                    </button>
-                    <button type="button" class="lw-btn btn btn-neo btn-neo-gradient-green ml-2" data-toggle="modal" data-target="#lwImportContactDialog">
-                        <i class="fas fa-file-import"></i> {{ __tr('Import Contacts') }}
-                    </button>
+<div class="lw-page-content py-4">
+    <div class="container-fluid">
+        <!-- Modern SaaS Contact CRM Header -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 5px solid #10b981 !important;">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge px-2.5 py-1 rounded-pill fw-semibold" style="background-color: #ecfdf5; color: #059669; font-size: 11px;">
+                                <i class="fas fa-users me-1"></i> {{ __tr('Customer Data Platform') }}
+                            </span>
+                            <span class="text-muted small">• {{ __tr('Unified Audience Hub') }}</span>
+                        </div>
+                        <h2 class="h3 fw-bold mb-1" style="color: #0f172a; letter-spacing: -0.02em;">
+                            {{ $groupUid ? __tr('__groupName__ Contacts', ['__groupName__' => $currentGroup->title]) : __tr('Audience Directory & Contacts') }}
+                        </h2>
+                        <p class="text-muted mb-0 small">
+                            {{ $groupDescription ?: __tr('Manage customer profiles, segment target audiences into broadcast groups, and monitor opt-in compliance.') }}
+                        </p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        @if ($groupUid)
+                        <a class="btn btn-light border rounded-pill px-3 py-2 btn-sm fw-semibold shadow-sm" href="{{ route('vendor.contact.group.read.list_view') }}">
+                            <i class="fas fa-arrow-left me-1.5 text-muted"></i> {{ __tr('Contact Groups') }}
+                        </a>
+                        @endif
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 btn-sm fw-semibold shadow-sm" data-toggle="modal" data-target="#lwExportDialog">
+                            <i class="fas fa-file-export me-1.5 text-muted"></i> {{ __tr('Export CSV/XLSX') }}
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 btn-sm fw-semibold shadow-sm" data-toggle="modal" data-target="#lwImportContactDialog">
+                            <i class="fas fa-file-import me-1.5 text-muted"></i> {{ __tr('Import Audience') }}
+                        </button>
+                        <button type="button" class="btn rounded-pill px-3 py-2 btn-sm fw-semibold text-white shadow-sm" style="background-color: #10b981; border: none;" data-toggle="modal" data-target="#lwAddNewContact">
+                            <i class="fas fa-user-plus me-1.5"></i> {{ __tr('Add Contact') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-        <!--/ button -->
+        <!--/ modern contact header actions -->
         {{-- import contacts --}}
         <x-lw.modal id="lwImportContactDialog" :header="__tr('Import Contacts')" :hasForm="true"
             data-pre-callback="appFuncs.clearContainer">
@@ -155,7 +163,7 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                         <x-slot name="selectOptions">
                             <option value="">{{ __tr('Select Groups') }}</option>
                             @foreach($vendorContactGroups as $vendorContactGroup)
-                            <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
+                            <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} ({{ $vendorContactGroup['contacts_count'] ?? 0 }} contacts) {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
                             @endforeach
                         </x-slot>
                     </x-lw.input-field>
@@ -314,22 +322,26 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                 $('.dataTables_wrapper table>tbody input[type=checkbox].lw-checkboxes:checked').trigger('click');
                 isSelectedAll = false;
             } );">
-            <button x-show="!isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Select All') }}</button>
-            <button x-show="isSelectedAll" class="btn btn-dark btn-sm my-2" @click="toggleAll">{{ __tr('Unselect All') }}</button>
-            <!-- <button x-show="isSelectedAll && selectedContacts.length" class="btn btn-neo btn-neo-gradient-red btn-sm my-2 ml-2" @click="deleteSelectedContacts">
-                <i class="fa fa-trash"></i> {{ __tr('All Contacts Delete') }}
-            </button> -->
-            <div class="btn-group">
-                <button :class="!selectedContacts.length ? 'disabled' : ''"
-                    class="btn btn-danger mt-1 btn-sm dropdown-toggle" type="button" data-toggle="dropdown"
-                    aria-expanded="false">
-                    {{ __tr('Bulk Actions') }}
-                </button>
-                <div class="dropdown-menu">
-                    <a class="dropdown-item" @click.prevent="deleteSelectedContacts" href="#">{{ __tr('Delete Selected
-                        Contacts') }}</a>
-                    <a class="dropdown-item" data-toggle="modal" data-target="#lwAssignGroups" href="#">{{ __tr('Assign
-                        Group to Selected Contacts') }}</a>
+            <!-- Bulk Action Toolbar (Modern SaaS) -->
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 my-2 py-2 px-3 bg-white rounded-3 border shadow-sm" x-show="selectedContacts.length > 0 || isSelectedAll">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge rounded-pill px-2.5 py-1 fw-semibold text-white" style="background-color: #0f172a; font-size: 11px;">
+                        <span x-text="selectedContacts.length"></span> {{ __tr('selected') }}
+                    </span>
+                    <button x-show="!isSelectedAll" class="btn btn-sm btn-light border rounded-pill px-3" @click="toggleAll">
+                        <i class="far fa-check-square me-1"></i> {{ __tr('Select All') }}
+                    </button>
+                    <button x-show="isSelectedAll" class="btn btn-sm btn-light border rounded-pill px-3" @click="toggleAll">
+                        <i class="far fa-square me-1"></i> {{ __tr('Unselect All') }}
+                    </button>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm" data-toggle="modal" data-target="#lwAssignGroups">
+                        <i class="fas fa-layer-group me-1"></i> {{ __tr('Assign Group') }}
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3 shadow-sm" @click.prevent="deleteSelectedContacts">
+                        <i class="fas fa-trash me-1"></i> {{ __tr('Delete Selected') }}
+                    </button>
                 </div>
             </div>
             <!-- Assign Groups to the selected contacts -->
@@ -344,7 +356,7 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                         <x-slot name="selectOptions">
                             <option value="">{{ __tr('Select Groups') }}</option>
                             @foreach($vendorContactGroups as $vendorContactGroup)
-                            <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
+                            <option value="{{ $vendorContactGroup['_id'] }}">{{ $vendorContactGroup['title'] }} ({{ $vendorContactGroup['contacts_count'] ?? 0 }} contacts) {{ $vendorContactGroup['status'] == 5  ? __tr('(Archived)') : '' }}</option>
                             @endforeach
                         </x-slot>
                     </x-lw.input-field>
@@ -379,15 +391,15 @@ $groupDescription = $groupUid ? $currentGroup->description : '';
                             <input type="text" id="tl-table-search" class="search-input" placeholder="{{ __tr('Search...') }}">
                             <i class="fas fa-search search-icon"></i>
                         </div>
-                        <button id="tl-delete-all" type="button" class="btn btn-neo btn-neo-gradient-red ml-2" data-toggle="modal" data-target="#tlDeleteAllModal">
-                            <i class="fa fa-trash"></i> {{ __tr('Delete All') }}
+                        <button id="tl-delete-all" type="button" class="btn btn-outline-danger btn-sm rounded-pill ml-2" data-toggle="modal" data-target="#tlDeleteAllModal">
+                            <i class="fa fa-trash-alt me-1"></i> {{ __tr('Delete All') }}
                         </button>
                         <div class="info-control" id="tl-table-info" aria-live="polite" aria-atomic="true"></div>
                     </div>
                 </div>
 
-                <div class="table-responsive">
-                    <x-lw.datatable
+<div class="table-responsive" style="min-height: 600px;">
+                        <x-lw.datatable
                         data-page-length="100"
                         id="lwContactList"
                         class="modern-datatable table-hover align-middle"

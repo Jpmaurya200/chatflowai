@@ -40,19 +40,23 @@ class CampaignRepository extends BaseRepository implements CampaignRepositoryInt
         $dataTableConfig = [
             // searchable columns
             'searchable' => [
-                'title',
-                'whatsapp_templates__id',
-                'scheduled_at',
+                'campaigns.title',
+                'campaigns.whatsapp_templates__id',
+                'campaigns.scheduled_at',
+                'whatsapp_templates.template_name',
+                'whatsapp_templates.language',
             ],
             'fieldAlias' => [
                 'contacts_count' => '__data->total_contacts'
             ]
         ];
-        // get Model result for dataTables
+        // get Model result for dataTables with template join
         return $this->primaryModel::where([
-            'vendors__id' => getVendorId()
+            'campaigns.vendors__id' => getVendorId()
             ])
-            ->where('status', '=', $status)
+            ->where('campaigns.status', '=', $status)
+            ->leftJoin('whatsapp_templates', 'campaigns.whatsapp_templates__id', '=', 'whatsapp_templates._id')
+            ->select('campaigns.*', 'whatsapp_templates.template_name as template_name_from_table', 'whatsapp_templates.language as template_language_from_table')
             ->withCount([
             'messageLog',
             'queuePendingMessages',
@@ -75,7 +79,7 @@ class CampaignRepository extends BaseRepository implements CampaignRepositoryInt
         ->withCount('messageLog')->withCount([
             'queuePendingMessages',
             'queueProcessingMessages',
-        ])->with(['messageLog', 'queueMessages'])->first();
+        ])->with(['messageLog', 'queueMessages', 'whatsappTemplate'])->first();
     }
 
     /**

@@ -54,6 +54,22 @@ class ContactGroupController extends BaseController
     }
 
     /**
+     * Get group delete preview - shows what will be deleted
+     *
+     * @param  mix  $contactGroupIdOrUid
+     * @return json object
+     *---------------------------------------------------------------- */
+    public function getGroupDeletePreview($contactGroupIdOrUid)
+    {
+        validateVendorAccess('manage_contacts');
+        // ask engine to process the request
+        $processReaction = $this->contactGroupEngine->getGroupDeletePreview($contactGroupIdOrUid);
+
+        // get back to controller with engine response
+        return $this->processResponse($processReaction, [], [], true);
+    }
+
+    /**
      * Group process delete
      *
      * @param  mix  $contactGroupIdOrUid

@@ -151,8 +151,12 @@ class BotReplyController extends BaseController
                 22 => __tr('Functionality is disabled in this demo.')
             ], [], true);
         }
+        
+        // Get context flow UID from request (if provided from flow builder)
+        $contextFlowUid = $request->input('context_flow_uid');
+
         // ask engine to process the request
-        $processReaction = $this->botReplyEngine->processBotReplyDuplicate($botReplyIdOrUid);
+        $processReaction = $this->botReplyEngine->processBotReplyDuplicate($botReplyIdOrUid, $contextFlowUid);
         // get back to controller with engine response
         return $this->processResponse($processReaction, [], [], true);
     }

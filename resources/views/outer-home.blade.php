@@ -350,11 +350,17 @@ $appName = getAppSettings('name');
                                 <div class="price-head">
                                     <h6 class="display-5 mb-4 text-uppercase">{{ $freePlanDetails['title']}}</h6>
                                     <hr class="bg-success">
-                                    <h2 class="price mb-1">{{ formatAmount(0, true, true) }}</h2>
-                                    <span>{{  __tr('Monthly') }}</span>
+                                    <h2 class="price mb-1">{{ formatAmount(4000, true, true) }}</h2>
+                                    <span>{{  __tr('monthly') }}</span>
                                     <br><br>
-                                    <h2 class="price mb-1">{{ formatAmount(0, true, true) }}</h2>
-                                    <span>{{  __tr('Yearly') }}</span>
+                                    <h2 class="price mb-1">{{ formatAmount(4000, true, true) }}</h2>
+                                    <span>{{  __tr('6 months') }}</span>
+                                    <br><br>
+                                    <h2 class="price mb-1">{{ formatAmount(4000, true, true) }}</h2>
+                                    <span>{{  __tr('12 months') }}</span>
+                                    <br><br>
+                                    <h2 class="price mb-1">{{ formatAmount(4000, true, true) }}</h2>
+                                    <span>{{  __tr('18 months') }}</span>
                                     <br><br>
                                     <small><a class="text-muted" target="_blank" href="https://business.whatsapp.com/products/platform-pricing">{{  __tr('+ WhatsApp Cloud Messaging Charges') }} <i class="fas fa-external-link-alt"></i></a></small>
                                 </div>
@@ -407,7 +413,7 @@ $appName = getAppSettings('name');
                                                         }
                                                     @endphp
                                                     <h2 class="price mb-1">{{ formatAmount($itemValue['charge'], true, true) }}</h2>
-                                                    <span>{{ Arr::get($plan['charges'][$itemKey], 'title', '') }}</span>
+                                                    <span>{{ Arr::get($plan['charges'], $itemKey.'.title', '') }}</span>
                                                     <br><br>
                                                     @endforeach
                                                     <small><a class="text-muted" target="_blank" href="https://business.whatsapp.com/products/platform-pricing">{{  __tr('+ WhatsApp Cloud Messaging Charges') }} <i class="fas fa-external-link-alt"></i></a></small>

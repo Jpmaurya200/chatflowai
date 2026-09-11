@@ -1,7 +1,7 @@
 /*M!999999\- enable the sandbox mode */ 
 -- MariaDB dump 10.19-11.8.2-MariaDB, for Linux (x86_64)
 --
--- Host: localhost    Database: omx_flow_source
+-- Host: localhost    Database: botsv3
 -- ------------------------------------------------------
 -- Server version	11.8.2-MariaDB
 
@@ -313,16 +313,23 @@ CREATE TABLE `bot_flows` (
   `_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `_uid` char(36) NOT NULL,
   `status` tinyint(3) unsigned DEFAULT NULL,
+  `whatsapp_flow_id` varchar(255) DEFAULT NULL,
+  `whatsapp_sync_status` varchar(255) NOT NULL DEFAULT 'pending',
+  `whatsapp_sync_at` timestamp NULL DEFAULT NULL,
+  `whatsapp_meta_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`whatsapp_meta_data`)),
   `updated_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `title` varchar(150) NOT NULL,
   `vendors__id` int(10) unsigned NOT NULL,
   `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
   `start_trigger` varchar(255) DEFAULT NULL,
+  `trigger_type` varchar(255) NOT NULL DEFAULT 'is',
   PRIMARY KEY (`_id`),
   UNIQUE KEY `_uid` (`_uid`),
   UNIQUE KEY `_uid_UNIQUE` (`_uid`),
   KEY `fk_bot_flows_vendors1_idx` (`vendors__id`),
+  KEY `bot_flows_whatsapp_flow_id_index` (`whatsapp_flow_id`),
+  KEY `bot_flows_whatsapp_sync_status_index` (`whatsapp_sync_status`),
   CONSTRAINT `fk_bot_flows_vendors1` FOREIGN KEY (`vendors__id`) REFERENCES `vendors` (`_id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1568,7 +1575,7 @@ CREATE TABLE `migrations` (
   `migration` varchar(255) NOT NULL,
   `batch` int(11) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1582,7 +1589,19 @@ INSERT INTO `migrations` VALUES
 (1,'2025_06_10_040000_create_whatsapp_orders_table',1),
 (2,'2025_06_10_040001_create_whatsapp_user_states_table',1),
 (3,'2025_06_10_040002_create_whatsapp_payments_table',1),
-(4,'2025_06_11_100000_add_manual_payment_status_to_whatsapp_orders',1);
+(4,'2025_06_11_100000_add_manual_payment_status_to_whatsapp_orders',1),
+(5,'2025_01_17_000000_update_bot_flows_for_new_structure',2),
+(6,'2025_03_31_055528_create_flow_management_tables',2),
+(7,'2025_06_10_030000_add_type_column_to_whatsapp_message_logs',2),
+(8,'2025_06_10_032340_add_data_column_to_user_active_flows_table',2),
+(9,'2025_06_10_033340_add_uuid_column_to_user_active_flows_table',2),
+(10,'2025_07_18_000000_add_trigger_type_to_bot_flows',2),
+(11,'2025_08_04_064048_create_shopify_integrations_table',2),
+(12,'2025_08_04_064049_create_woocommerce_integrations_table',2),
+(13,'2025_08_04_064057_create_shopify_orders_table',2),
+(14,'2025_08_04_064058_create_woocommerce_orders_table',2),
+(15,'2025_08_04_064108_create_shopify_order_notifications_table',2),
+(16,'2025_08_04_064109_create_woocommerce_order_notifications_table',2);
 /*!40000 ALTER TABLE `migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -1656,6 +1675,159 @@ set autocommit=0;
 INSERT INTO `password_resets` VALUES
 (7,'2025-01-11 08:13:37','vinit.367@gmail.com','$2y$10$SfT5tpkemLXYoFABpQjdAeEUYzukdZGgKvJPIU0K.0nNXOBbEtbC2');
 /*!40000 ALTER TABLE `password_resets` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Table structure for table `shopify_integrations`
+--
+
+DROP TABLE IF EXISTS `shopify_integrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `shopify_integrations` (
+  `_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `_uid` varchar(255) NOT NULL,
+  `vendors__id` int(10) unsigned NOT NULL,
+  `shop_domain` varchar(255) NOT NULL,
+  `access_token` text NOT NULL,
+  `webhook_id` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 0,
+  `notification_types` text DEFAULT NULL,
+  `webhook_url` varchar(255) DEFAULT NULL,
+  `connected_at` timestamp NULL DEFAULT NULL,
+  `last_sync_at` timestamp NULL DEFAULT NULL,
+  `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`_id`),
+  UNIQUE KEY `shopify_integrations__uid_unique` (`_uid`),
+  UNIQUE KEY `shopify_integrations_shop_domain_unique` (`shop_domain`),
+  KEY `shopify_integrations_vendors__id_is_active_index` (`vendors__id`,`is_active`),
+  KEY `shopify_integrations_shop_domain_index` (`shop_domain`),
+  CONSTRAINT `shopify_integrations_vendors__id_foreign` FOREIGN KEY (`vendors__id`) REFERENCES `vendors` (`_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `shopify_integrations`
+--
+
+LOCK TABLES `shopify_integrations` WRITE;
+/*!40000 ALTER TABLE `shopify_integrations` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `shopify_integrations` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Table structure for table `shopify_order_notifications`
+--
+
+DROP TABLE IF EXISTS `shopify_order_notifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `shopify_order_notifications` (
+  `_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `shopify_orders__id` bigint(20) unsigned NOT NULL,
+  `vendors__id` int(10) unsigned NOT NULL,
+  `contacts__id` int(10) unsigned DEFAULT NULL,
+  `notification_type` varchar(255) NOT NULL,
+  `status` varchar(255) NOT NULL DEFAULT 'pending',
+  `message_id` varchar(255) DEFAULT NULL,
+  `whatsapp_message_id` varchar(255) DEFAULT NULL,
+  `sent_at` timestamp NULL DEFAULT NULL,
+  `delivered_at` timestamp NULL DEFAULT NULL,
+  `read_at` timestamp NULL DEFAULT NULL,
+  `error_message` text DEFAULT NULL,
+  `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`_id`),
+  KEY `shopify_order_notifications_contacts__id_foreign` (`contacts__id`),
+  KEY `shopify_notifications_vendor_status` (`vendors__id`,`status`),
+  KEY `shopify_notifications_vendor_type` (`vendors__id`,`notification_type`),
+  KEY `shopify_notifications_order_type` (`shopify_orders__id`,`notification_type`),
+  CONSTRAINT `shopify_order_notifications_contacts__id_foreign` FOREIGN KEY (`contacts__id`) REFERENCES `contacts` (`_id`) ON DELETE SET NULL,
+  CONSTRAINT `shopify_order_notifications_shopify_orders__id_foreign` FOREIGN KEY (`shopify_orders__id`) REFERENCES `shopify_orders` (`_id`) ON DELETE CASCADE,
+  CONSTRAINT `shopify_order_notifications_vendors__id_foreign` FOREIGN KEY (`vendors__id`) REFERENCES `vendors` (`_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `shopify_order_notifications`
+--
+
+LOCK TABLES `shopify_order_notifications` WRITE;
+/*!40000 ALTER TABLE `shopify_order_notifications` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `shopify_order_notifications` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Table structure for table `shopify_orders`
+--
+
+DROP TABLE IF EXISTS `shopify_orders`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `shopify_orders` (
+  `_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `shopify_integrations__id` bigint(20) unsigned NOT NULL,
+  `vendors__id` int(10) unsigned NOT NULL,
+  `contacts__id` int(10) unsigned DEFAULT NULL,
+  `shopify_order_id` varchar(255) NOT NULL,
+  `order_number` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(255) DEFAULT NULL,
+  `currency` varchar(3) NOT NULL DEFAULT 'USD',
+  `financial_status` varchar(255) NOT NULL DEFAULT 'pending',
+  `fulfillment_status` varchar(255) NOT NULL DEFAULT 'unfulfilled',
+  `total_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `subtotal_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_tax` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_discounts` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_weight` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_items` int(11) NOT NULL DEFAULT 0,
+  `tags` text DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `status` varchar(255) NOT NULL DEFAULT 'open',
+  `processed_at` timestamp NULL DEFAULT NULL,
+  `cancelled_at` timestamp NULL DEFAULT NULL,
+  `closed_at` timestamp NULL DEFAULT NULL,
+  `created_at_shopify` timestamp NULL DEFAULT NULL,
+  `updated_at_shopify` timestamp NULL DEFAULT NULL,
+  `processed_at_shopify` timestamp NULL DEFAULT NULL,
+  `cancelled_at_shopify` timestamp NULL DEFAULT NULL,
+  `closed_at_shopify` timestamp NULL DEFAULT NULL,
+  `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`_id`),
+  UNIQUE KEY `shopify_orders_shopify_order_id_unique` (`shopify_order_id`),
+  KEY `shopify_orders_shopify_integrations__id_foreign` (`shopify_integrations__id`),
+  KEY `shopify_orders_contacts__id_foreign` (`contacts__id`),
+  KEY `shopify_orders_vendors__id_status_index` (`vendors__id`,`status`),
+  KEY `shopify_orders_vendors__id_financial_status_index` (`vendors__id`,`financial_status`),
+  KEY `shopify_orders_vendors__id_fulfillment_status_index` (`vendors__id`,`fulfillment_status`),
+  KEY `shopify_orders_phone_vendors__id_index` (`phone`,`vendors__id`),
+  KEY `shopify_orders_email_vendors__id_index` (`email`,`vendors__id`),
+  CONSTRAINT `shopify_orders_contacts__id_foreign` FOREIGN KEY (`contacts__id`) REFERENCES `contacts` (`_id`) ON DELETE SET NULL,
+  CONSTRAINT `shopify_orders_shopify_integrations__id_foreign` FOREIGN KEY (`shopify_integrations__id`) REFERENCES `shopify_integrations` (`_id`) ON DELETE CASCADE,
+  CONSTRAINT `shopify_orders_vendors__id_foreign` FOREIGN KEY (`vendors__id`) REFERENCES `vendors` (`_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `shopify_orders`
+--
+
+LOCK TABLES `shopify_orders` WRITE;
+/*!40000 ALTER TABLE `shopify_orders` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `shopify_orders` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
 
@@ -1820,6 +1992,41 @@ LOCK TABLES `transactions` WRITE;
 /*!40000 ALTER TABLE `transactions` DISABLE KEYS */;
 set autocommit=0;
 /*!40000 ALTER TABLE `transactions` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Table structure for table `user_active_flows`
+--
+
+DROP TABLE IF EXISTS `user_active_flows`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_active_flows` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned NOT NULL,
+  `flow_id` bigint(20) unsigned NOT NULL,
+  `current_node_uid` varchar(255) DEFAULT NULL,
+  `next_node_uid` varchar(255) DEFAULT NULL,
+  `phone_number` varchar(255) NOT NULL,
+  `activated_at` timestamp NOT NULL,
+  `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_active_flows_user_id_phone_number_unique` (`user_id`,`phone_number`),
+  KEY `user_active_flows_phone_number_index` (`phone_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `user_active_flows`
+--
+
+LOCK TABLES `user_active_flows` WRITE;
+/*!40000 ALTER TABLE `user_active_flows` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `user_active_flows` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
 
@@ -2082,6 +2289,7 @@ CREATE TABLE `whatsapp_message_logs` (
   `wamid` varchar(255) DEFAULT NULL,
   `wab_phone_number_id` varchar(45) DEFAULT NULL,
   `is_incoming_message` tinyint(3) unsigned DEFAULT NULL COMMENT 'Incoming,outgoing',
+  `type` varchar(255) DEFAULT NULL,
   `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
   `messaged_at` datetime DEFAULT NULL,
   `is_forwarded` tinyint(1) DEFAULT NULL,
@@ -2093,6 +2301,7 @@ CREATE TABLE `whatsapp_message_logs` (
   KEY `fk_whatsapp_message_status_logs_campaigns1_idx` (`campaigns__id`),
   KEY `fk_whatsapp_message_status_logs_vendors1_idx` (`vendors__id`),
   KEY `fk_whatsapp_message_logs_users1_idx` (`messaged_by_users__id`),
+  KEY `whatsapp_message_logs_type_index` (`type`),
   CONSTRAINT `fk_whatsapp_message_logs_users1` FOREIGN KEY (`messaged_by_users__id`) REFERENCES `users` (`_id`) ON DELETE SET NULL ON UPDATE NO ACTION,
   CONSTRAINT `fk_whatsapp_message_status_logs_campaigns1` FOREIGN KEY (`campaigns__id`) REFERENCES `campaigns` (`_id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_whatsapp_message_status_logs_contacts1` FOREIGN KEY (`contacts__id`) REFERENCES `contacts` (`_id`) ON DELETE SET NULL ON UPDATE NO ACTION,
@@ -2336,6 +2545,171 @@ set autocommit=0;
 /*!40000 ALTER TABLE `whatsapp_user_states` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
+
+--
+-- Table structure for table `woocommerce_integrations`
+--
+
+DROP TABLE IF EXISTS `woocommerce_integrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `woocommerce_integrations` (
+  `_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `_uid` varchar(255) NOT NULL,
+  `vendors__id` int(10) unsigned NOT NULL,
+  `site_url` varchar(255) NOT NULL,
+  `consumer_key` text NOT NULL,
+  `consumer_secret` text NOT NULL,
+  `webhook_ids` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`webhook_ids`)),
+  `is_active` tinyint(1) NOT NULL DEFAULT 0,
+  `notification_types` text DEFAULT NULL,
+  `webhook_url` varchar(255) DEFAULT NULL,
+  `connected_at` timestamp NULL DEFAULT NULL,
+  `disconnected_at` timestamp NULL DEFAULT NULL,
+  `last_sync_at` timestamp NULL DEFAULT NULL,
+  `settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`settings`)),
+  `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`_id`),
+  UNIQUE KEY `woocommerce_integrations__uid_unique` (`_uid`),
+  UNIQUE KEY `woocommerce_integrations_site_url_unique` (`site_url`),
+  KEY `woocommerce_integrations_vendors__id_is_active_index` (`vendors__id`,`is_active`),
+  KEY `woocommerce_integrations_site_url_index` (`site_url`),
+  CONSTRAINT `woocommerce_integrations_vendors__id_foreign` FOREIGN KEY (`vendors__id`) REFERENCES `vendors` (`_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `woocommerce_integrations`
+--
+
+LOCK TABLES `woocommerce_integrations` WRITE;
+/*!40000 ALTER TABLE `woocommerce_integrations` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `woocommerce_integrations` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Table structure for table `woocommerce_order_notifications`
+--
+
+DROP TABLE IF EXISTS `woocommerce_order_notifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `woocommerce_order_notifications` (
+  `_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `_uid` varchar(255) NOT NULL,
+  `woocommerce_orders__id` bigint(20) unsigned NOT NULL,
+  `vendors__id` int(10) unsigned NOT NULL,
+  `contacts__id` int(10) unsigned DEFAULT NULL,
+  `whatsapp_templates__id` int(10) unsigned DEFAULT NULL,
+  `notification_type` varchar(255) NOT NULL,
+  `status` varchar(255) NOT NULL DEFAULT 'pending',
+  `message_id` varchar(255) DEFAULT NULL,
+  `whatsapp_message_id` varchar(255) DEFAULT NULL,
+  `variables` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`variables`)),
+  `response` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`response`)),
+  `retry_count` int(11) NOT NULL DEFAULT 0,
+  `sent_at` timestamp NULL DEFAULT NULL,
+  `delivered_at` timestamp NULL DEFAULT NULL,
+  `read_at` timestamp NULL DEFAULT NULL,
+  `error_message` text DEFAULT NULL,
+  `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`_id`),
+  UNIQUE KEY `woocommerce_order_notifications__uid_unique` (`_uid`),
+  KEY `woocommerce_order_notifications_contacts__id_foreign` (`contacts__id`),
+  KEY `woocommerce_order_notifications_whatsapp_templates__id_foreign` (`whatsapp_templates__id`),
+  KEY `woocommerce_notifications_vendor_status` (`vendors__id`,`status`),
+  KEY `woocommerce_notifications_vendor_type` (`vendors__id`,`notification_type`),
+  KEY `woocommerce_notifications_order_type` (`woocommerce_orders__id`,`notification_type`),
+  CONSTRAINT `woocommerce_order_notifications_contacts__id_foreign` FOREIGN KEY (`contacts__id`) REFERENCES `contacts` (`_id`) ON DELETE SET NULL,
+  CONSTRAINT `woocommerce_order_notifications_vendors__id_foreign` FOREIGN KEY (`vendors__id`) REFERENCES `vendors` (`_id`) ON DELETE CASCADE,
+  CONSTRAINT `woocommerce_order_notifications_whatsapp_templates__id_foreign` FOREIGN KEY (`whatsapp_templates__id`) REFERENCES `whatsapp_templates` (`_id`) ON DELETE SET NULL,
+  CONSTRAINT `woocommerce_order_notifications_woocommerce_orders__id_foreign` FOREIGN KEY (`woocommerce_orders__id`) REFERENCES `woocommerce_orders` (`_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `woocommerce_order_notifications`
+--
+
+LOCK TABLES `woocommerce_order_notifications` WRITE;
+/*!40000 ALTER TABLE `woocommerce_order_notifications` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `woocommerce_order_notifications` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Table structure for table `woocommerce_orders`
+--
+
+DROP TABLE IF EXISTS `woocommerce_orders`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `woocommerce_orders` (
+  `_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `_uid` varchar(255) NOT NULL,
+  `woocommerce_integrations__id` bigint(20) unsigned NOT NULL,
+  `vendors__id` int(10) unsigned NOT NULL,
+  `contacts__id` int(10) unsigned DEFAULT NULL,
+  `woocommerce_order_id` int(10) unsigned NOT NULL,
+  `order_number` varchar(255) NOT NULL,
+  `status` varchar(255) NOT NULL DEFAULT 'pending',
+  `total` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `currency` varchar(3) NOT NULL DEFAULT 'USD',
+  `payment_method` varchar(255) DEFAULT NULL,
+  `payment_method_title` varchar(255) DEFAULT NULL,
+  `shipping_method` varchar(255) DEFAULT NULL,
+  `shipping_method_title` varchar(255) DEFAULT NULL,
+  `total_tax` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_shipping` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_discount` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_items` int(11) NOT NULL DEFAULT 0,
+  `customer_note` text DEFAULT NULL,
+  `order_notes` text DEFAULT NULL,
+  `date_created` timestamp NULL DEFAULT NULL,
+  `date_modified` timestamp NULL DEFAULT NULL,
+  `date_completed` timestamp NULL DEFAULT NULL,
+  `date_paid` timestamp NULL DEFAULT NULL,
+  `date_processing` timestamp NULL DEFAULT NULL,
+  `date_on_hold` timestamp NULL DEFAULT NULL,
+  `date_cancelled` timestamp NULL DEFAULT NULL,
+  `date_refunded` timestamp NULL DEFAULT NULL,
+  `customer_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`customer_data`)),
+  `order_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`order_data`)),
+  `__data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`__data`)),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`_id`),
+  UNIQUE KEY `woocommerce_orders__uid_unique` (`_uid`),
+  UNIQUE KEY `woocommerce_orders_woocommerce_order_id_unique` (`woocommerce_order_id`),
+  KEY `woocommerce_orders_woocommerce_integrations__id_foreign` (`woocommerce_integrations__id`),
+  KEY `woocommerce_orders_contacts__id_foreign` (`contacts__id`),
+  KEY `woocommerce_orders_vendors__id_status_index` (`vendors__id`,`status`),
+  KEY `woocommerce_orders_vendors__id_payment_method_index` (`vendors__id`,`payment_method`),
+  KEY `woocommerce_orders_vendors__id_date_created_index` (`vendors__id`,`date_created`),
+  KEY `woocommerce_orders_woocommerce_order_id_vendors__id_index` (`woocommerce_order_id`,`vendors__id`),
+  CONSTRAINT `woocommerce_orders_contacts__id_foreign` FOREIGN KEY (`contacts__id`) REFERENCES `contacts` (`_id`) ON DELETE SET NULL,
+  CONSTRAINT `woocommerce_orders_vendors__id_foreign` FOREIGN KEY (`vendors__id`) REFERENCES `vendors` (`_id`) ON DELETE CASCADE,
+  CONSTRAINT `woocommerce_orders_woocommerce_integrations__id_foreign` FOREIGN KEY (`woocommerce_integrations__id`) REFERENCES `woocommerce_integrations` (`_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `woocommerce_orders`
+--
+
+LOCK TABLES `woocommerce_orders` WRITE;
+/*!40000 ALTER TABLE `woocommerce_orders` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `woocommerce_orders` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -2346,4 +2720,4 @@ commit;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2025-08-02 12:05:17
+-- Dump completed on 2025-08-12 18:01:57

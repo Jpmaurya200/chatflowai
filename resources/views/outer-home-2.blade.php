@@ -409,7 +409,7 @@ $appName = getAppSettings('name');
                             <h4 class="mb-4 mt-2 fw-bold text-muted">{{ $freePlanDetails['title'] }}</h4>
                             <!-- title -->
                             <!--  pricing -->
-                            <div class="price mb-1 fw-bold text-dark"><span class="h1">{{ formatAmount(0, true, true) }}</span>/yearly</div>
+                            <div class="price mb-1 fw-bold text-dark"><span class="h1">{{ formatAmount(4000, true, true) }}</span>/12 months</div>
                             <br>
                             <!--  pricing -->
                             <div><a class="text-primary fw-bold text-decoration-none" target="_blank"
@@ -470,7 +470,7 @@ $appName = getAppSettings('name');
                                         continue;
                                     }
                                 @endphp
-                                <div class="price mb-1 fw-bold text-dark"><span class="h1">{{ formatAmount($itemValue['charge'], true, true) }}</span>/{{ Arr::get($plan['charges'][$itemKey], 'title', '') }}</div>
+                                <div class="price mb-1 fw-bold text-dark"><span class="h1">{{ formatAmount($itemValue['charge'], true, true) }}</span>/{{ Arr::get($plan['charges'], $itemKey.'.title', '') }}</div>
                                 <br>
                             @endforeach
                             <!--  /pricing -->

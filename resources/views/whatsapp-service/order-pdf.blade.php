@@ -133,10 +133,10 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($order->items as $item)
+                @foreach($order->getItemsWithProductNames() as $item)
                 <tr>
                     <td>
-                        <strong>{{ $item['product_retailer_id'] ?? $item['name'] ?? 'Unknown Product' }}</strong>
+                        <strong>{{ $item['display_name'] ?? 'Product Item' }}</strong>
                         @if(isset($item['product_description']))
                         <br><small>{{ $item['product_description'] }}</small>
                         @endif
@@ -150,7 +150,7 @@
             <tfoot>
                 <tr>
                     <th colspan="3">Subtotal</th>
-                    <td>{{ $order->currency }} {{ number_format($order->total_amount, 2) }}</td>
+                    <td>{{ $order->currency }} {{ number_format($order->getSubtotal(), 2) }}</td>
                 </tr>
                 @if($order->tax_amount > 0)
                 <tr>

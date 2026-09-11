@@ -137,7 +137,23 @@
                                 @if (!__isEmpty($plan['charges']))
                                     <div class="row">
                                         <div class="col-xl-12">
-                                            @foreach ($plan['charges'] as $itemKey => $itemValue)
+                                            @php
+                                                // Define the desired order: monthly, 6_months, 12_months, 18_months
+                                                $chargeOrder = ['monthly', '6_months', '12_months', '18_months'];
+                                                $orderedCharges = [];
+                                                foreach ($chargeOrder as $orderKey) {
+                                                    if (isset($plan['charges'][$orderKey])) {
+                                                        $orderedCharges[$orderKey] = $plan['charges'][$orderKey];
+                                                    }
+                                                }
+                                                // Add any remaining charges that weren't in the order list
+                                                foreach ($plan['charges'] as $itemKey => $itemValue) {
+                                                    if (!in_array($itemKey, $chargeOrder)) {
+                                                        $orderedCharges[$itemKey] = $itemValue;
+                                                    }
+                                                }
+                                            @endphp
+                                            @foreach ($orderedCharges as $itemKey => $itemValue)
                                                 @php
                                                     $itemValue = $planDetails[$planKey]['charges'][$itemKey];
                                                 @endphp

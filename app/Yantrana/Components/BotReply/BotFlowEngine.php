@@ -16,6 +16,9 @@ use App\Yantrana\Components\BotReply\Repositories\BotFlowRepository;
 use App\Yantrana\Components\BotReply\Repositories\BotReplyRepository;
 use App\Yantrana\Components\BotReply\Interfaces\BotFlowEngineInterface;
 
+use Illuminate\Support\Facades\Log;
+
+
 class BotFlowEngine extends BaseEngine implements BotFlowEngineInterface
 {
     /**
@@ -96,6 +99,708 @@ class BotFlowEngine extends BaseEngine implements BotFlowEngineInterface
         // if failed to delete
         return $this->engineResponse(2, null, __tr('Failed to delete BotFlow'));
     }
+
+
+
+    public function processBotFlowClone($botFlowIdOrUid)
+{
+    $vendorId = getVendorId();
+
+    // fetch the record
+    $botFlow = $this->botFlowRepository->fetchIt([
+        '_uid' => $botFlowIdOrUid,
+        'vendors__id' => $vendorId,
+    ]);
+
+    if (__isEmpty($botFlow)) {
+        return $this->engineResponse(18, [
+            'botFlowUid' => $botFlowIdOrUid
+        ], __tr('Bot Flow not found'));
+    }
+
+    // Create new UID for the cloned flow
+    $newBotFlowUid = Str::uuid();
+    $newBotFlow = $botFlow->replicate();
+    $newBotFlow->title = $botFlow->title . ' - Copy';
+    $newBotFlow->_uid = $newBotFlowUid;
+    $newBotFlow->status = 2; 
+    $newBotFlow->vendors__id = $vendorId;
+
+    // Clone flow builder data and update context_flow_uid
+    $flowData = $botFlow->__data;
+    if ($flowData) {
+        if (isset($flowData['flow_builder_data']['operators'])) {
+            foreach ($flowData['flow_builder_data']['operators'] as &$operator) {
+                if (isset($operator['properties']['body'])) {
+                    $bodyHtml = $operator['properties']['body'];
+
+                    // Replace old context_flow_uid with new flow UID
+                    $bodyHtml = preg_replace(
+                        '/"context_flow_uid":\s*"[^"]+"/',
+                        '"context_flow_uid": "'.$newBotFlowUid.'"',
+                        $bodyHtml
+                    );
+
+                    $operator['properties']['body'] = $bodyHtml;
+                }
+            }
+        }
+        $newBotFlow->__data = $flowData;
+    }
+
+    if ($newBotFlow->save()) {
+        // ✅ Clone associated bot replies
+        $this->cloneBotFlowReplies($botFlow->_id, $newBotFlow->_id, $vendorId);
+        return $this->engineResponse(1, [
+            'botFlowUid' => $newBotFlowUid
+        ], __tr('Bot Flow cloned successfully'));
+    }
+
+    return $this->engineResponse(2, [
+        'botFlowUid' => $botFlowIdOrUid
+    ], __tr('Failed to clone Bot Flow'));
+}
+
+/**
+ * Clone bot replies when a flow is cloned
+ */
+/**
+ * Clone bot replies when a flow is cloned
+ */
+private function cloneBotFlowReplies($originalFlowId, $newFlowId, $vendorId)
+    {
+        // Get all bot replies associated with the original flow
+        $originalBotReplies = $this->botReplyRepository->fetchItAll([
+            'vendors__id' => $vendorId,
+            'bot_flows__id' => $originalFlowId,
+        ]);
+
+        // Fetch the cloned flow
+        $botFlow = $this->botFlowRepository->fetchIt([
+            'vendors__id' => $vendorId,
+            '_id' => $newFlowId,
+        ]);
+
+        // Work with the flow's __data
+        $flowData = $botFlow->__data;
+
+        if (is_string($flowData)) {
+            $flowData = json_decode($flowData, true);
+        }
+
+        // Build map of old reply ID -> new reply ID
+        $botReplyIdMap = [];
+        $newlyCreatedReplies = [];
+
+        foreach ($originalBotReplies as $originalBotReply) {
+            // Generate the new UID once
+            $newBotReplyUid = (string) Str::uuid();
+        
+            // Clone reply
+            $newBotReply = $originalBotReply->replicate();
+            $newBotReply->name = $originalBotReply->name . ' - Copy';
+            $newBotReply->_uid = $newBotReplyUid; // force assign
+            $newBotReply->bot_flows__id = $newFlowId;
+            $newBotReply->status = 2; 
+            $newBotReply->vendors__id = $vendorId;
+            $newBotReply->save();
+        
+            // �� always use the one stored in DB (avoid mismatch)
+            $savedUid = $newBotReply->_uid;
+            // Track mapping from original DB id to newly created DB id
+            $botReplyIdMap[$originalBotReply->_id] = $newBotReply->_id;
+            $newlyCreatedReplies[] = $newBotReply;
+        
+            
+        
+            // Replace old UID with new UID in flow JSON
+            array_walk_recursive($flowData, function (&$value) use ($originalBotReply, $savedUid) {
+                if ($value === $originalBotReply->_uid) {
+                    $value = $savedUid;
+                }
+            });
+
+            // 🔥 Replace operator keys in flow_builder_data.operators
+            if (isset($flowData['flow_builder_data']['operators'])) {
+                $operators = $flowData['flow_builder_data']['operators'];
+                
+                // Check if the original UID exists as an operator key
+                if (isset($operators[$originalBotReply->_uid])) {
+                    // Get the operator data
+                    $operatorData = $operators[$originalBotReply->_uid];
+                    
+                    // Remove the old operator with original UID
+                    unset($flowData['flow_builder_data']['operators'][$originalBotReply->_uid]);
+                    
+                    // Add the operator with new UID as key
+                    $flowData['flow_builder_data']['operators'][$savedUid] = $operatorData;
+                }
+            }
+        }
+        
+        // After all replies are cloned, update bot_replies__id on new replies using the map
+        foreach ($newlyCreatedReplies as $clonedReply) {
+            $oldLinkedId = $clonedReply->bot_replies__id ?? null;
+            if (!empty($oldLinkedId) && isset($botReplyIdMap[$oldLinkedId])) {
+                $clonedReply->bot_replies__id = $botReplyIdMap[$oldLinkedId];
+                $clonedReply->save();
+            }
+        }
+        
+        // ✅ Update flow_id in flow_nodes_data to match new flow UID
+        if (isset($flowData['flow_nodes_data']['flow_id'])) {
+            $flowData['flow_nodes_data']['flow_id'] = $botFlow->_uid; // <- use cloned flow UID
+        }
+
+        $botFlow->__data = $flowData;
+        $botFlow->save();
+    }
+
+
+
+    /**
+      * BotFlow export process
+      *
+      * @param  mix $botFlowIdOrUid
+      *
+      * @return  array
+      *---------------------------------------------------------------- */
+
+    public function processBotFlowExport($botFlowIdOrUid)
+    {
+        $vendorId = getVendorId();
+        // fetch the record
+        $botFlow = $this->botFlowRepository->fetchIt([
+            '_uid' => $botFlowIdOrUid,
+            'vendors__id' => $vendorId,
+        ]);
+        // check if the record found
+        if (__isEmpty($botFlow)) {
+            // if not found
+            return $this->engineResponse(18, [
+                'botFlowUid' => $botFlowIdOrUid
+            ], __tr('Bot Flow not found'));
+        }
+
+        // Prepare export data
+        $exportData = $this->prepareBotFlowExportData($botFlow);
+
+        // Generate filename
+        $filename = 'bot-flow-' . Str::slug($botFlow->title) . '-' . date('Y-m-d-H-i-s') . '.json';
+
+        // Return success with export data
+        return $this->engineResponse(1, [
+            'exportData' => $exportData,
+            'filename' => $filename,
+            'botFlowTitle' => $botFlow->title
+        ], __tr('Bot Flow export data prepared successfully'));
+    }
+
+    /**
+     * Prepare bot flow export data
+     *
+     * @param object $botFlow
+     * @return array
+     */
+    private function prepareBotFlowExportData($botFlow)
+    {
+        // Get all bot replies associated with this flow
+        $botReplies = $this->botReplyRepository->fetchItAll([
+            'vendors__id' => $botFlow->vendors__id,
+            'bot_flows__id' => $botFlow->_id,
+        ]);
+
+        // Prepare bot flow data (remove vendor-specific and system fields)
+        $flowData = [
+            'status' => 2,
+            'whatsapp_flow_id' => $botFlow->whatsapp_flow_id,
+            'whatsapp_sync_status' => $botFlow->whatsapp_sync_status,
+            'whatsapp_sync_at' => $botFlow->whatsapp_sync_at,
+            'whatsapp_meta_data' => $botFlow->whatsapp_meta_data,
+            'title' => $botFlow->title,
+            'trigger_type' => $botFlow->trigger_type,
+            'start_trigger' => $botFlow->start_trigger,
+            '_uid' => $botFlow->_uid,
+            'id' => $botFlow->_id,
+            'vendors__id' => $botFlow->vendors__id,
+            '__data' => $botFlow->__data,
+           
+        ];
+
+        // Prepare bot replies data (remove vendor-specific and system fields)
+        $repliesData = [];
+        foreach ($botReplies as $botReply) {
+            $replyData = [
+                'uid' => $botReply->_uid,
+                'id' => $botReply->_id,
+                'bot_replies__id' => $botReply->bot_replies__id,
+                'status' => $botReply->status,
+                'name' => $botReply->name,
+                'reply_text' => $botReply->reply_text,
+                'trigger_type' => $botReply->trigger_type,
+                'reply_trigger' => $botReply->reply_trigger,
+                'priority_index' => $botReply->priority_index,
+                '__data' => $botReply->__data,
+
+                // 'bot_data' => $this->sanitizeBotReplyData($botReply->__data),
+            ];
+            $repliesData[] = $replyData;
+        }
+
+        // Prepare final export structure
+        $exportData = [
+            'export_version' => '1.0',
+            'export_date' => now()->toISOString(),
+            'bot_flow' => $flowData,
+            'bot_replies' => $repliesData,
+        ];
+
+        return $exportData;
+    }
+
+    // /**
+    //  * Sanitize bot reply data for export (remove user-specific data)
+    //  *
+    //  * @param array $botData
+    //  * @return array
+    //  */
+    // private function sanitizeBotReplyData($botData)
+    // {
+    //     if (!$botData) {
+    //         return [];
+    //     }
+
+    //     // Create a copy to avoid modifying original data
+    //     $sanitizedData = $botData;
+
+    //     // Remove user-specific data that shouldn't be exported
+    //     if (isset($sanitizedData['interaction_message'])) {
+    //         // Reset buttons to empty array (user will need to reconfigure)
+    //         if (isset($sanitizedData['interaction_message']['buttons'])) {
+    //             $sanitizedData['interaction_message']['buttons'] = [];
+    //         }
+
+    //         // Reset list data but keep structure
+    //         if (isset($sanitizedData['interaction_message']['list_data'])) {
+    //             $sanitizedData['interaction_message']['list_data'] = [
+    //                 'button_text' => $sanitizedData['interaction_message']['list_data']['button_text'] ?? '',
+    //                 'sections' => [], // Reset sections
+    //             ];
+    //         }
+    //     }
+
+    //     // Remove any vendor-specific configurations
+    //     unset($sanitizedData['vendor_id']);
+    //     unset($sanitizedData['user_id']);
+    //     unset($sanitizedData['created_at']);
+    //     unset($sanitizedData['updated_at']);
+
+    //     return $sanitizedData;
+    // }
+
+    /**
+      * BotFlow import process
+      *
+      * @param  object $uploadedFile
+      *
+      * @return  array
+      *---------------------------------------------------------------- */
+
+    public function processBotFlowImport($uploadedFile)
+    {
+        $vendorId = getVendorId();
+
+        try {
+            // Read and decode JSON file
+            $jsonContent = file_get_contents($uploadedFile->getRealPath());
+            $importData = json_decode($jsonContent, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return $this->engineResponse(2, [], __tr('Invalid JSON file format'));
+            }
+
+            // Validate import data structure
+            $validationResult = $this->validateImportData($importData);
+            if (!$validationResult['valid']) {
+                return $this->engineResponse(2, [], $validationResult['message']);
+            }
+
+            // Check if bot flow with same title already exists
+            $existingFlow = $this->botFlowRepository->fetchIt([
+                'title' => $importData['bot_flow']['title'],
+                'vendors__id' => $vendorId,
+            ]);
+
+            if (!__isEmpty($existingFlow)) {
+                // Add suffix to make title unique
+                $importData['bot_flow']['title'] = $importData['bot_flow']['title'] . ' - Imported';
+            }
+
+            // Create the bot flow
+            $botFlowResult = $this->createBotFlowFromImport($importData['bot_flow'], $vendorId);
+            if (!$botFlowResult['success']) {
+                return $this->engineResponse(2, [], $botFlowResult['message']);
+            }
+
+            // Create associated bot replies
+            $botRepliesResult = $this->createBotRepliesFromImport(
+                $importData['bot_replies'],
+                $botFlowResult['botFlow']->_id,
+                $vendorId
+
+            );
+
+            if (!$botRepliesResult['success']) {
+                // If bot replies creation failed, we might want to keep the flow or delete it
+                // For now, we'll keep the flow and report partial success
+                return $this->engineResponse(1, [], __tr('Bot Flow imported successfully, but some bot replies could not be created'));
+            }
+
+            \Log::info('BotFlow import: reply ID mapping generated', [
+                'vendor_id'   => $vendorId,
+                'new_flow_id' => $botFlowResult['botFlow']->_id,
+                'replyIdMap'  => $botRepliesResult['replyIdMap'] ?? null,
+                'total_mapped'=> isset($botRepliesResult['replyIdMap']) ? count($botRepliesResult['replyIdMap']) : 0,
+            ]);
+
+
+            // sanitize the __data coloumn
+            
+            return $this->engineResponse(1, [], __tr('Bot Flow imported successfully'));
+
+        } catch (\Exception $e) {
+            return $this->engineResponse(2, [], __tr('Error importing bot flow'));
+        }
+    }
+
+    /**
+     * Validate import data structure
+     *
+     * @param array $importData
+     * @return array
+     */
+    private function validateImportData($importData)
+    {
+        // Check required fields
+        if (!isset($importData['bot_flow'])) {
+            return ['valid' => false, 'message' => __tr('Invalid import file: missing bot_flow data')];
+        }
+
+        $botFlow = $importData['bot_flow'];
+        $requiredFields = ['title', 'trigger_type'];
+
+        foreach ($requiredFields as $field) {
+            if (!isset($botFlow[$field]) || empty($botFlow[$field])) {
+                return ['valid' => false, 'message' => __tr('Invalid import file: missing required field ') . $field];
+            }
+        }
+
+        // Validate trigger type
+        $validTriggerTypes = array_keys(configItem('bot_reply_trigger_types'));
+        if (!in_array($botFlow['trigger_type'], $validTriggerTypes)) {
+            return ['valid' => false, 'message' => __tr('Invalid trigger type in import file')];
+        }
+
+        return ['valid' => true, 'message' => ''];
+    }
+
+    /**
+     * Create bot flow from import data
+     *
+     * @param array $flowData
+     * @param int $vendorId
+     * @return array
+     */
+    private function createBotFlowFromImport($flowData, $vendorId)
+    {
+        try {
+            $botFlowData = [
+                'status'              => 2, // inactive by default
+                'whatsapp_flow_id'    => $flowData['whatsapp_flow_id'],
+                'whatsapp_sync_status'=> $flowData['whatsapp_sync_status'],
+                'whatsapp_sync_at'    => $flowData['whatsapp_sync_at'],
+                'whatsapp_meta_data'  => $flowData['whatsapp_meta_data'],
+                'title'               => $flowData['title'],
+                'trigger_type'        => $flowData['trigger_type'],
+                'start_trigger'       => $flowData['start_trigger'],
+                'vendors__id'         => $vendorId,
+                '__data'              => $flowData['__data'],
+            ];
+        
+            $botFlow = $this->botFlowRepository->storeIt($botFlowData);
+        
+            if ($botFlow) {
+                $flowData = $botFlow['__data']; // full __data
+        
+                    $newUid = $botFlow->_uid;
+    
+                    // 1️⃣ Update operator body HTML context_flow_uid + data-post-data
+                    if (isset($flowData['flow_builder_data']['operators'])) {
+                        foreach ($flowData['flow_builder_data']['operators'] as &$operator) {
+                            if (isset($operator['properties']['body'])) {
+                                $bodyHtml = $operator['properties']['body'];
+    
+                                // Replace context_flow_uid in JSON attributes inside HTML
+                                $bodyHtml = preg_replace(
+                                    '/"context_flow_uid":\s*"[^"]+"/',
+                                    '"context_flow_uid": "'.$newUid.'"',
+                                    $bodyHtml
+                                );
+    
+                         
+    
+                                $operator['properties']['body'] = $bodyHtml;
+
+                            
+                             }
+                            
+                        }
+                    }
+                    
+                    if(isset($flowData['flow_nodes_data'])){
+                        $olduid = $flowData['flow_nodes_data']['flow_id'];
+                        $flowData['flow_nodes_data']['flow_id'] = $newUid;
+                    }else{
+                        \log::info('flow_nodes_data not found');
+                    }
+                  
+    
+                    $botFlow->__data = $flowData;
+                    $botFlow->save();
+                
+        
+                return ['success' => true, 'botFlow' => $botFlow];
+            }
+        
+            return ['success' => false, 'message' => __tr('Failed to create bot flow')];
+        
+        } catch (\Exception $e) {
+            return ['success' => false, 'message' => __tr('Error creating bot flow: ') . $e->getMessage()];
+        }
+    }
+    
+    
+    
+
+  /**
+ * Create bot replies from import data
+ *
+ * @param array $botRepliesData
+ * @param int $newFlowId
+ * @param int $vendorId
+ * @return array
+ */
+private function createBotRepliesFromImport($botRepliesData, $newFlowId, $vendorId)
+{
+    
+       //fetch flow data
+       $flowData = $this->botFlowRepository->fetchIt([
+        'vendors__id' => $vendorId,
+       ]);
+
+    try {
+        // Build a map of old reply id => new reply id
+        $replyIdMap = [];
+        foreach ($botRepliesData as $replyData) {
+            $newReplyUid = (string) Str::uuid();
+
+            $botReplyData = [
+                'name'           => $replyData['name'] . ' - Imported',
+                '_uid'           => $newReplyUid,
+                'bot_flows__id'  => $newFlowId,
+                'status'         => 2, // inactive by default
+                'vendors__id'    => $vendorId,
+                'reply_text'     => $replyData['reply_text'] ?? null,
+                'trigger_type'   => $replyData['trigger_type'] ?? null,
+                'reply_trigger'  => $replyData['reply_trigger'] ?? null,
+                'priority_index' => $replyData['priority_index'] ?? null,
+                'bot_replies__id'=> $replyData['bot_replies__id'] ?? null,
+                '__data'         => $replyData['__data'] ?? ($replyData['_data'] ?? null),
+            ];
+
+          
+
+            $botReply = $this->botReplyRepository->storeIt($botReplyData);
+
+          
+
+            if ($botReply && (isset($replyData['__data']) || isset($replyData['_data']))) {
+                $botData = $replyData['__data'] ?? $replyData['_data'];
+
+                // Clean up interactive elements (just like duplicate/clone logic)
+                if (isset($botData['interaction_message']['buttons'])) {
+                    $botData['interaction_message']['buttons'] = [];
+                }
+                if (isset($botData['interaction_message']['list_data'])) {
+                    $botData['interaction_message']['list_data'] = [
+                        'button_text' => $botData['interaction_message']['list_data']['button_text'] ?? '',
+                    ];
+                }
+
+                // Replace context_flow_uid inside HTML if present
+                if (isset($botData['interaction_message']['body'])) {
+                    $botData['interaction_message']['body'] = preg_replace(
+                        '/"context_flow_uid":\s*"[^"]+"/',
+                        '"context_flow_uid": "'.$botReply->_uid.'"',
+                        $botData['interaction_message']['body']
+                    );
+                }
+
+                $botReply->__data = $botData;
+                $botReply->save();
+
+                // Normalize flow __data to array regardless of current type
+                $flowRawData = $flowData->__data;
+                if (is_array($flowRawData)) {
+                    $dataArr = $flowRawData;
+                } elseif (is_string($flowRawData)) {
+                    $decoded = json_decode($flowRawData, true);
+                    $dataArr = json_last_error() === JSON_ERROR_NONE ? ($decoded ?: []) : [];
+                } else {
+                    // Object or other type; convert via encode/decode
+                    $dataArr = json_decode(json_encode($flowRawData), true) ?: [];
+                }
+
+                // Update flow_id to the current flow UID if present
+                if (isset($dataArr['flow_nodes_data']['flow_id'])) {
+                    $dataArr['flow_nodes_data']['flow_id'] = $flowData->_uid ?? $dataArr['flow_nodes_data']['flow_id'];
+                }
+
+                // Save back as structured data (array); model casts will handle persistence
+                $flowData->__data = $dataArr;
+                $flowData->save();
+            }
+
+            // Track mapping of old imported id to newly generated id
+            if ($botReply && isset($replyData['id']) && !empty($replyData['id'])) {
+                $replyIdMap[$replyData['id']] = $botReply->_id;
+                \Log::info('BotFlow import: mapped imported reply ID to new ID', [
+                    'vendor_id'        => $vendorId,
+                    'new_flow_id'      => $newFlowId,
+                    'old_imported_id'  => $replyData['id'],
+                    'new_db_id'        => $botReply->_id,
+                    'new_db_uid'       => $botReply->_uid,
+                    'reply_name'       => $botReply->name,
+                ]);
+            }
+        }
+
+        // After creating all replies, remap any old linked IDs to new IDs
+        $importedReplies = $this->botReplyRepository->fetchItAll([
+            'bot_flows__id' => $newFlowId,
+        ]);
+
+        foreach ($importedReplies as $createdReply) {
+            $oldLinkedId = $createdReply->bot_replies__id ?? null;
+            // keep nulls as-is; remap only when mapping exists
+            if (!empty($oldLinkedId) && isset($replyIdMap[$oldLinkedId])) {
+                $createdReply->bot_replies__id = $replyIdMap[$oldLinkedId];
+                $createdReply->save();
+                \Log::info('BotFlow import: remapped bot_replies__id', [
+                    'vendor_id'      => $vendorId,
+                    'new_flow_id'    => $newFlowId,
+                    'reply_db_id'    => $createdReply->_id,
+                    'old_linked_id'  => $oldLinkedId,
+                    'new_linked_id'  => $replyIdMap[$oldLinkedId],
+                ]);
+            }
+        }
+
+        \Log::info('BotFlow import: replyIdMap summary', [
+            'vendor_id'   => $vendorId,
+            'new_flow_id' => $newFlowId,
+            'total_mapped'=> count($replyIdMap),
+            'map'         => $replyIdMap,
+        ]);
+
+        // sanitize the __data coloumn
+        $this->sanitizeImportedBotFlow__data($newFlowId);   
+
+    
+
+        return ['success' => true, 'replyIdMap' => $replyIdMap];
+
+    } catch (\Exception $e) {
+        return ['success' => false, 'message' => __tr('Error creating bot replies: ') . $e->getMessage()];
+    }
+}
+
+
+private function sanitizeImportedBotFlow__data($newFlowId)
+{
+    $flowData = $this->botFlowRepository->fetchIt([
+        '_id' => $newFlowId,
+    ]);
+  
+
+    $replyData = $this->botReplyRepository->fetchItAll([
+        'bot_flows__id' => $newFlowId,
+    ]);
+
+  
+    $__data = $flowData->__data;
+
+    // Step 1: Convert to array
+    $dataArr = json_decode(json_encode($__data), true);
+
+    // Step 2: Get operator keys ONCE before the loop
+    $operatorKeys = array_keys($dataArr['flow_builder_data']['operators']);
+
+    // Step 3: Replace operator keys & references
+    foreach ($replyData as $index => $reply) {
+        $newUid = $reply->_uid;
+    
+        if (isset($operatorKeys[$index])) {
+            $oldUid = $operatorKeys[$index];
+    
+            // ✅ Replace operator key
+            $dataArr['flow_builder_data']['operators'][$newUid] = $dataArr['flow_builder_data']['operators'][$oldUid];
+            unset($dataArr['flow_builder_data']['operators'][$oldUid]);
+    
+            // ✅ Replace everywhere else (values only)
+            array_walk_recursive($dataArr, function (&$value) use ($oldUid, $newUid) {
+                if (is_string($value)) {
+                    // Replace exact match
+                    if ($value === $oldUid) {
+                        $value = $newUid;
+                    }
+                    // Replace inside HTML or JSON strings
+                    if (strpos($value, $oldUid) !== false) {
+                        $value = str_replace($oldUid, $newUid, $value);
+                    }
+                }
+            });
+    
+            \Log::info('Replaced UID', [
+                'old_uid' => $oldUid,
+                'new_uid' => $newUid,
+                'index'   => $index,
+            ]);
+        }
+    }
+    
+
+    // Step 4: Convert back to object and save
+    $updatedData = json_decode(json_encode($dataArr));
+
+    $this->botFlowRepository->updateIt($newFlowId, ['__data' => $updatedData]);
+
+
+    return $updatedData;
+}
+
+    // private function sanitizeImportedBotFlow__data($vendorId)
+    // {
+    //     //fetch reply data
+    //    $replyData = $this->botReplyRepository->fetchItAll([
+    //     'vendors__id' => $vendorId,
+    //    ]);
+
+    //    foreach ($replyData as $reply) {
+        
+    //    }
+
+    // }
 
     /**
       * BotFlow create
@@ -626,6 +1331,12 @@ class BotFlowEngine extends BaseEngine implements BotFlowEngineInterface
                 return 'stay_in_session';
             }
 
+            // Check for flow_message data
+            if (isset($botReply->__data['flow_message'])) {
+                \Illuminate\Support\Facades\Log::info('Determined node type: flow', ['node_id' => $operatorId]);
+                return 'flow';
+            }
+
             // Check for interaction_message data (buttons/lists)
             if (isset($botReply->__data['interaction_message'])) {
                 $interactionData = $botReply->__data['interaction_message'];
@@ -797,7 +1508,7 @@ class BotFlowEngine extends BaseEngine implements BotFlowEngineInterface
             'text' => $replyText
         ];
 
-        // PRIORITY 1: Check bot reply data first for accurate node type determination
+            // PRIORITY 1: Check bot reply data first for accurate node type determination
         if (!__isEmpty($botReply)) {
             // If bot reply has interaction_message with valid buttons or lists, handle as interactive
             if (isset($botReply->__data['interaction_message'])) {
@@ -911,6 +1622,24 @@ class BotFlowEngine extends BaseEngine implements BotFlowEngineInterface
                     ]);
                     
                     return $payload;
+                }
+
+                // Check for flow message data
+                if (isset($botReply->__data['flow_message'])) {
+                    $flowMessage = $botReply->__data['flow_message'];
+
+                    return [
+                        'text' => $replyText,
+                        'whatsapp_flow_id' => $flowMessage['whatsapp_flow_id'] ?? null,
+                        'flow_name' => $flowMessage['flow_name'] ?? '',
+                        'flow_status' => $flowMessage['flow_status'] ?? '',
+                        'flow_categories' => $flowMessage['flow_categories'] ?? [],
+                        'header_text' => $flowMessage['header_text'] ?? '',
+                        'body_text' => $flowMessage['body_text'] ?? '',
+                        'footer_text' => $flowMessage['footer_text'] ?? '',
+                        'next_node' => $nextNodes['next'] ?? $nextNodes['simple_output'] ?? null,
+                        'failed_next_node' => $nextNodes['delivery_failed'] ?? null,
+                    ];
                 }
                 
                 // Check for valid buttons
@@ -1949,6 +2678,35 @@ class BotFlowEngine extends BaseEngine implements BotFlowEngineInterface
                 }
             }
         }
+    }
+
+    /**
+     * Recursively update context_flow_uid in data structure
+     *
+     * @param mixed $data
+     * @param string $newUid
+     * @return mixed
+     */
+    private function updateContextFlowUidInData($data, $newUid)
+    {
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                if ($key === 'context_flow_uid') {
+                    $data[$key] = $newUid;
+                } else {
+                    $data[$key] = $this->updateContextFlowUidInData($value, $newUid);
+                }
+            }
+        } elseif (is_string($data)) {
+            // Also update context_flow_uid in JSON strings
+            $data = preg_replace(
+                '/"context_flow_uid":\s*"[^"]+"/',
+                '"context_flow_uid": "'.$newUid.'"',
+                $data
+            );
+        }
+        
+        return $data;
     }
 
 }

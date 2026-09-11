@@ -567,4 +567,15 @@ class MediaEngine extends BaseMediaEngine implements MediaEngineInterface
             'message' => __tr('Something went wrong while uploading the file.')
         ]);
     }
+    // public function showTemplatePreview($fileUrl)
+    // {
+    //     // Log the file URL for debugging
+    //     \Log::info('showTemplatePreview called with file URL: ', ['fileUrl' => $fileUrl]);
+    
+    //     // Return the Blade view with the fileUrl
+    //     return view('vendor.whatsapp_service.templates.read.new_view', compact('fileUrl'));
+    // }
+    
 }
+
+

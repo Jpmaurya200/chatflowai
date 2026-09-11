@@ -84,6 +84,12 @@ Route::middleware([
             MediaController::class,
             'uploadTempMedia',
         ])->name('media.upload_temp_media');
+        
+        // Template Preview
+        Route::get('/template-preview', [
+            MediaController::class,
+            'showTemplatePreview',
+        ])->name('media.template_preview');
         // Upload Hero Image
         // Route::post('/upload-hero-image', [
         //     MediaController::class,
@@ -554,6 +560,11 @@ Route::middleware([
                         CampaignController::class,
                         'campaignStatusView',
                     ])->name('vendor.campaign.status.view');
+                    // Campaign duplicate
+                    Route::post('/{campaignIdOrUid}/duplicate', [
+                        CampaignController::class,
+                        'processCampaignDuplicate',
+                    ])->name('vendor.campaign.write.duplicate');
                     //campaign queue log list view
                     Route::get('/queue/{campaignUid}', [
                         CampaignController::class,
@@ -872,6 +883,24 @@ Route::middleware([
                         'processBotFlowDelete'
                     ])->name('vendor.bot_reply.bot_flow.write.delete');
 
+                    // BotFlow clone process
+                    Route::post("/{botFlowIdOrUid}/clone-process", [
+                        BotFlowController::class,
+                        'processBotFlowClone'
+                    ])->name('vendor.bot_reply.bot_flow.write.clone');
+
+                    // BotFlow export process
+                    Route::get("/{botFlowIdOrUid}/export", [
+                        BotFlowController::class,
+                        'processBotFlowExport'
+                    ])->name('vendor.bot_reply.bot_flow.read.export');
+
+                    // BotFlow import process
+                    Route::post("/import-process", [
+                        BotFlowController::class,
+                        'processBotFlowImport'
+                    ])->name('vendor.bot_reply.bot_flow.write.import');
+
                     // BotFlow create process
                     Route::post("/add-process", [
                         BotFlowController::class,
@@ -1007,10 +1036,22 @@ Route::middleware([
                 'updateBusinessProfile',
             ])->name('vendor.whatsapp.business_profile.write');
 
-            Route::post('/embedded-signup-process', [
-                WhatsAppServiceController::class,
-                'embeddedSignUpProcess',
-            ])->name('vendor.whatsapp_setup.embedded_signup.write');
+                Route::post('/embedded-signup-process', [
+                    WhatsAppServiceController::class,
+                    'embeddedSignUpProcess',
+                ])->name('vendor.whatsapp_setup.embedded_signup.write');
+
+                // Two-Factor Authentication route
+                Route::post('/two-factor-auth/verify', [
+                    WhatsAppServiceController::class,
+                    'verifyTwoFactorAuth',
+                ])->name('vendor.whatsapp.two_factor_auth.verify');
+
+                // Edit WhatsApp verified name route
+                Route::post('/edit-name', [
+                    WhatsAppServiceController::class,
+                    'editVerifiedName',
+                ])->name('vendor.whatsapp.edit_name');
 
             // subscriptions
             Route::prefix('/subscription')->group(function () {
@@ -1710,6 +1751,11 @@ Route::post('/whatsapp/payment/webhook/phonepe', [
     WhatsAppOrderController::class,
     'handlePhonePeWebhook',
 ])->name('whatsapp.payment.webhook.phonepe');
+
+Route::post('/whatsapp/payment/test-phonepe-credentials', [
+    WhatsAppOrderController::class,
+    'testPhonePeCredentials',
+])->name('whatsapp.payment.test.phonepe');
 
 // Payment success page
 Route::get('/whatsapp/payment/success', [

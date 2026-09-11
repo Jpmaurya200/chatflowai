@@ -47,7 +47,7 @@ $totalDeliveredCount = $totalDelivered + $totalRead;
                 <a class="lw-btn btn btn-secondary" href="{{ route('vendor.campaign.read.list_view') }}">{{ __tr('Back to Campaigns') }}</a>
                 <a class="lw-btn btn btn-primary" href="{{ route('vendor.campaign.new.view') }}">{{ __tr('Create New Campaign') }}</a>
             </div>
-        </div>
+        </div> 
         <!--/ button -->
         <div class="col-12 mb-4 ">
             <div class="card card-stats mb-4 mb-xl-0 ">
@@ -86,11 +86,11 @@ $totalDeliveredCount = $totalDelivered + $totalRead;
                             </p>
                             <div class="my-3">
                                 <h5 class="card-title text-uppercase text-muted mb-2">{{ __tr('template Name') }}</h5>
-                                <span class="h3 font-weight-bold mb-2">{{ $campaign->template_name }}</span>
+                                <span class="h3 font-weight-bold mb-2">{{ $campaign->whatsappTemplate->template_name ?? $campaignData['campaign_recreate_payload']['template']['name'] ?? $campaign->template_name ?? 'N/A' }}</span>
                                 <h5 class="card-title text-uppercase text-muted mb-2 mt-3">{{ __tr('template language')
                                     }}
                                 </h5>
-                                <span class="h3 font-weight-bold mb-2">{{ $campaign->template_language }}</span>
+                                <span class="h3 font-weight-bold mb-2">{{ $campaign->whatsappTemplate->language ?? $campaignData['campaign_recreate_payload']['template']['language'] ?? $campaign->template_language ?? 'N/A' }}</span>
                             </div>
                         </div>
                     </div>
@@ -147,7 +147,7 @@ $totalDeliveredCount = $totalDelivered + $totalRead;
                         <div class="card-body">
                             <div class="row">
                                 <div class="col">
-                                    <h5 class="card-title text-uppercase text-muted mb-0">{{ __tr('Total Single Tick Delivered') }}</h5>
+                                    <h5 class="card-title text-uppercase text-muted mb-0">{{ __tr('Sent (Single Tick)') }}</h5>
                                     <span class="h2 font-weight-bold mb-0" x-text="totalSentInPercent"></span>
                                 </div>
                                 <div class="col-auto">

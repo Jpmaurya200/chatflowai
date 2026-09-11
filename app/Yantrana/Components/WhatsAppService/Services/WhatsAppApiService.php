@@ -279,14 +279,27 @@ class WhatsAppApiService extends BaseEngine implements WhatsAppServiceEngineInte
             if ($messageData['buttons']) {
                 $buttonIndex = 1;
                 foreach ($messageData['buttons'] as $button) {
-                    $buttons[] = [
-                        'type' => 'reply',
-                        'reply' => [
-                            'id' => 'button-id' . $buttonIndex,
-                            'title' => $button,
-                        ],
-                    ];
-                    $buttonIndex++;
+                    // Handle both array format (from flows) and string format (legacy)
+                    if (is_array($button)) {
+                        $buttonTitle = $button['title'] ?? '';
+                        $buttonId = $button['id'] ?? ('button-id' . $buttonIndex);
+                    } else {
+                        // Legacy format: button is a string
+                        $buttonTitle = $button;
+                        $buttonId = 'button-id' . $buttonIndex;
+                    }
+                    
+                    // Only add button if title is not empty
+                    if (!empty($buttonTitle)) {
+                        $buttons[] = [
+                            'type' => 'reply',
+                            'reply' => [
+                                'id' => $buttonId,
+                                'title' => $buttonTitle,
+                            ],
+                        ];
+                        $buttonIndex++;
+                    }
                 }
                 $interactiveData['action'] = [
                     'buttons' => $buttons
@@ -749,12 +762,34 @@ class WhatsAppApiService extends BaseEngine implements WhatsAppServiceEngineInte
         $phoneNumberId = $whatsAppPhoneNumberId ?: $this->getServiceConfiguration('current_phone_number_id');
 
         if (!$phoneNumberId) {
-            throw new Exception(__tr('Phone number ID is required to fetch commerce settings'), 400);
+            // If phone number ID is not configured, return a fallback
+            \Log::debug('Phone number ID not configured for vendor', [
+                'vendor_id' => $vendorId,
+            ]);
+            return [
+                'is_catalog_visible' => false,
+                'is_cart_enabled' => false,
+                'catalog_id' => null,
+            ];
         }
 
-        return $this->apiGetRequest("{$phoneNumberId}/whatsapp_commerce_settings", [
-            'fields' => 'is_catalog_visible,is_cart_enabled,catalog_id'
-        ]);
+        try {
+            return $this->apiGetRequest("{$phoneNumberId}/whatsapp_commerce_settings", [
+                'fields' => 'is_catalog_visible,is_cart_enabled,catalog_id'
+            ]);
+        } catch (Exception $e) {
+            // If API call fails, return a fallback
+            \Log::warning('Failed to fetch commerce settings from WhatsApp API', [
+                'vendor_id' => $vendorId,
+                'phone_number_id' => $phoneNumberId,
+                'error' => $e->getMessage(),
+            ]);
+            return [
+                'is_catalog_visible' => false,
+                'is_cart_enabled' => false,
+                'catalog_id' => null,
+            ];
+        }
     }
 
     /**
@@ -865,5 +900,91 @@ class WhatsAppApiService extends BaseEngine implements WhatsAppServiceEngineInte
         $queryParams = array_merge($defaultOptions, $options);
 
         return $this->apiGetRequest("{$catalogId}/products", $queryParams);
+    }
+
+    /**
+     * Get Catalog Product by ID
+     *
+     * @param string $productId
+     * @param int|null $vendorId
+     * @link https://developers.facebook.com/docs/marketing-api/catalog/products
+     * @return array
+     */
+    public function getCatalogProduct($productId, $vendorId = null)
+    {
+        if ($vendorId) {
+            $this->vendorId = $vendorId;
+        }
+
+        if (!$productId) {
+            throw new Exception(__tr('Product ID is required to fetch catalog product'), 400);
+        }
+
+        // Get catalog ID from commerce settings
+        try {
+            $commerceSettings = $this->getCommerceSettings(null, $vendorId);
+            $catalogId = $commerceSettings['catalog_id'] ?? null;
+        } catch (Exception $e) {
+            // If commerce settings are not configured, return a fallback
+            \Log::debug('Commerce settings not configured for vendor', [
+                'vendor_id' => $vendorId,
+                'product_id' => $productId,
+                'error' => $e->getMessage(),
+            ]);
+            return [
+                'id' => $productId,
+                'name' => "Product #{$productId}",
+                'description' => null,
+                'price' => null,
+                'currency' => null,
+                'availability' => null,
+                'condition' => null,
+                'image_url' => null,
+            ];
+        }
+
+        if (!$catalogId) {
+            // If no catalog ID found, return a fallback
+            \Log::debug('No catalog ID found for vendor', [
+                'vendor_id' => $vendorId,
+                'product_id' => $productId,
+            ]);
+            return [
+                'id' => $productId,
+                'name' => "Product #{$productId}",
+                'description' => null,
+                'price' => null,
+                'currency' => null,
+                'availability' => null,
+                'condition' => null,
+                'image_url' => null,
+            ];
+        }
+
+        try {
+            $queryParams = [
+                'fields' => 'id,name,description,price,currency,availability,condition,image_url'
+            ];
+
+            return $this->apiGetRequest("{$catalogId}/products/{$productId}", $queryParams);
+        } catch (Exception $e) {
+            // If API call fails, return a fallback
+            \Log::warning('Failed to fetch product from WhatsApp API', [
+                'vendor_id' => $vendorId,
+                'product_id' => $productId,
+                'catalog_id' => $catalogId,
+                'error' => $e->getMessage(),
+            ]);
+            return [
+                'id' => $productId,
+                'name' => "Product #{$productId}",
+                'description' => null,
+                'price' => null,
+                'currency' => null,
+                'availability' => null,
+                'condition' => null,
+                'image_url' => null,
+            ];
+        }
     }
 }

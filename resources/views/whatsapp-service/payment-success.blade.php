@@ -78,9 +78,9 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach($order->items as $item)
+                                            @foreach($order->getItemsWithProductNames() as $item)
                                             <tr>
-                                                <td>{{ $item['name'] ?? __tr('Product') }}</td>
+                                                <td>{{ $item['display_name'] ?? __tr('Product Item') }}</td>
                                                 <td>{{ $item['quantity'] ?? 1 }}</td>
                                                 <td>{{ $order->currency }} {{ number_format($item['item_price'] ?? 0, 2) }}</td>
                                                 <td>{{ $order->currency }} {{ number_format(($item['item_price'] ?? 0) * ($item['quantity'] ?? 1), 2) }}</td>

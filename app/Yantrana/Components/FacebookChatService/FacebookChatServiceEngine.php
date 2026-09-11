@@ -119,14 +119,60 @@ class FacebookChatServiceEngine extends BaseEngine
     protected function processConversationsData($conversations)
     {
         $processedConversations = [];
+        $pageId = getVendorSettings('facebook_page_id');
 
         foreach ($conversations as $conversation) {
+            $participants = $this->extractParticipants($conversation);
+            
+            // Get the other participant (not the page) - similar to Instagram
+            $otherParticipant = null;
+            foreach ($participants as $participant) {
+                $participantId = is_array($participant) ? ($participant['id'] ?? $participant) : $participant;
+                if ($participantId !== $pageId) {
+                    $otherParticipant = is_array($participant) ? $participant : ['id' => $participantId];
+                    break;
+                }
+            }
+            
+            // Extract username/name from participant - prioritize name, then username, then fallback
+            $senderName = 'Facebook User';
+            $facebookUsername = null;
+            
+            if ($otherParticipant) {
+                if (isset($otherParticipant['name'])) {
+                    $senderName = $otherParticipant['name'];
+                    $facebookUsername = $otherParticipant['name'];
+                } elseif (isset($otherParticipant['username'])) {
+                    $senderName = $otherParticipant['username'];
+                    $facebookUsername = $otherParticipant['username'];
+                } elseif (isset($otherParticipant['id'])) {
+                    // If we only have ID, try to get name from snippet or use ID
+                    $senderName = 'User ' . substr($otherParticipant['id'], -4);
+                }
+            }
+            
+            // Fallback to snippet if participant name not found
+            if ($senderName === 'Facebook User' && isset($conversation['snippet'])) {
+                $snippet = $conversation['snippet'];
+                // Try to extract name from snippet if it contains a colon
+                if (strpos($snippet, ':') !== false) {
+                    $parts = explode(':', $snippet, 2);
+                    $senderName = trim($parts[0]);
+                }
+            }
+            
             $processedConversations[] = [
                 'id' => $conversation['id'] ?? '',
+                'conversation_id' => $conversation['id'] ?? '',
                 'link' => $conversation['link'] ?? '',
                 'updated_time' => $conversation['updated_time'] ?? '',
-                'participants' => $this->extractParticipants($conversation),
-                'last_message_preview' => $this->getLastMessagePreview($conversation),
+                'participants' => $participants,
+                'facebook_id' => $otherParticipant['id'] ?? null,
+                'facebook_username' => $facebookUsername,
+                'sender_name' => $senderName,
+                'full_name' => $senderName, // For consistency with Instagram
+                'name_initials' => $this->getNameInitials($senderName),
+                'last_message_preview' => $conversation['snippet'] ?? $this->getLastMessagePreview($conversation),
                 'unread_count' => 0, // Facebook API doesn't provide this directly
                 'platform' => 'facebook'
             ];
@@ -175,9 +221,26 @@ class FacebookChatServiceEngine extends BaseEngine
      */
     protected function extractParticipants($conversation)
     {
-        // Facebook conversation structure may vary
-        // This is a basic implementation that can be enhanced
-        return [];
+        $participants = [];
+        
+        // Facebook API returns participants in different formats
+        if (isset($conversation['participants']['data'])) {
+            $participants = $conversation['participants']['data'];
+        } elseif (isset($conversation['participants']) && is_array($conversation['participants'])) {
+            $participants = $conversation['participants'];
+        }
+        
+        // If participants is a string (ID), convert to array format
+        if (is_string($participants)) {
+            $participants = [['id' => $participants]];
+        }
+        
+        // Ensure we have an array
+        if (!is_array($participants)) {
+            $participants = [];
+        }
+        
+        return $participants;
     }
 
     /**
@@ -362,21 +425,40 @@ class FacebookChatServiceEngine extends BaseEngine
         $processedPosts = [];
 
         foreach ($posts as $post) {
+            // Don't skip posts - include all posts even if they don't have message or story
+            $message = $post['message'] ?? $post['story'] ?? 'No content';
+            $story = $post['story'] ?? null;
+            
+            // Determine post type
+            $type = 'post';
+            if (isset($post['story']) && !isset($post['message'])) {
+                $type = 'story';
+            } elseif (isset($post['message'])) {
+                $type = 'post';
+            }
+            
             $processedPosts[] = [
                 'id' => $post['id'] ?? '',
-                'message' => $post['message'] ?? $post['story'] ?? 'No content',
-                'story' => $post['story'] ?? null,
+                'message' => $message,
+                'story' => $story,
                 'created_time' => $post['created_time'] ?? '',
                 'formatted_time' => $this->formatPostTime($post['created_time'] ?? ''),
                 'platform' => 'facebook',
-                'type' => isset($post['message']) ? 'post' : 'story'
+                'type' => $type
             ];
         }
 
         // Sort posts by created_time (newest first)
         usort($processedPosts, function ($a, $b) {
-            return strtotime($b['created_time']) - strtotime($a['created_time']);
+            $timeA = strtotime($a['created_time'] ?? '1970-01-01');
+            $timeB = strtotime($b['created_time'] ?? '1970-01-01');
+            return $timeB - $timeA;
         });
+
+        Log::info('Facebook Posts Processed', [
+            'total_posts' => count($processedPosts),
+            'sample_posts' => array_slice($processedPosts, 0, 3)
+        ]);
 
         return $processedPosts;
     }
@@ -392,6 +474,19 @@ class FacebookChatServiceEngine extends BaseEngine
         $processedComments = [];
 
         foreach ($comments as $comment) {
+            // Extract username from 'from' object (Facebook API structure)
+            $commenterName = 'Unknown User';
+            $commenterId = '';
+            if (isset($comment['from'])) {
+                if (isset($comment['from']['name'])) {
+                    $commenterName = $comment['from']['name'];
+                } elseif (isset($comment['from']['id'])) {
+                    // If name is not available, use ID or a generic name
+                    $commenterName = 'Facebook User';
+                }
+                $commenterId = $comment['from']['id'] ?? '';
+            }
+
             // Process main comment
             $processedComment = [
                 'id' => $comment['id'] ?? '',
@@ -399,8 +494,8 @@ class FacebookChatServiceEngine extends BaseEngine
                 'from' => $comment['from'] ?? null,
                 'created_time' => $comment['created_time'] ?? '',
                 'formatted_time' => $this->formatCommentTime($comment['created_time'] ?? ''),
-                'commenter_name' => $comment['from']['name'] ?? 'Unknown User',
-                'commenter_id' => $comment['from']['id'] ?? '',
+                'commenter_name' => $commenterName,
+                'commenter_id' => $commenterId,
                 'platform' => 'facebook',
                 'type' => 'comment',
                 'replies' => []
@@ -416,14 +511,26 @@ class FacebookChatServiceEngine extends BaseEngine
                         $replyMessage = $decoded['text'] ?? $replyMessage;
                     }
 
+                    // Extract username from 'from' object for replies
+                    $replyCommenterName = 'Unknown User';
+                    $replyCommenterId = '';
+                    if (isset($reply['from'])) {
+                        if (isset($reply['from']['name'])) {
+                            $replyCommenterName = $reply['from']['name'];
+                        } elseif (isset($reply['from']['id'])) {
+                            $replyCommenterName = 'Facebook User';
+                        }
+                        $replyCommenterId = $reply['from']['id'] ?? '';
+                    }
+
                     $processedComment['replies'][] = [
                         'id' => $reply['id'] ?? '',
                         'message' => $replyMessage,
                         'from' => $reply['from'] ?? null,
                         'created_time' => $reply['created_time'] ?? '',
                         'formatted_time' => $this->formatCommentTime($reply['created_time'] ?? ''),
-                        'commenter_name' => $reply['from']['name'] ?? 'Unknown User',
-                        'commenter_id' => $reply['from']['id'] ?? '',
+                        'commenter_name' => $replyCommenterName,
+                        'commenter_id' => $replyCommenterId,
                         'platform' => 'facebook',
                         'type' => 'reply'
                     ];
@@ -498,6 +605,32 @@ class FacebookChatServiceEngine extends BaseEngine
         } catch (\Exception $e) {
             return $timestamp;
         }
+    }
+
+    /**
+     * Get name initials from full name
+     *
+     * @param string $name
+     * @return string
+     */
+    private function getNameInitials($name)
+    {
+        if (empty($name)) {
+            return 'FU';
+        }
+
+        $words = explode(' ', trim($name));
+        $initials = '';
+
+        if (count($words) >= 2) {
+            // Take first letter of first and last word
+            $initials = strtoupper(substr($words[0], 0, 1) . substr($words[count($words) - 1], 0, 1));
+        } else {
+            // Take first two letters of the name
+            $initials = strtoupper(substr($name, 0, 2));
+        }
+
+        return $initials;
     }
 
     /**

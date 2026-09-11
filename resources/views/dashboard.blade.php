@@ -146,8 +146,9 @@
         border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     }
     
-    th{
-        background-color:rgb(11, 119, 83) !important;
+    th {
+        background-color: #f8fafc !important;
+        color: #475569 !important;
     }
 
     .table td {

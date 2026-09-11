@@ -3,6 +3,59 @@
     margin: 10px 0;
 }
 
+/* Variable placeholder styling */
+.variable-placeholder {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 500;
+    border: 1px dashed #1976d2;
+    transition: all 0.3s ease;
+}
+
+.variable-placeholder.updated {
+    background-color: #c8e6c9;
+    color: #2e7d32;
+    border-color: #2e7d32;
+    border-style: solid;
+}
+
+.variable-placeholder:hover {
+    background-color: #bbdefb;
+    transform: scale(1.05);
+}
+
+/* Image preview styles */
+#uploadedHeaderImage {
+    position: absolute;
+    top: 0;
+    left: 0; 
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    z-index: 2;
+}
+
+#defaultHeaderIcon {
+    z-index: 1;
+    transition: opacity 0.3s ease;
+}
+
+.lw-whatsapp-header-placeholder {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Make preview sticky while scrolling */
+.lw-whatsapp-preview-container {
+    position: sticky;
+    top: 80px;
+    z-index: 3;
+}
+
+
 .lw-whatsapp-carousel-container .carousel-card-preview {
     border: 1px solid #dee2e6;
     border-radius: 8px;
@@ -66,13 +119,16 @@
             @foreach ($templateComponents as $templateComponent)
             @if ($templateComponent['type'] == 'HEADER')
             @if ($templateComponent['format'] != 'TEXT')
-            <div class="lw-whatsapp-header-placeholder">
+            <div class="lw-whatsapp-header-placeholder" style="position: relative; overflow: hidden; min-height: 200px; display: flex; align-items: center; justify-content: center;">
                 @if ($templateComponent['format'] == 'LOCATION')
                 <i class="fa fa-5x fa-map-marker-alt text-white"></i>
                 @elseif ($templateComponent['format'] == 'VIDEO')
                 <i class="fa fa-5x fa-play-circle text-white"></i>
                 @elseif ($templateComponent['format'] == 'IMAGE')
-                <i class="fa fa-5x fa-image text-white"></i>
+                <!-- Default icon (shown when no image uploaded) -->
+                <i id="defaultHeaderIcon" class="fa fa-5x fa-image text-white" style="opacity: 0.7;"></i>
+                <!-- Uploaded image (shown when image is uploaded) -->
+                <img id="uploadedHeaderImage" src="" class="img-fluid" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: none; border-radius: 0;">
                 @elseif ($templateComponent['format'] == 'DOCUMENT')
                 <i class="fa fa-5x fa-file-alt text-white"></i>
                 @endif
@@ -95,23 +151,30 @@
                 $headerTextItems = $templateComponent['example']['header_text'];
                 $exampleHeaderTextItemIndex = 1;
                 foreach ($headerTextItems as $headerTextItem) {
-                    $exampleHeaderItems["{{{$exampleHeaderTextItemIndex}}}"] = "{{Header $exampleHeaderTextItemIndex}}";
+                    $exampleHeaderItems["{{{$exampleHeaderTextItemIndex}}}"] = '<span class="variable-placeholder" data-variable-index="' . $exampleHeaderTextItemIndex . '">{{Header ' . $exampleHeaderTextItemIndex . '}}</span>';
                     $exampleHeaderTextItemIndex++;
                 }
                 @endphp
                 @endisset
-                <strong><?= strtr($templateComponent['text'], $exampleHeaderItems) ?></strong>
+                <strong class="header-text-preview"><?= strtr($templateComponent['text'], $exampleHeaderItems) ?></strong>
             </div>
             @endif
             @endif
             @if ($templateComponent['type'] == 'BODY')
-            <div class="lw-whatsapp-body">
+            <div class="lw-whatsapp-body body-text-preview" data-has-body-variables="0">
                 @php
                 $exampleBodyItems = [
                 "\n" => '<br>',
                 ];
+                // Add dynamic variable placeholders
+                $bodyText = $templateComponent['text'];
+                $variablePattern = '/\{\{(\d+)\}\}/';
+                $bodyText = preg_replace_callback($variablePattern, function($matches) {
+                    $index = $matches[1];
+                    return '<span class="variable-placeholder" data-variable-index="' . $index . '">{{' . $index . '}}</span>';
+                }, $bodyText);
                 @endphp
-                <?= formatWhatsAppText(strtr($templateComponent['text'], $exampleBodyItems)) ?>
+                <?= formatWhatsAppText(strtr($bodyText, $exampleBodyItems)) ?>
             </div>
             @endif
             @if ($templateComponent['type'] == 'FOOTER')
@@ -147,7 +210,7 @@
             @if($templateComponent['type'] == 'CAROUSEL')
             <div class="lw-whatsapp-carousel-container">
                 <div class="d-flex overflow-auto pb-2" style="gap: 10px;">
-                    @foreach($templateComponent['cards'] as $card)
+                    @foreach($templateComponent['cards'] as $cardIndex => $card)
                     <div class="card shadow-sm carousel-card-preview" style="min-width: 200px; max-width: 200px;">
                         @foreach($card['components'] as $cardComponent)
                             @if($cardComponent['type'] == 'HEADER')

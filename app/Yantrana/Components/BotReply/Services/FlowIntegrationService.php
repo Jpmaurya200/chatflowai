@@ -128,35 +128,40 @@ class FlowIntegrationService
             'all_button_texts' => $this->getAllButtonTextsFromFlow($flowData)
         ]);
 
-        // If this is a flow start trigger, check if we should start a new flow
+        // PRIORITY 1: If this is a flow start trigger, restart the flow
+        // Start triggers should always restart the flow, even if user is waiting for input
+        // This allows users to restart a flow by sending the trigger again
         if ($isFlowStartTrigger) {
-            // Only clear existing flow if it's a different flow
-            if ($activeFlow && $activeFlow->flow_id != $botReply->bot_flows__id) {
-                Log::info('Starting new flow from trigger (different flow)', [
-                    'user' => $contact->wa_id,
-                    'trigger' => $messageBody,
-                    'old_flow_id' => $activeFlow->flow_id,
-                    'new_flow_id' => $botReply->bot_flows__id
-                ]);
-
-                // Clear existing flow since it's different
+            // Clear existing flow (whether same or different)
+            if ($activeFlow) {
+                if ($activeFlow->flow_id == $botReply->bot_flows__id) {
+                    Log::info('Restarting flow from start trigger (same flow, resetting)', [
+                        'user' => $contact->wa_id,
+                        'trigger' => $messageBody,
+                        'flow_id' => $activeFlow->flow_id,
+                        'was_waiting_for_input' => $isWaitingForInput
+                    ]);
+                } else {
+                    Log::info('Starting new flow from trigger (different flow)', [
+                        'user' => $contact->wa_id,
+                        'trigger' => $messageBody,
+                        'old_flow_id' => $activeFlow->flow_id,
+                        'new_flow_id' => $botReply->bot_flows__id
+                    ]);
+                }
+                // Clear existing flow
                 UserActiveFlow::where('phone_number', $contact->wa_id)->delete();
                 $activeFlow = null;
-            } elseif (!$activeFlow) {
+            } else {
                 Log::info('Starting new flow from trigger (no active flow)', [
                     'user' => $contact->wa_id,
                     'trigger' => $messageBody,
                     'flow_id' => $botReply->bot_flows__id
                 ]);
-            } else {
-                Log::info('Ignoring start trigger - already in same flow', [
-                    'user' => $contact->wa_id,
-                    'trigger' => $messageBody,
-                    'flow_id' => $activeFlow->flow_id
-                ]);
-                // Continue with existing flow
-                return null;
             }
+
+            // Refresh context after clearing active flow (to get fresh context)
+            $context = $this->getFlowContext(null, $contact);
 
             // Create new active flow
             $activeFlow = UserActiveFlow::setActiveFlow(
@@ -191,9 +196,20 @@ class FlowIntegrationService
                 $currentNodeId,
                 $context
             );
+            
+            Log::info('Flow restarted and executed', [
+                'user' => $contact->wa_id,
+                'flow_id' => $botReply->bot_flows__id,
+                'first_node_id' => $currentNodeId,
+                'response_count' => count($result['responses'] ?? []),
+                'has_responses' => !empty($result['responses']),
+                'response_types' => array_column($result['responses'] ?? [], 'type'),
+                'is_complete' => $result['is_complete'] ?? false
+            ]);
         }
-        // Check if this is user input for an active flow (prioritize this over start trigger check)
-        elseif ($isWaitingForInput && $activeFlow->flow_id == $botReply->bot_flows__id) {
+        // PRIORITY 2: Check if this is user input for an active flow waiting for input
+        // Only process as input if it's NOT a start trigger (already handled above)
+        elseif ($isWaitingForInput && $activeFlow && $activeFlow->flow_id == $botReply->bot_flows__id) {
             Log::info('Processing user input for active flow', [
                 'user' => $contact->wa_id,
                 'input' => $messageBody,
@@ -231,14 +247,27 @@ class FlowIntegrationService
                 'is_complete' => $result['is_complete'] ?? false
             ]);
 
-            if (isset($result['error'])) {
-                Log::error('Error processing user input', [
+            // Check for error - but only return null if there are no responses
+            // (Interactive nodes may return responses even on error to re-send the message)
+            if (isset($result['error']) && empty($result['responses'])) {
+                Log::error('Error processing user input with no responses', [
                     'user' => $contact->wa_id,
                     'current_node' => $currentNodeId,
                     'input' => $messageBody,
                     'error' => $result['error']
                 ]);
                 return null;
+            }
+            
+            // If there's an error but responses exist (e.g., re-sending interactive message), log it but continue
+            if (isset($result['error']) && !empty($result['responses'])) {
+                Log::warning('Error processing user input, but responses available', [
+                    'user' => $contact->wa_id,
+                    'current_node' => $currentNodeId,
+                    'input' => $messageBody,
+                    'error' => $result['error'],
+                    'response_count' => count($result['responses'])
+                ]);
             }
 
             Log::info('Successfully processed user input and continued flow', [
@@ -252,13 +281,15 @@ class FlowIntegrationService
         } else {
             // If we reach here, it means:
             // 1. Not a flow start trigger
-            // 2. No active flow waiting for input
+            // 2. Not waiting for input in active flow (or different flow)
             // Therefore, we should NOT process this message as a flow
             Log::info('Message does not qualify for flow processing', [
                 'user' => $contact->wa_id,
                 'message' => $messageBody,
-                'reason' => 'Not a start trigger and no active flow waiting for input',
-                'flow_start_trigger' => $botFlow->start_trigger ?? 'not_set'
+                'reason' => 'Not a start trigger and not waiting for input',
+                'flow_start_trigger' => $botFlow->start_trigger ?? 'not_set',
+                'has_active_flow' => !is_null($activeFlow),
+                'waiting_for_input' => $isWaitingForInput
             ]);
 
             return null;
@@ -520,6 +551,10 @@ class FlowIntegrationService
     private function formatFlowResult($result, $contact, $options = [])
     {
         if (!is_array($result)) {
+            Log::warning('formatFlowResult: result is not an array', [
+                'user' => $contact->wa_id ?? 'unknown',
+                'result_type' => gettype($result)
+            ]);
             return [
                 'responses' => [],
                 'is_complete' => true,
@@ -530,6 +565,12 @@ class FlowIntegrationService
 
         $responses = $result['responses'] ?? [];
         $formattedResponses = [];
+        
+        Log::info('formatFlowResult: Formatting responses', [
+            'user' => $contact->wa_id ?? 'unknown',
+            'response_count' => count($responses),
+            'is_complete' => $result['is_complete'] ?? false
+        ]);
 
         foreach ($responses as $response) {
             if (!is_array($response) || !isset($response['type'])) {
@@ -577,6 +618,8 @@ class FlowIntegrationService
                     elseif (!empty($response['buttons'])) {
                         $formattedResponse['interaction_type'] = 'button';
                         $formattedResponse['buttons'] = $response['buttons'];
+                        // Ensure body_text is set for button messages (used by WhatsAppServiceEngine)
+                        $formattedResponse['body_text'] = $response['text'] ?? $response['body_text'] ?? '';
                     }
                     break;
 
@@ -595,12 +638,21 @@ class FlowIntegrationService
             $formattedResponses[] = $formattedResponse;
         }
 
-        return [
+        $formattedResult = [
             'responses' => $formattedResponses,
             'is_complete' => $result['is_complete'] ?? false,
             'current_node_id' => $result['current_node_id'] ?? null,
             'processed_by_new_flow' => true
         ];
+        
+        Log::info('formatFlowResult: Formatted result', [
+            'user' => $contact->wa_id ?? 'unknown',
+            'formatted_response_count' => count($formattedResponses),
+            'response_types' => array_column($formattedResponses, 'type'),
+            'has_interactive' => !empty(array_filter($formattedResponses, function($r) { return ($r['type'] ?? '') === 'interactive'; }))
+        ]);
+
+        return $formattedResult;
     }
 
     /**

@@ -13,6 +13,7 @@ use App\Yantrana\Components\BotReply\Services\NodeTypeHandlers\WebhookNodeHandle
 use App\Yantrana\Components\BotReply\Services\NodeTypeHandlers\CustomFieldNodeHandler;
 use App\Yantrana\Components\BotReply\Services\NodeTypeHandlers\WhatsAppTemplateNodeHandler;
 use App\Yantrana\Components\BotReply\Services\NodeTypeHandlers\StayInSessionNodeHandler;
+use App\Yantrana\Components\BotReply\Services\NodeTypeHandlers\FlowNodeHandler;
 
 /**
  * Factory class for creating node handlers
@@ -36,6 +37,7 @@ class NodeHandlerFactory
         'custom_field' => CustomFieldNodeHandler::class,
         'whatsapp_template' => WhatsAppTemplateNodeHandler::class,
         'stay_in_session' => StayInSessionNodeHandler::class,
+        'flow' => FlowNodeHandler::class,
     ];
 
     /**

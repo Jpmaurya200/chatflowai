@@ -10,6 +10,7 @@ use Exception;
 use App\Yantrana\Components\Vendor\VendorSettingsEngine;
 use App\Yantrana\Components\Vendor\Models\VendorSettingsModel;
 use Illuminate\Support\Arr;
+use App\Yantrana\Components\Flows\Services\WhatsAppFlowService;
 
 class WhatsAppFlowController extends BaseController 
 {
@@ -295,6 +296,7 @@ class WhatsAppFlowController extends BaseController
             $response = $this->callWhatsAppApi("{$wabaId}/flows");
 
             if (!empty($response)) {
+                app(WhatsAppFlowService::class)->clearCachedFlows();
                 return response()->json(['success' => true]);
             } else {
                 return response()->json([

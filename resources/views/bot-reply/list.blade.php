@@ -16,7 +16,17 @@
 'class' => 'col-lg-7'
 ])
 <div class="container-fluid mt-lg--6">
-    <div class="row mt-3" x-data="{isAdvanceBot:'interactive',botFlowUid:null}">
+    <div class="row mt-3" x-data="{
+        isAdvanceBot:'interactive',
+        botFlowUid:null,
+        init() {
+            window.dispatchEvent(new CustomEvent('lw-set-message-type', { detail: this.isAdvanceBot }));
+        },
+        setMessageType(type) {
+            this.isAdvanceBot = type;
+            window.dispatchEvent(new CustomEvent('lw-set-message-type', { detail: type }));
+        }
+    }">
         <!-- Header Section -->
         <div class="col-xl-12 mb-3">
             <div class="mt-5 d-flex justify-content-between align-items-center">
@@ -34,21 +44,21 @@
                         </button>
                         <div class="dropdown-menu dropdown-menu-right">
                             <button type="button"
-                                @click="isAdvanceBot = 'simple'"
+                                @click="setMessageType('simple')"
                                 class="dropdown-item"
                                 data-toggle="modal"
                                 data-target="#lwAddNewAdvanceBotReply">
                                 <i class="fas fa-comment me-2"></i>{{ __tr('Simple Chatbot') }}
                             </button>
                             <button type="button"
-                                @click="isAdvanceBot = 'media'"
+                                @click="setMessageType('media')"
                                 class="dropdown-item"
                                 data-toggle="modal"
                                 data-target="#lwAddNewAdvanceBotReply">
                                 <i class="fas fa-photo-video me-2"></i>{{ __tr('Media Chatbot') }}
                             </button>
                             <button type="button"
-                                @click="isAdvanceBot = 'interactive'"
+                                @click="setMessageType('interactive')"
                                 class="dropdown-item"
                                 data-toggle="modal"
                                 data-target="#lwAddNewAdvanceBotReply">

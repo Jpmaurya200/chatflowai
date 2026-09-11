@@ -15,6 +15,9 @@ use Illuminate\Database\Query\Builder;
 use App\Yantrana\Components\BotReply\BotFlowEngine;
 use App\Yantrana\Components\BotReply\BotReplyEngine;
 use App\Yantrana\Components\User\Repositories\UserRepository;
+use App\Yantrana\Components\Flows\Services\WhatsAppFlowService;
+use Illuminate\Http\Request;
+
 
 class BotFlowController extends BaseController
 {       /**
@@ -33,6 +36,11 @@ class BotFlowController extends BaseController
     protected $userRepository;
 
     /**
+     * @var WhatsAppFlowService
+     */
+    protected $whatsappFlowService;
+
+    /**
       * Constructor
       *
       * @param  BotFlowEngine $botFlowEngine - BotFlow Engine
@@ -44,11 +52,13 @@ class BotFlowController extends BaseController
     public function __construct(
         BotFlowEngine $botFlowEngine,
         BotReplyEngine $botReplyEngine,
-        UserRepository $userRepository
+        UserRepository $userRepository,
+        WhatsAppFlowService $whatsappFlowService
     ) {
         $this->botFlowEngine = $botFlowEngine;
         $this->botReplyEngine = $botReplyEngine;
         $this->userRepository = $userRepository;
+        $this->whatsappFlowService = $whatsappFlowService;
     }
 
 
@@ -97,6 +107,93 @@ class BotFlowController extends BaseController
         // get back to controller with engine response
         return $this->processResponse($processReaction, [], [], true);
     }
+
+    
+
+   
+
+    public function processBotFlowClone(BaseRequest $request, $botFlowIdOrUid)
+    {
+    validateVendorAccess('manage_bot_flows');
+    $vendorId = getVendorId();
+
+    if (isDemo() && isDemoVendorAccount()) {
+        return $this->processResponse(22, [
+            22 => __tr('Functionality is disabled in this demo.')
+        ], [], true);
+    }
+
+    $processReaction = $this->botFlowEngine->processBotFlowClone($botFlowIdOrUid);
+
+    return $this->processResponse($processReaction, [], [], true);
+    }
+    /**
+        * BotFlow export process
+        *
+        * @param  mix $botFlowIdOrUid
+        *
+        * @return  json object
+        *---------------------------------------------------------------- */
+
+    public function processBotFlowExport($botFlowIdOrUid, BaseRequest $request)
+    {
+        validateVendorAccess('manage_bot_replies');
+        // ask engine to process the request
+        $processReaction = $this->botFlowEngine->processBotFlowExport($botFlowIdOrUid);
+
+        // Check if successful
+        if ($processReaction['reaction_code'] === 1) {
+            $exportData = $processReaction['data']['exportData'];
+            $filename = $processReaction['data']['filename'];
+
+            // Return JSON response for download
+            return response()->json($exportData)
+                ->header('Content-Type', 'application/json')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        }
+
+        // get back to controller with engine response
+        return $this->processResponse($processReaction, [], [], true);
+    }
+
+    /**
+        * BotFlow import process
+        *
+        * @param  object BaseRequest $request
+        *
+        * @return  json object
+        *---------------------------------------------------------------- */
+
+        public function processBotFlowImport(Request $request)
+        {
+            validateVendorAccess('manage_bot_replies');
+        
+            if(isDemo() and isDemoVendorAccount()) {
+                return $this->processResponse(22, [
+                    22 => __tr('Functionality is disabled in this demo.')
+                ], [], true);
+            }
+        
+            // Validate file upload
+            $request->validate([
+                'import_file' => 'required|file|max:2048', // 2MB max
+            ]);
+        
+            // Additional validation for JSON file
+            $uploadedFile = $request->file('import_file');
+            if ($uploadedFile->getClientOriginalExtension() !== 'json') {
+                return $this->processResponse(2, [], [
+                    'import_file' => [__tr('The file must be a JSON file.')]
+                ], true);
+            }
+        
+            // ask engine to process the request
+            $processReaction = $this->botFlowEngine->processBotFlowImport($uploadedFile);
+        
+                     return redirect()
+    ->back()
+    ->with('success', 'Bot Flow imported successfully');
+        }
 
     /**
       * BotFlow create process
@@ -246,12 +343,16 @@ class BotFlowController extends BaseController
 
         // load the view
         $preData = $this->botReplyEngine->preDataForBots();
+        $flowResponse = $this->whatsappFlowService->listFlows();
+
         return $this->loadView('bot-reply.bot-flow.builder', array_merge([
             'dynamicFields' => $preData->data('dynamicFields'),
             'contactCustomFields' => $preData->data('contactCustomFields'),
             'whatsAppTemplates' => $preData->data('whatsAppTemplates'),
             'vendorTeamMembers' => $vendorTeamMembers,
-            'botFlowUid' => $botFlowIdOrUid
+            'botFlowUid' => $botFlowIdOrUid,
+            'whatsAppFlows' => $flowResponse['flows'] ?? [],
+            'whatsAppFlowsError' => $flowResponse['error'] ?? null,
         ], $processReaction->data()));
     }
 }
