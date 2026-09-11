@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# Discover packages at runtime when DB is accessible
+php artisan package:discover --ansi || true
+
 # Clear and cache configurations
 php artisan storage:link --force || true
 php artisan config:cache || true

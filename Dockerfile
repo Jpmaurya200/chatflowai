@@ -35,8 +35,8 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . /var/www/html
 
-# Run composer install
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Run composer install without scripts to prevent premature db calls during build
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 # Set permissions for storage and bootstrap/cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
